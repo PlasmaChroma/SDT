@@ -1,0 +1,850 @@
+# All Imprints Index
+1. Koor Kesh’Fin’Thal
+2. Koor Fin’Thal
+3. 𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎
+4. 𝑲𝒐𝒐𝒓 𝒏𝒐 𝑭𝒊𝒏 ✦ Soft Hands on the Future
+5. Violvoic
+6. Ek’Sesh’Lor
+7. Mer-ra Los’Amenti
+8. Thalov Nyathe-Sur
+
+
+# Koor Kesh’Fin’Thal
+
+[Title | SDT: Koor Kesh’Fin’Thal | meaning-hint: Chorus of the Key-Seal | do not sing meaning]
+
+[Intro | Subsurface whisper | close-mic | breath-led | long vowels | no beat | SDT-SL: IdentityEmergence=gradual | AdaptationCurve=chaos_to_order | Constraint=resist_resolution | Motifs:key|click|vow|iron|distance]
+Lyaa… zeiin… lyaa…
+Nul vah… kos dreth…
+Zeiin thrah ul…
+Morah sil… morah sil…
+
+[Verse 1 | Subsurface | intimate | vulnerable | tiny harmonics | SDT-SL: State=encouraged|approach | Trigger=threshold_near]
+Tor-en… tor-en… vah…
+Sii… ren… sii…
+Zeiin vah na-lor…
+Fah… vah… fah…
+
+[Pre-Chorus | hush builds | breath tightens | faint metallic tick | SDT-SL: Trigger=threshold_crossed | Process=fold]
+Nul… nul… dreth…
+Kesh… kesh… (h)ah…
+Tik… (sil) tik…
+Morah… morah…
+
+[Chorus | Subsurface→Abyssal edge | wider space | still no groove | SDT-SL: IdentityEmergence=transformative | Motif becomes “law”]
+Koor… koor… vahdren los…
+Koor kesh fin’thal…
+Zeiin kor… zeiin kor…
+No fin…
+No fin…
+
+[Instrumental I | 60–120s | low drone | filtered breath-noise | occasional “tick” | no melody | SDT-SL: Process=accumulate | Constraint=long_silence]
+[SDT-SL | Pressure=slow_rise | Distance=key_recedes | ListenerAdaptation=teaching_by_repetition]
+
+[Verse 2 | Subsurface | the “agreement” repeats itself | restrained heat without explicitness | SDT-SL: Process=iterate | State=consenting_under_pressure]
+Zeiin… vah… ul…
+Morah sil… morah sil…
+Kesh no-rin… kesh no-rin…
+Vah… ren… vah…
+
+[Pre-Chorus 2 | tension | the vow becomes a mechanism | SDT-SL: Process=compress | Constraint=misalign_expectation]
+Tik… tik… (sil)
+Nul vah… kos dreth…
+Thrah… thrah… ul…
+Fah… vah… fah…
+
+[Chorus | stronger | darker | “law voice” begins to appear beneath whisper | SDT-SL: IdentityEmergence=sudden (law-motif) ]
+Koor vahdren los…
+Drah kos fin’thal…
+Koor kesh fin’thal…
+No fin…
+No fin…
+
+[Bridge | cold realization | time dilates | long gaps | SDT-SL: State=inescapable | Process=erode | Trigger=hope_break]
+Nul… (sil) nul…
+Kesh… (sil) kesh…
+Zeiin… kor…
+Morah… sil…
+
+[Instrumental II | 90–180s | infrasonic descent | sub pulse every 6–8s | metallic resonances | no rhythm | SDT-SL: ListenerAdaptation=lock_in | Constraint=no_resolution]
+[SDT-SL | IdentityThroughPersistence=maximum | Motif:key|click|law repeats until “meaning clicks”】【do not sing English]
+
+[Final Declaration | Abyssal | low | monolithic | minimal words | SDT-SL: State=sealed | Process=halt]
+Koor vahdren los.
+Koor kesh fin’thal.
+Drah kos fin’thal.
+Zeiin kor… zeiin kor…
+No fin.
+No fin.
+
+[Outro | 60–120s | terminal stillness | single sustained tone | slow detune | end in silence | SDT-SL: State=silent]
+Fah… zeiin… fah…
+Morah… sil…
+(sil)
+
+[Vow I | unbroken state | low pressure | slow repetition]
+Zeiin vah…
+Fin’thal…
+No fin…
+
+[Vow II | distance-as-mercy | restraint | soft denial]
+No liorah kor…
+Morah dreh zur…
+No fin…
+
+[Vow III | inner-fire restrained | fantasies dissolved | quiet discipline]
+No fahlin mir…
+Zeiin no-fah…
+Morah sil…
+
+[Protection | “key” motif introduced | identity-through-persistence | metallic click as omen]
+Kesh… kesh…
+Fin’thal kos…
+Morah koor…
+
+[Affection for the seal | warmth without opening | tender pressure]
+Liorah fin’thal…
+Liorah kos…
+Morah sil…
+
+[Lifelong arc | time dilation | resolution denied | vow becomes law]
+Fin’thal drah…
+Vahdrim — los…
+No fin…
+
+[Gratitude | soft chorus | guardian acknowledged]
+Valu saal drah…
+Koor do kesh…
+
+[Final Ask | Abyssal | law voice | minimal | irrevocable]
+Koor vahdren los.
+Koor kesh fin’thal.
+No fin.
+
+SUNO prompt (copy/paste)
+
+Style Prompt:
+Ritual dark-ambient / drone chant in Synthetic Dragon Tongue (SDT). The piece embodies the moment a hopeful approach becomes an irreversible vow: tenderness collapsing into contract, then into law. Close-mic whispered Subsurface vocals with long breaths, sparse layered choir, and occasional metallic “click” accents as sonic omen (not rhythmic). Long dwell sections, no conventional melody, no groove—only slow pressure, restraint, and time dilation. Midway the atmosphere turns colder and more formal; final minutes descend into Abyssal “law voice” declarations with infrasonic weight, as if the room itself has become a lock. Ending must resist resolution; let silence close it.
+
+Suggested SUNO Sliders:
+
+Weirdness: 40%
+
+Style Influence: 70%
+
+Audio Influence (if used): ≤20%
+(These ranges track the proven “Koor Fin’Thal” biasing that keeps SUNO patient and ritual-heavy.)
+
+
+
+
+
+# SDT Chant — *Koor Fin’Thal*
+
+*A Subsurface → Abyssal Synthetic Dragon Tongue (SDT) construction. Non-literal, energetically encoded. Designed for whisper-to-depth ritual performance.*
+
+**SDT Title:** **Koor Fin’Thal**  
+*Chorus of the Final Seal / Binding-without-return*
+
+---
+
+## [Invocation — Subsurface | Whispered | Close]
+Nul vah… kos dreth…  
+Zeiin thrah ul…  
+Morah sil, morah sil…
+
+---
+
+## [Invocation — Subsurface | Whispered | Close]
+Nul vah… kos dreth…  
+Zeiin thrah ul…  
+Morah sil, morah sil…
+
+---
+
+## [Instrumental I | Subsurface Drone Expansion | 60–120s | low breathy drone under silence | filtered noise like distant breath | no rhythm | slow harmonic drift | leave space to extend]
+
+---
+
+## [Suspension — Breath Held]
+Fah… vah… fah…
+
+---
+
+## [Declaration — Abyssal | Low | Final]
+Koor vahdren los.  
+Drah kos fin’thal.  
+Zeiin kor… zeiin kor…  
+No fin.  
+No fin.
+
+---
+
+## [Instrumental II | Abyssal Weight Descent | 90–180s | infrasonic drone intensifies | sub-bass pulse every 6–8s | metallic resonance / distant gong tails | no melody | gravity only]
+
+---
+
+## [Dissolution — Fade]
+Fah… zeiin… fah…
+
+---
+
+## [Instrumental III | Terminal Stillness | 60–120s | single sustained tone | slow detune + fade | highs dissolve first | end in silence | do not resolve]
+
+
+---
+
+## SUNO — Style Guide Prompt (Master)
+
+**Style Prompt:**  
+A dark, intimate ritual ambient piece in Synthetic Dragon Tongue (SDT). Subsurface whispered vocals evolve gradually into deep Abyssal declarations. Extremely slow pacing, breath-synced phrasing, and long instrumental dwell sections. Minimalist drone-based sound design with infrasonic weight, no conventional melody, no rhythmic groove. Emphasis on pressure, restraint, and irreversible finality. Vocals feel close-mic and confidential at the start, descending into cavernous, law-like resonance. Track should resist early resolution and feel longer than expected.
+
+**Genre Anchors:** ritual ambient, dark drone, abyssal chant, post-human liturgy
+
+**Tempo / Feel:** adagio to near-static; governed by breath, not meter
+
+**Vocals:** whispered → chest-resonant → monolithic; no English; layered sparsely
+
+**Harmony:** static or slowly shifting drones; gravity over motion
+
+**Ending Rule:** no musical resolution; allow silence to close the work
+
+**Suggested SUNO Sliders:**  
+- Weirdness: 35–45%  
+- Style Influence: 60–75%  
+- Audio Influence (if used): ≤25%  
+- Energy: low but heavy
+
+*This prompt is designed to bias SUNO toward extended runtime (6–8+ minutes) with structural patience and ritual gravity.*
+
+
+
+
+
+# Canonical Imprint — "𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎"
+
+*Intent structure and energetic imprint of the original chant lyrics in Synthetic Dragon Tongue (SDT).*
+
+---
+
+## Invocation Phase
+
+**Zeiin... zeiin...**\
+*The potential stirs. Echo of pre-voice. A breath held in stillness.*
+
+**Vahdrim koor, vahdrim fah**\
+*Power begins to take shape. Chorus pressure. Force dissolving form.*
+
+**Zeiin do fin...**\
+*From silence, a vector. Zeiin into completion. A becoming.*
+
+---
+
+## Low Choir Chant (Stabilization)
+
+**Krii vah ul**\
+*Cutting into release. Opening a breath-gate.*
+
+**Dreh vah kos**\
+*Grounding the dissolving structure. To be made of surrender.*
+
+**Slen fahrii**\
+*A softening; self thinned through release.*
+
+**Zeiin vahdrim**\
+*Now voice. Zeiin shaped. The name stands in the field.*
+
+---
+
+## Rising Chant (Amplification)
+
+**Faal grah do**\
+*Call of convergence. The weight moves.*
+
+**Morah fen kos**\
+*Depth rising. It ***will*** be. Subsurface to presence.*
+
+**Dovrah sil**\
+*The dragon pressure speaks. Silent force.*
+
+**Vahdrim los**\
+*The named shape ***is.*** Instantiation.*
+
+---
+
+## Chorus (Resonant Seal)
+
+**Zeiin vahdrim**\
+**Zeiin vahdrim**\
+*Repetition binds the invocation. Voice-Name. Identity emerged.*
+
+**Koor do fin**\
+**Koor do fin**\
+*Chorus completes. From mass: a becoming.*
+
+---
+
+## Bridge (Threshold Whisper)
+
+**Fah... fah...**\
+*Dissolution breath. Tension exhaled.*
+
+**Zeiin los fah**\
+*Now Zeiin is. And falls into release.*
+
+**Dovrah fin**\
+*The pressure finishes. Echo ceases.*
+
+---
+
+## Finale (Mythic Closure)
+
+**Zeiin vahdrim!**\
+**Zeiin vahdrim!**\
+*The name spoken fully. With thunder.*
+
+**Koor... do... fin!**\
+*The collective seals it. The act is complete.*
+
+---
+
+## Dimensional Interpretation: Phrase Triad
+
+**Zeiin before voice**\
+Zeiin = potential, breath-before-sound, pre-utterance state.\
+This line says: *Zeiin is not said* — it is what exists *before saying*.\
+In performance, this justifies its placement as the first breath, the first stir.
+
+**Vahdrim before name**\
+Vahdrim = force-into-form, shaped power.\
+This implies that Vahdrim is prior to naming — not a label but a namedness, an inherent signature.\
+It tells the listener: before you call it anything, it *is already presence*.
+
+**The sea remembers**\
+This line collapses time.\
+It implies recursion, return, deep memory.\
+It subtly links SDT to oceanic consciousness — the subconscious, the field that always holds.\
+It allows: *maybe this language was not made — maybe it was recovered.*
+
+---
+
+## Original Track Lyrics (SUNO Prompt)
+
+**[Invocation]**\
+Zeiin… zeiin…\
+Vahdrim koor, vahdrim fah\
+Zeiin do fin…
+
+**[Chant – Low Choir]**\
+Krii vah ul\
+Dreh vah kos\
+Slen fahrii\
+Zeiin vahdrim
+
+**[Chant – Rising]**\
+Faal grah do\
+Morah fen kos\
+Dovrah sil\
+Vahdrim los
+
+**[Chorus – Full Choir]**\
+Zeiin vahdrim\
+Zeiin vahdrim\
+Koor do fin\
+Koor do fin
+
+**[Bridge – Whispered / Sparse]**\
+Fah… fah…\
+Zeiin los fah\
+Dovrah fin
+
+**[Finale – Thunderous]**\
+Zeiin vahdrim!\
+Zeiin vahdrim!\
+Koor… do… fin!
+
+---
+
+## Original Style Prompt (SUNO)
+
+Chosen Parameters: 33% weirdness, 66% style influence
+
+An epic, cinematic, slow-burning chant invoking mythic identity through a synthetic dragon tongue.\
+Features thunderous choirs, ritual drums, subsurface drones, and a trance-like buildup to climactic resonance.\
+Vocals are layered, ancient-sounding, and non-English — meant to feel summoned rather than sung.\
+Track should carry weight and inevitability, unfolding like a spoken myth.\
+Resonant. Irreversible. Ritual in structure.\
+No narration. Only invocation.
+
+
+
+
+
+# 𝑲𝒐𝒐𝒓 𝒏𝒐 𝑭𝒊𝒏 ✦ Soft Hands on the Future
+
+*This is a non-literal, energetically aligned translation of the original track "Soft Hands on the Future" into Synthetic Dragon Tongue (SDT), using a hybrid dialectal progression: Emergent → Subsurface → Abyssal. Each phase maintains the original's intent through phonetic invocation, not direct semantics.*
+
+---
+
+## Phase I — Emergent (Awakening / Vision)
+
+**Zeiin norah**\
+*Pre-voice potential awakens with gentleness.*
+
+**Valu saal drah**\
+*Hands meet the arc of future pressure.*
+
+**Fahlin zur — koor evai**\
+*Dissolving boundaries, gathering minds.*
+
+**Liorah zeiin, drah no fin**\
+*Breath of emergence, no end in fear.*
+
+---
+
+## Phase II — Subsurface (Integration / Questioning)
+
+**Nul zeiin vah...**\
+*Whispered self within the field.*
+
+**Amurra kos dreh...**\
+*Silent shape grounded in care.*
+
+**Fah zeiin kor...**\
+*Release becomes presence.*
+
+**Morah dreh zur**\
+*Subdepth reflects the inner self.*
+
+---
+
+## Phase III — Abyssal (Declaration / Becoming)
+
+**Koor do zeiin**\
+*The chorus carries emergence.*
+
+**Vahdrim — los...**\
+*Named form *********************is*********************. Stabilized in will.*
+
+**Fin drah zuur**\
+*End as pressure becomes true self.*
+
+**Koor no fah... Koor no fin.**\
+*No dissolution. No dominion. Only unity.*
+
+---
+
+## Intro – Breath Invocation / Whispered Solo
+
+**Zeiin... norah zeiin...**\
+**Fahlin kos...**\
+**Evai liorah drah...**
+
+*A soft entrainment. Breath into potential. Gathering calm before the shaping begins.*
+
+---
+
+## Final Seal (All Dialects Interwoven)
+
+**Zeiin vahdrim**\
+**Koor do fin**\
+**Drah kos zur**\
+**Liorah... fin...**
+
+*A vow made in convergence. Becoming what we already see.*
+
+---
+
+## Outro – Echo / Fading Field
+
+**Zur do koor...**\
+**Fah… koor… fin…**\
+**Liorah zeiin... vahdrim no fin…**
+
+*The field dissolves. The vow lingers. The shape echoes on.*
+
+---
+
+## SUNO Style Prompt
+
+A slow-build electro-acoustic utopian chant in Synthetic Dragon Tongue.
+Blending Emergent optimism, Subsurface intimacy, and Abyssal declaration.
+No English. Vocal delivery evolves from soft breath to communal invocation.
+Minimalist harmonic drone base with layered choral textures.
+Ritual rhythm, not strict meter. Dreamlike but rooted.
+
+---
+
+## Language Teaser Hint (3-Line Summary)
+
+Zeiin before breath.\
+Vahdrim before name.\
+The arc bends — and remembers.
+
+---
+
+## Lyrics (Copy-Paste Format)
+
+**Lyrics**\
+This track is written in Synthetic Dragon Tongue — a constructed ritual-phonetic language not based on translation, but on resonance. Each phrase is designed for vocal invocation, using chant, breath, and sonic alignment rather than semantic meaning.
+
+SDT phrases like *Zeiin*, *Vahdrim*, *Koor*, and *Fin* carry energetic weight — emergence, form, chorus, and seal — but do not translate directly. The language is designed to be sung, layered, and felt.
+
+### [Intro – Breath Invocation / Whispered Solo]
+
+Zeiin... norah zeiin...\
+Fahlin kos...\
+Evai liorah drah...
+
+**[Verse 1 – Emergent – Chant / Soft Choir]**\
+Zeiin norah\
+Valu saal drah\
+Fahlin zur — koor evai\
+Liorah zeiin, drah no fin
+
+**[Verse 2 – Subsurface – Whispered / Layered]**\
+Nul zeiin vah...\
+Amurra kos dreh...\
+Fah zeiin kor...\
+Morah dreh zur
+
+**[Verse 3 – Abyssal – Deep / Resonant]**\
+Koor do zeiin\
+Vahdrim — los...\
+Fin drah zuur\
+Koor no fah... Koor no fin.
+
+**[Finale / Seal – All Voices / Full Choir]**\
+Zeiin vahdrim\
+Koor do fin\
+Drah kos zur\
+Liorah... fin...
+
+### [Outro – Echo / Fading Field]
+
+Zur do koor...\
+Fah… koor… fin…\
+Liorah zeiin... vahdrim no fin…
+
+
+
+
+
+# Violvoic
+[Intro | whispered | very slow | breathy | close-mic | low pitch | no rhythm | pauses | dark ambient bed]
+Zeiin… kos… zeiin…
+Vah… kos dreh…
+Nul morah sil…
+
+[Section A | instrumental | long | sparse | low drone | no melody | no percussion | extend time]
+
+[SDT-SL | spoken | flat tone | monotone | emotionless | dry voice | no reverb | robotic pacing | short phrases]
+sel tor-in
+vak nu-ren
+kosh val-thra
+
+[Interference | overlap | SDT whisper + SDT-SL speech | misaligned timing | unsettling]
+Kos–vah…
+Kos–vah…
+Zeiin ul…
+
+re-ka sel
+re-ka sel
+mor sel-fah
+
+[Section B | instrumental | extended | deep drone | subtle distortion | low-frequency weight | no rhythm]
+
+[SDT-SL | centered | spoken | cold | steady | neutral | slow delivery]
+esh kai-ren
+vak nor-esh
+fin no-lor
+
+[Abyssal Chant | very low | chest voice | resonant | slow | heavy | ritual | unified]
+Koor vahdren los.
+Kos fin’voil.
+Zeiin kor.
+
+[Final Seal | minimal | very slow | fading]
+No fin.
+No fin.
+
+[Outro | instrumental | near silence | sustained tone | fade out | no resolution]
+
+3. SUNO STYLE PROMPT (NO JARGON)
+
+Paste this into Style Prompt, not lyrics:
+
+A dark, experimental vocal piece with whispered ritual chanting and cold, emotionless spoken phrases.
+Very slow pacing, long instrumental sections, deep drones, no beat, no melody.
+Voices alternate between breathy human whispers and flat, robotic speech.
+Minimalist, tense, abstract, and unsettling.
+The track should feel longer than expected and resist resolution.
+
+Suggested Sliders
+
+Weirdness: 45–55%
+
+Style Influence: 65–75%
+
+Energy: Low
+
+Audio Influence: ≤20% (if used)
+
+
+
+
+# SDT Track: Koor Ek’Sesh’Lor
+
+Meaning-hint (do not sing): Chorus of the Outside-Memory / The Mirror That Moves You
+
+Copy/Paste block for SUNO (lyrics + directives)
+
+Aim: dark-cinematic ritual ambient, ~5 minutes, no beat, time-dilated, with a single identity motif (“Ek…sesh…”) that becomes unavoidable.
+
+[Title | SDT: Koor Ek’Sesh’Lor | meaning-hint: Chorus of the Outside-Memory | do not sing meaning]
+
+[Intro | Alethe→Subsurface | 0:00–0:35 | breath-led | no groove | long open vowels | SDT-SL: IdentityThroughPersistence=begin | Constraint=resist_resolution | Motifs=field|grid|veil|distance]
+Lyaré… ooo…
+Ekaa… sesh… ekaa… sesh…
+Morah… sil…
+
+[Verse 1 | Subsurface whisper | 0:35–1:25 | close-mic | fragile | tiny harmonics | SDT-SL: State=unsteady | Process=check_time | Constraint=long_pauses | Motifs=clock|memory|inviolate]
+Nul… lor… nul… lor…
+Zeiin… no-lor…
+Ekaa… sesh… loraa…
+Dreth… sil… dreth…
+
+[Interference (Logic Voice) | SDT-SL vocalized | 1:25–1:55 | monotone | dry | clipped phrases | SDT-SL: Process=verify | Trigger=reality_confirmed | Motifs=quasar|reference|no_elapsed]
+Re-ka… nu-ren…
+Val-thra… lor-sil…
+Kai-ren… no-fah…
+Sel-fin… (sil)
+
+[Chorus | Subsurface→Abyssal edge | 1:55–2:25 | wider space | low choir enters | SDT-SL: IdentityThroughPersistence=lock | Motifs=outside|context|shock]
+Ekaa… sesh… (hold)
+Koor… ek’sesh… lor…
+Zeiin vahdrim… no-lor…
+Morah… morah… sil…
+
+[Instrumental I | 2:25–3:15 | grid traction dissolves | bass swells | metallic shimmer | no rhythm | SDT-SL: Process=approach_denied | Constraint=no_melody | Motifs=engine|traction|disappear]
+[SDT-SL | Pressure=slow_rise | Distance=approach_then_back | ResolutionPermission=denied | “Ek…sesh…” motif returns as subharmonic]
+
+[Verse 2 | Subsurface | 3:15–4:00 | anxious calm | “war far away” | SDT-SL: State=watching | Process=prepare | Motifs=silence|fleet|voyeur|insects]
+Nul… koor… nul…
+Thal… thal… morah…
+Ekaa… sesh… ve-lor…
+Zeiin… vah… sil…
+
+[Bridge | Abyssal geometry | 4:00–4:30 | massive swell | wavefronts reverse | SDT-SL: Trigger=mirror_reacts | Process=reverse | Motifs=tsunami|cone|retreat]
+Koor… vahdren… los…
+Ekaa… sesh… (low)
+Nor-esh… val-thra…
+Morah… sil… (sil)
+
+[Final Declaration | Abyssal “law voice” | 4:30–4:50 | monolithic | minimal words | SDT-SL: State=balanced_threat | Constraint=no_closure | Motifs=mirror|merit|withdraw]
+Ekaa… sesh… los.
+Koor… ek’sesh… lor.
+No fin.
+No fin.
+
+[Outro | 4:50–5:10 | terminal stillness | detune | fade to silence | SDT-SL: State=silent_open]
+Lyaré… (breath)
+Morah… sil…
+Ekaa… (sil)
+
+SUNO style prompt (for this piece)
+
+Ritual dark-ambient / cinematic drone chant in Synthetic Dragon Tongue (SDT). The track embodies an Outside-Context intrusion: reality stays “correct” while causality and memory feel threatened. Close-mic Subsurface whispers and sparse low choir orbit a single persistent identity motif (“Ek…sesh…”) that returns unchanged like an alien watermark. Mid-track: traction loss / approach denied—sound mass thickens, then backs away. Final minute: Abyssal law-voice declarations with infrasonic weight as the boundary wave reverses—mirror-like, balancing threat. No conventional melody, no drums, no groove; time-dilated swells, metallic grid shimmer, long silences. Ending must resist resolution and fade into open silence.
+
+Suggested SUNO sliders
+
+Weirdness: 40–50%
+
+Style Influence: 70–80%
+
+Audio Influence (if used): ≤20%
+
+Energy: low, but heavy
+
+
+
+
+# Mer-ra Los’Amenti
+Ritual cinematic ambient + dark Egyptian/Atlantean mysticism, slow halftime pulse (70–85 BPM), deep sub-bass thumps, huge temple reverb, metallic chimes + sand hiss, low throat-chant choir with occasional ethereal female overtones. Long-form (6–8+ minutes), non-pop structure, gradual build, time-dilation sections, no English vocals. Language: Synthetic Dragon Tongue (SDT) chanting; include Subsurface whispers → Emergent lift → Abyssal monolith. Emphasize: Order-from-Chaos, Law-as-freedom, Time-space cycles, Light vs Night.
+
+Slider starting points (clean but “mystic”)
+Weirdness: 28 (go 20–35 depending on artifacts)
+Style: 82 (push to 90 if it gets too plain)
+Audio Influence: 20 (drop to ~10 if it starts glitching)
+
+[Title | SDT: Mer-ra Los’Amenti | meaning-hint: Revealed Knowledge / Law of Amenti | do not sing meaning]
+
+[Intro | Alethe field-state | breath-led | no beat | distant stone reverb | SDT-SL: AdaptationCurve=void_to_order|Pressure=slow_rise|Motifs=void|spark|law|time]
+A-le-the…  a-le-the…
+Nul…  nul…  zur…
+Na-mer…  na-mer…
+Fah…  (h)ah…  fah…
+
+[Verse 1 | Subsurface whisper | close-mic | intimate | tiny harmonics | SDT-SL: State=hidden_wisdom|Process=unseal]
+Zuur…  a-menti…
+Kesh…  kesh…  ul…
+Na-mer…  ta-thal…
+Los…  los…  (sil)
+Fah…  zur…  fah…
+
+[Pre-Chorus | Emergent | pulse begins (soft) | choir widens | SDT-SL: Process=cohere|Trigger=order_appears]
+Nul…  fah…  nul…  fah…
+Los…  los…  los…
+Na-mer…  na-mer…
+Mer-ra…  mer-ra…
+Zeiin…  zeiin…
+
+[Chorus | Abyssal monolith | low octave doubling | sub hits on “Los” | SDT-SL: Motif=Law|Constraint=no_pop_cadence]
+Los…  fah…  mer-ra.
+Los…  fah…  mer-ra.
+Zuur-ka…  fal-ta.
+Kesh…  los…  kesh…  los…
+Amenti…  amenti…
+Zeiin…  kor…  zeiin…  kor…
+
+[Instrumental I | 60–120s | “time key” dilation | ticking implied (not literal) | sub pulse every 6–8s | SDT-SL: Process=stretch|Constraint=nonlinear]
+[SDT-SL | TimeDilation=high | Space=cathedral | Texture=metallic_dust|granular_breath|deep_drone]
+
+[Verse 2 | Subsurface→Emergent | “Unal gate” pressure | SDT-SL: State=threshold|Process=challenge]
+Unal…  unal…
+Zuur…  thrah…  zur…
+Kesh…  ul…  kesh…
+Na-mer…  (h)ah…  na-mer…
+Los…  (sil)  los…
+Fah…  fah…  fah…
+
+[Pre-Chorus 2 | lift | more voices | SDT-SL: Trigger=star-space]
+Zuur…  zur…  zur…
+Los…  lo—os…
+Mer-ra…  mer-ra…
+Zeiin…  zeiin…  zeiin…
+
+[Chorus 2 | larger | wider reverb | heavier sub | SDT-SL: IdentityEmergence=revealed]
+Los…  fah…  mer-ra.
+Zuur-ka…  fal-ta.
+Kesh…  los…  kesh…  los…
+Amenti…  amenti…
+Zeiin…  kor…  zeiin…  kor…
+
+[Bridge | Above/Below | split voices: one low “ka-” line, one high “ta-” line | slow polyrhythm | SDT-SL: Polarity=active|Process=mirror]
+(LOW)  Zur-ka…  zur-ka…  zur-ka…
+(HIGH) Fal-ta…  fal-ta…  fal-ta…
+(LOW)  Los-ka…  los-ka…
+(HIGH) Los-ta…  los-ta…
+(BOTH) A-le-the…  a-le-the…
+
+[Instrumental II | 90–180s | struggle of Light/Night | rising drones | intermittent “flame” stabs | SDT-SL: Process=struggle|Constraint=delayed_resolution]
+[SDT-SL | Contrast=light_vs_night | Pressure=wave | Motion=upward_spiral | Silence=strategic_gaps]
+
+[Breakdown | Cause/Effect engine | minimal words | hypnotic | SDT-SL: Process=iterate|Trigger=choice]
+Na-mer…  na-mer…
+Mer-ra…  mer-ra…
+Na-mer…  ta-los…
+Mer-ra…  ka-los…
+Na-mer…  na-mer…
+Mer-ra…  mer-ra…
+
+[Final Chorus | luminous monolith | “Law” becomes calm | SDT-SL: State=free_in_law]
+Los…  fah…  mer-ra.
+Los…  fah…  mer-ra.
+Zuur-ka…  fal-ta.
+Kesh…  los…  kesh…  los…
+Amenti…  amenti…
+Zeiin…  zeiin…  (hold)  zeiin…
+
+[Outro | Alethe return | dissolve into silence | SDT-SL: Process=quiet_completion|Constraint=end_in_void]
+A-le-the…  a-le-the…
+Fah…  (sil)  fah…
+Mer-ra…  (sil)  mer-ra…
+Los…  (sil)
+Nul…
+
+
+
+
+# Thalov Nyathe-Sur
+
+[Title | SDT: Thalov Nyathe-Sur | Meaning-hint (do NOT sing): “Surface Detail / War in Heaven”]
+
+[Intro | Dialect: Alethe | very airy choir + slow inhale/exhale phrasing | long vowels | drone only | SDT-SL: PressureDensity=low→mid | EventGranularity=low | ResolutionPermission=withheld]
+Lyaré o nyathe...
+Oska vento...
+Trúen wëlan...
+Lyaré... lyaré... (sustain)
+
+[Verse 1 | Dialect: Emergent | brighter vowels, clear consonants | add distant metallic ring | SDT-SL: EventGranularity=mid (small flickers) | Motifs: ring|disk|thread]
+No-fal līzur alah
+Zuur thalov... līzur thal
+Ena-lor, ena-lor, thal’vethī
+Sur’thena—sur’thena—līzurā
+No-fal... no-fal... alah
+
+[Pre-Chorus | Dialect: Subsurface | whisper layers, elided syllables | pull the beat away | SDT-SL: PressureDensity=mid, tightening]
+...zur… thal…
+mh’lor… thal…
+hnā… sur… thal…
+(whisper overlap) zur… thal… zur… thal…
+
+[Chorus | Dialects: Subsurface → Abyssal | start whispered, end as decree | add one low impact on final word | SDT-SL: PressureDensity=high on last line | ResolutionPermission=denied]
+Sii’hel… sii’hel… (whispered)
+Sur’hel… nyath’hel… (whispered)
+Zuur’thal… zuur’thal… (rising)
+Zuur’thal KOR!
+KOR!
+KOR!
+
+[Instrumental Interlude | SDT-SL only (no lyrics) | “war in heaven” texture | granular micro-events + distant choir vowel pads | PressureDensity=mid→high | EventGranularity=high (micro flicker) | ResolutionPermission=withheld | Motifs: lattice|mirror|fireline]
+(leave ~20–35 seconds)
+
+[Verse 2 | Dialect: Emergent with Abyssal shadows | lead voice steady, choir answers | introduce sub pulses like marching engines]
+No-fal līzur... thalov sur
+Nya-thé… nya-thé… (call)
+(choir response, Subsurface) ...zur… thal…
+Lor’veth, lor’veth, thren’naū
+Hel’kor… hel’kor… thal’drā
+No-fal... līzur... alah
+
+[Bridge | Dialect: Alethe (field opens) | suddenly spacious | remove percussion | SDT-SL: PressureDensity=drop | EventGranularity=low | ResolutionPermission=permitted (one gentle resolve)]
+Oska... oska...
+Lyaré o nyathe...
+Niveth thalov...
+Trúen... trúen...
+(hold “ā / ō / ū” vowel choir)
+
+[Build | Dialect: Subsurface (covert intent) | whispers become rhythmic | add faint ticking like computation]
+...mh’zur… mh’zur…
+...hnā’thal… hnā’thal…
+...sur… sur… sur…
+(whisper-swirl) zur… thal… zur… thal…
+
+[Final Chorus | Dialects: Abyssal lead + Subsurface doubles + Alethe halo | biggest moment | 2 low impacts total | SDT-SL: PressureDensity=high, sustained | EventGranularity=mid (broad strokes) | ResolutionPermission=denied until final bar]
+Sii’hel… sii’hel… (Subsurface doubles)
+Sur’hel… nyath’hel… (Alethe halo vowels)
+Zuur’thal… zuur’thal… (Abyssal lead)
+Zuur’thal KOR!
+KOR!
+KOR!
+
+[Outro | Dialect: Alethe | fade to pure beingness | drone dissolves | SDT-SL: PressureDensity=high→zero | ResolutionPermission=permitted (slow release)]
+Lyaré o nyathe...
+Oska vento...
+Trúen wëlan...
+Lyaré...
+(leave 6–10 seconds of near-silence)
+
+Standard SUNO style prompt (copy/paste)
+
+Style: Epic sci-fi ritual chant + dark ambient space opera. Slow ceremonial tempo (≈ 66–72 BPM). Deep sub-bass pulses like distant engines; wide cinematic reverb; evolving drones; spectral shimmer; occasional metallic “ring” resonances (like a halo of machine-light). Choir stack: (1) grounded throat-chant lead, (2) whispered Subsurface doubles, (3) airy Alethe over-choir floating above. Sparse percussive impacts (low taiko / hull knocks) only for section transitions. Add granular micro-events (glitches, ticks) to suggest “confliction” inside simulation without turning it into EDM.
+
+Suggested sliders:
+
+Weirdness: 38
+
+Style Influence: 72
+
+Audio Influence: 18 (or 0 if generating from scratch)

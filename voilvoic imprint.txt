@@ -1,0 +1,58 @@
+[Intro | whispered | very slow | breathy | close-mic | low pitch | no rhythm | pauses | dark ambient bed]
+Zeiin… kos… zeiin…
+Vah… kos dreh…
+Nul morah sil…
+
+[Section A | instrumental | long | sparse | low drone | no melody | no percussion | extend time]
+
+[SDT-SL | spoken | flat tone | monotone | emotionless | dry voice | no reverb | robotic pacing | short phrases]
+sel tor-in
+vak nu-ren
+kosh val-thra
+
+[Interference | overlap | SDT whisper + SDT-SL speech | misaligned timing | unsettling]
+Kos–vah…
+Kos–vah…
+Zeiin ul…
+
+re-ka sel
+re-ka sel
+mor sel-fah
+
+[Section B | instrumental | extended | deep drone | subtle distortion | low-frequency weight | no rhythm]
+
+[SDT-SL | centered | spoken | cold | steady | neutral | slow delivery]
+esh kai-ren
+vak nor-esh
+fin no-lor
+
+[Abyssal Chant | very low | chest voice | resonant | slow | heavy | ritual | unified]
+Koor vahdren los.
+Kos fin’voil.
+Zeiin kor.
+
+[Final Seal | minimal | very slow | fading]
+No fin.
+No fin.
+
+[Outro | instrumental | near silence | sustained tone | fade out | no resolution]
+
+3. SUNO STYLE PROMPT (NO JARGON)
+
+Paste this into Style Prompt, not lyrics:
+
+A dark, experimental vocal piece with whispered ritual chanting and cold, emotionless spoken phrases.
+Very slow pacing, long instrumental sections, deep drones, no beat, no melody.
+Voices alternate between breathy human whispers and flat, robotic speech.
+Minimalist, tense, abstract, and unsettling.
+The track should feel longer than expected and resist resolution.
+
+Suggested Sliders
+
+Weirdness: 45–55%
+
+Style Influence: 65–75%
+
+Energy: Low
+
+Audio Influence: ≤20% (if used)
