@@ -86,3 +86,36 @@ Zeiin Thal ::
 Zur Vahdrim ⟂
 
 Fin Thal ᵃ ::
+
+#  Bracket directive separators
+According to a document from January 16, 2026, the most reliable pattern is: use the pipe | to “stack” multiple bracket directives, and reserve commas for lists inside a single directive/value.
+
+Practical rule of thumb (works great for SDT too)
+
+Use | when you’re adding multiple distinct cues in one bracket line (aka “meta tag stacking”):
+[..., | ..., | ...]
+
+Use commas when you’re listing items inside one cue (e.g., instruments):
+[Instrument: Keys, Drums]
+
+So these are “clean”:
+
+Stacked cues (pipe):
+[Chorus | anthemic chorus | stacked harmonies | wide stereo]
+
+Single cue with a list (comma):
+[Instrument: Keys, Drums]
+
+Why | is usually better than commas for stacked cues
+
+Community guides explicitly showcase | as the stacking separator inside brackets.
+
+Commas often read like normal punctuation, so they’re more likely to blur into “one long descriptor” instead of multiple directives—whereas | stays legible as a delimiter.
+
+SDT-specific note (your current pattern is aligned)
+
+Your SDT imprint format already uses | to separate section “producer cues,” which is exactly the same idea.
+
+Micro-optimization (when Suno starts “ignoring” tags)
+
+Keep bracket stacks to ~2–4 cues per section header. Once you go “shopping-list mode,” adherence tends to drop.
