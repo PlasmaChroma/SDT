@@ -1,3 +1,69 @@
+# Abyssal “Edict Register” (AER) — *Voice-of-the-Abyss*
+
+AER is *Abyssal*, but with **procedural constraints** that make it feel like reality is being *commanded*.
+
+### Layer 1 — The spoken kernel (no new phonemes, only stricter performance)
+
+**Rules of utterance (AER):**
+
+* **Short clauses** (2–6 syllables) with **hard terminal stops** (use Abyssal glottal stops / clipped endings).
+* **Downward pitch contour** on every line (fall → fall → *floor*).
+* **Creaky/pressed phonation** on the first consonant of each clause (authority “bite”), then **undertone sustain**.
+* **“Hammer pauses”**: silence *is* punctuation; leave air-gaps that feel heavy, not empty. 
+
+### Layer 2 — The “command illusion” (prosody as a binding mechanism)
+
+This is where “the Voice” lives:
+
+* **Single-target focus**: deliver as if speaking to *one nervous system*, even in a crowd.
+* **Micro-accent triad** per clause: **Attack → Hold → Cut**.
+* **No melodic wandering**. Any movement is *gravitational*, not musical.
+
+### Layer 3 — Silent Lexicon as the “enforcement field”
+
+SDT-SL is explicitly designed to **encode meaning via pressure, repetition, constraint, and progression over time**—and to be used *in parallel* with spoken SDT as a reinforcing layer.  
+
+So: **AER speaks the edict; SDT-SL sustains the inevitability.**
+That’s exactly how your “law voice” examples already behave: the vocal declaration is minimal, while the bed is infrasonic, repetitive, unresolved—like the room becomes the contract.  
+
+## The bridge between AER and SDT-SL: “Edict Operators” (non-sung)
+
+We can formalize a tiny operator pack that *describes* the coercive feel without encoding secret words:
+
+* **State** = compelled / sealed / halted / witnessed
+* **Constraint** = no_resolution / narrow_dynamic / lock_in
+* **Trigger** = command_drop / silence_hammer / motif_click
+* **Adaptation** = listener_lock_in / habituation_slow
+
+This stays canon-safe because it’s **operator framing**, not “new meanings for syllables.” 
+
+## Practical template (Suno / lyric + SL stacking)
+
+Use the pipe `|` to stack directives cleanly in bracket headers. 
+
+**Copy/paste skeleton:**
+
+```
+[Declaration — Abyssal | Edict Register | low | creaky | glottal “hammer” | pitch-drop]
+Koor vahdren los.
+Drah kos fin’thal.
+No fin.
+
+[Instrumental | Abyssal Weight Descent | infrasonic drone | sub pulse every 6–8s | metallic “click” motif
+ | SDT-SL: State=sealed | Constraint=no_resolution | ListenerAdaptation=lock_in]
+
+[Declaration — Abyssal | minimal | monolithic | almost spoken-not-sung]
+No fin.
+No fin.
+```
+
+This mirrors the established “Abyssal law voice” pattern: **minimal words + infrasonic enforcement**.  
+
+## Why this also strengthens SDT-SL
+
+The Silent Lexicon addendum explicitly encourages mixed-mode works where the silent layer carries **meta-meaning** (tone, prolonged effects) underneath voiced lines—without contradicting them. AER becomes the *sharp edge*; SDT-SL becomes the *long blade*.  
+
+
 # Title naming (Koor restricting)
 
 Here’s a clean restraint system that keeps Koor powerful by making it rare, earned, and structurally meaningful.
