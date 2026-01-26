@@ -7,7 +7,8 @@
 6. Ek’Sesh’Lor
 7. Mer-ra Los’Amenti
 8. Thalov Nyathe-Sur
-
+9. Azaar Ve-Lor
+10. Azaar Pyre-Thal
 
 
 
@@ -642,3 +643,56 @@ hnā = pressure / constraint / tightening
 sii’hel = manufactured hell / engineered punishment-space
 
 hel’kor / KOR = hell-law / decree / enforcement / sentence
+
+# 9. Azaar Ve-Lor
+
+## Gloss sheet (loose translation / intent map)
+
+Azaar = “Azad-as-structure”: the game that holds the empire together and must be discredited at the linchpin
+
+Ve-lor = “veiled continuity thread” (you can see the line; you can’t trust the carry)
+
+Nish = “the nudge” (subtle steering, SC’s soft hand)
+
+Koor = chorus-as-mass / collective voice (structural, not necessarily in the title)
+
+No-lor = continuity refusal / the timeline won’t “carry”
+
+No fin = no closure, unresolved seal (ends open on purpose)
+
+Zeiin / Vahdrim / Thal / Morah / Sil = your established triad/verbs: potential → force-into-form → reveal; depth; hush (kept canonical)
+
+What the chant is “saying,” in plain language:
+A game that reveals a society’s soul becomes an empire’s operating system
+
+A careful intervention can’t run on templates—only “play by ear,” under the risk of turning into an occupying force
+
+The player enters thinking it’s their contest—then realizes greater Minds treat both player and drone as pieces, nudged at the right times
+
+The chorus names the mechanism, then refuses catharsis: no fin.
+
+## One-paragraph “liner notes” translation
+
+“Azaar Ve-Lor” is a ritual about the moment play stops being play. A society’s games can expose its philosophy and soul, but Azad is worse: it’s the empire’s skeleton, threaded through everything. Special Circumstances can’t solve it by doctrine—only by listening, nudging, and risking the moral injury of intervention. The chant moves from field to whisper to law-voice: the player enters the board, feels the hidden hand, names the linchpin, and seals the truth without closure.
+
+# 10. Azaar Pyre-Thal
+
+Gloss sheet (loose translation / intent map)
+
+Azaar = Azad-as-structure / the linchpin-game
+
+Pyre-Thal = pyreworld revelation / the burning reveal
+
+Ve-lor = veiled continuity thread
+
+Nish = subtle steering / the nudge
+
+Koor = collective voice / structural massing
+
+No-lor = continuity refusal / no safe carry
+
+No fin = no closure (ends open on purpose)
+
+Morah / Sil / Zeiin / Vahdrim / Thal = depth / hush / potential / force-into-form / reveal
+
+Ending meaning (plain): the final move wins — and the world burns. The empire collapses through the player’s victory, and the listener is left staring at the ash where certainty used to live.

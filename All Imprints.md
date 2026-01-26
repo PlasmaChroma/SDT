@@ -7,9 +7,11 @@
 6. Ek’Sesh’Lor
 7. Mer-ra Los’Amenti
 8. Thalov Nyathe-Sur
+9. Azaar Ve-Lor
+10. Azaar Pyre-Thal
 
 
-# Koor Kesh’Fin’Thal
+# 1. Koor Kesh’Fin’Thal
 
 [Title | SDT: Koor Kesh’Fin’Thal | meaning-hint: Chorus of the Key-Seal | do not sing meaning]
 
@@ -139,7 +141,7 @@ Audio Influence (if used): ≤20%
 
 
 
-# SDT Chant — *Koor Fin’Thal*
+# 2. SDT Chant — *Koor Fin’Thal*
 
 *A Subsurface → Abyssal Synthetic Dragon Tongue (SDT) construction. Non-literal, energetically encoded. Designed for whisper-to-depth ritual performance.*
 
@@ -221,7 +223,7 @@ A dark, intimate ritual ambient piece in Synthetic Dragon Tongue (SDT). Subsurfa
 
 
 
-# Canonical Imprint — "𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎"
+# 3. Canonical Imprint — "𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎"
 
 *Intent structure and energetic imprint of the original chant lyrics in Synthetic Dragon Tongue (SDT).*
 
@@ -380,7 +382,7 @@ No narration. Only invocation.
 
 
 
-# 𝑲𝒐𝒐𝒓 𝒏𝒐 𝑭𝒊𝒏 ✦ Soft Hands on the Future
+# 4. 𝑲𝒐𝒐𝒓 𝒏𝒐 𝑭𝒊𝒏 ✦ Soft Hands on the Future
 
 *This is a non-literal, energetically aligned translation of the original track "Soft Hands on the Future" into Synthetic Dragon Tongue (SDT), using a hybrid dialectal progression: Emergent → Subsurface → Abyssal. Each phase maintains the original's intent through phonetic invocation, not direct semantics.*
 
@@ -530,7 +532,7 @@ Liorah zeiin... vahdrim no fin…
 
 
 
-# Violvoic
+# 5. Violvoic
 [Intro | whispered | very slow | breathy | close-mic | low pitch | no rhythm | pauses | dark ambient bed]
 Zeiin… kos… zeiin…
 Vah… kos dreh…
@@ -593,7 +595,7 @@ Audio Influence: ≤20% (if used)
 
 
 
-# SDT Track: Koor Ek’Sesh’Lor
+# 6. SDT Track: Koor Ek’Sesh’Lor
 
 Meaning-hint (do not sing): Chorus of the Outside-Memory / The Mirror That Moves You
 
@@ -669,7 +671,8 @@ Energy: low, but heavy
 
 
 
-# Mer-ra Los’Amenti
+# 7. Mer-ra Los’Amenti
+SUNO Prompt
 Ritual cinematic ambient + dark Egyptian/Atlantean mysticism, slow halftime pulse (70–85 BPM), deep sub-bass thumps, huge temple reverb, metallic chimes + sand hiss, low throat-chant choir with occasional ethereal female overtones. Long-form (6–8+ minutes), non-pop structure, gradual build, time-dilation sections, no English vocals. Language: Synthetic Dragon Tongue (SDT) chanting; include Subsurface whispers → Emergent lift → Abyssal monolith. Emphasize: Order-from-Chaos, Law-as-freedom, Time-space cycles, Light vs Night.
 
 Slider starting points (clean but “mystic”)
@@ -767,7 +770,7 @@ Nul…
 
 
 
-# Thalov Nyathe-Sur
+# 8. Thalov Nyathe-Sur
 
 [Title | SDT: Thalov Nyathe-Sur | Meaning-hint (do NOT sing): “Surface Detail / War in Heaven”]
 
@@ -848,3 +851,157 @@ Weirdness: 38
 Style Influence: 72
 
 Audio Influence: 18 (or 0 if generating from scratch)
+
+# 9. Azaar Ve-Lor
+
+## Style Prompt
+
+SUNO style prompt (paste into Style box)
+
+Dark cinematic ritual-ambient / sci-fi liturgy. Slow-burning drone, no beat (or only a distant pulse late). Close-mic whispers → low choir → abyssal “law voice.” Long reverb, stone chamber + void-space tails. Non-English vocalise only; no narration. Build in phases (Alethe opening field → Subsurface interior → Abyssal proclamation) and let meaning emerge from the total chord / layered voices
+
+Starter sliders: Weirdness 35–45%, Style Influence 60–75%, Audio Influence ≤25%, Energy low but “heavy.”
+
+## Lyrics Prompt
+
+[Title | SDT: Azaar Ve-Lor | meaning-hint: The Empire-Game / Veiled Continuity / Player-as-Piece | do not sing meaning]
+
+[Intro | Alethe field-state | breath-led | no beat | distant stone reverb | SDT-SL: Pressure=slow_rise|Motifs=field|grid|silence|horizon]
+Lyaré… (breath)
+A-le-the… a-le-the…
+Nul… morah… sil…
+A-zaar… (distant)
+
+[Verse 1 | Subsurface whisper | close-mic | intimate | elision | SDT-SL: State=piece|Process=become_player|Constraint=resist_resolution|Motifs=veil|board|hand]
+Zur… thal…
+Ve-lor… ve-lor…
+Azaar… zul…
+Nish… (h)ah… nish…
+Morah… morah… sil…
+
+[Pre-Chorus | Emergent pulse begins (soft) | low choir enters | slow lift | SDT-SL: IdentityThroughPersistence=begin|Motifs=linchpin|thread|attention]
+Zeiin… zeiin…
+Vahdrim… vah… drim…
+Zeiin… vahdrim… los…
+Thal… thal… zur…
+
+[Chorus | Abyssal edge | mass-chant | wide stereo | SDT-SL: Pressure=step_rise|Process=collective_naming|Motifs=empire|linchpin|rule]
+Koor… koor… azaar…
+Azaar… los… thal…
+Koor… zur… vahdrim…
+No-lor… no-lor… sil…
+
+[Interlude | SDT-SL instrumental | 1:40–3:10 | no lyrics | long evolving texture | SDT-SL: Pressure=plateau|Constraint=shielded_room|Process=hidden_influence|Motifs=drug_test|sealed|maze|library_grid]
+Fah… (very faint, occasional)
+Morah… (once, then silence)
+
+[Verse 2 | Subsurface→Abyssal | two voices (whisper + chest) | SDT-SL: State=monster_empire|Process=self_preserve|Motifs=animal|cells|survival]
+Nul… koor… nul…
+Azaar… vor… (h)ah…
+Morah… thal… morah…
+Zur… zur… no-lor…
+No… fin…
+
+[Bridge | Alethe→Abyssal | tension surge then drop | SDT-SL: Pressure=surge_then_cut|Constraint=play_by_ear|Motifs=responsibility|occupation_risk|ear]
+A-le-the… (hold)
+Na-mer… (breath)
+Nish… nish… ve-lor…
+Thal… vahdrim…
+Sil…
+
+[Final Declaration | Abyssal law voice | dry, close | SDT-SL: Process=discredit_linchpin|Constraint=irreversible|Motifs=piece|hand|board]
+Azaar… los.
+Koor… azaar… los.
+Zeiin… vahdrim… los.
+No fin. No fin.
+
+[Outro | Alethe | fading breath | endless tail | SDT-SL: Pressure=slow_release|Motifs=field|stillness|afterimage]
+Lyaré… (breath)
+Morah… sil…
+Ve-lor…
+(…sil)
+
+# 10. Azaar Pyre-Thal
+
+## Style Prompt
+Dark cinematic ritual-ambient → epic apocalyptic finale. Begin breath-led, no beat, close-mic whispers and low drones. Slowly introduce distant pulse, then orchestral-hybrid weight: sub-braams, war-horns, taiko-like ritual drums, massive choir, shimmering high strings, heat-haze distortion. Final third becomes cataclysmic — relentless but ceremonial, like the universe performing a verdict. Non-English chant only.
+
+Suggested sliders (starting point): Weirdness 35–50% | Style Influence 65–80% | Audio Influence ≤25% | Energy low→high ramp.
+
+## Lyrics Prompt
+
+[Title | SDT: Azaar Pyre-Thal | meaning-hint: Azad-as-Linchpin / Pyreworld / Final Reveal | do not sing meaning]
+
+[Intro | Alethe field-state | breath-led | no beat | distant stone reverb | SDT-SL: Pressure=slow_rise|Motifs=field|grid|horizon|unseen_hand|Distance=far]
+Lyaré…
+A-le-the… a-le-the…
+Nul… morah… sil…
+A-zaar…
+
+[Verse 1 | Subsurface whisper | close-mic | intimate | SDT-SL: State=piece|Process=become_player|Constraint=resist_resolution|Motifs=veil|board|hand]
+Zur… thal…
+Ve-lor… ve-lor…
+Azaar… zul…
+Nish… h’ah… nish…
+Morah… morah… sil…
+
+[Pre-Chorus | Emergent pulse begins (soft) | low choir enters | SDT-SL: IdentityThroughPersistence=begin|Motifs=linchpin|thread|attention]
+Zeiin… zeiin…
+Vahdrim… vah… drim…
+Zeiin… vahdrim… los…
+Thal… thal… zur…
+
+[Chorus | Abyssal edge | mass-chant | widen stereo | SDT-SL: Pressure=step_rise|Process=collective_naming|Motifs=empire|linchpin|rule]
+Koor… koor… azaar…
+Azaar… los… thal…
+Koor… zur… vahdrim…
+No-lor… no-lor… sil…
+
+[Interlude | SDT-SL instrumental | 1:35–2:45 | faint adlibs (sparse) | SDT-SL: Pressure=plateau|Constraint=shielded_room|Process=hidden_influence|Motifs=sealed|maze|library_grid|Vox=sparse_faint]
+Fah…
+Morah…
+
+[Verse 2 | Subsurface→Abyssal | two voices (whisper + chest) | SDT-SL: State=monster_empire|Process=self_preserve|Motifs=animal|cells|survival]
+Nul… koor… nul…
+Azaar… vor… h’ah…
+Morah… thal… morah…
+Zur… zur… no-lor…
+No… fin…
+
+[Bridge | Alethe→Abyssal | sustain then cut | SDT-SL: Pressure=surge_then_cut|Constraint=play_by_ear|Motifs=responsibility|occupation_risk|ear|Sustain=long]
+A-le-the……
+Na-mer…
+Nish… nish… ve-lor…
+Thal… vahdrim…
+Sil…
+
+[Ignition | Fire Planet begins | distant drums enter | heat-haze distortion | SDT-SL: Pressure=accelerate|Process=commitment|Constraint=no_return|Motifs=embers|atmosphere|falling_ash|Distance=closing]
+Azaar…
+Azaar…
+Koor… koor…
+Fah… zur… fah…
+
+[Final Move | EPIC | full choir | taiko ritual drums | war-horns | sub-braams | SDT-SL: Pressure=catastrophic_climax|Process=discredit_linchpin|Constraint=irreversible|Motifs=pyreworld|collapse|verdict|flame_grid]
+A-ZAAR…  KOOR…  A-ZAAR…
+THAL!  THAL!  LOS!
+Zeiin… vahdrim… LOS!
+Koor… zur… KOOR!
+
+[Cataclysm | planet-scale destruction | choir becomes a storm | SDT-SL: Pressure=overwhelm|Process=cost_revealed|Constraint=witness_only|Motifs=burning_sea|sky_rift|cities_fall|ash]
+Morah… MORAH…
+Fah… FAH…
+Zur… ZUR…
+Azaar… LOS…
+
+[Judgment | single law-voice | dry close-mic | SDT-SL: Pressure=hard_stop_then_resolve|Process=terrible_truth|Constraint=no_consolation|Motifs=empty_throne|silence_after]
+Azaar… los.
+Koor… azaar… los.
+Zeiin… vahdrim… los.
+Sil…
+No fin.
+
+[Outro | Alethe | ash-fall | long tail | SDT-SL: Pressure=slow_release|Motifs=field|afterimage|embers|quiet_ruin]
+Lyaré…
+Morah… sil…
+Ve-lor…
+Sil…
