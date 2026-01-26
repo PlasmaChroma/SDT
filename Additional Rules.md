@@ -119,3 +119,112 @@ Your SDT imprint format already uses | to separate section “producer cues,” 
 Micro-optimization (when Suno starts “ignoring” tags)
 
 Keep bracket stacks to ~2–4 cues per section header. Once you go “shopping-list mode,” adherence tends to drop.
+
+
+## Canon guardrails (so we don’t muck up the tongue)
+
+Two constraints must remain inviolable:
+
+1. **We do not redefine phonemes, roots, or spoken dialect rules.**
+2. **We do not create a second hidden “word code” inside SDT-SL.** SDT-SL must remain operator-driven, contextual, and non-cipher. 
+
+Your expansion proposal is safe **because it lives in the sanctioned “non-sung / annotation” layer** already established. 
+
+---
+
+# Governance Meta-Operators v0.1 (additive, non-sung)
+
+Dragon King Leviathan, here’s a canon-aligned way to add your four axes **without adding roots** and without contaminating spoken SDT.
+
+## Where they live (three sanctioned placements)
+
+1. **Structural annotations (recommended):** in section headers and SDT-SL lines using `|` stacking (already your best practice). 
+2. **Non-sung inline modifiers (optional):** appended to the *written invocation* as a compact cluster.
+3. **Dialect marks / shading:** not replacing `ᵉ ˢ ᵃ`, but optionally *coexisting* as a second “meta-shading band.”
+
+### Canonical syntax (portable + readable)
+
+Use a single namespace tag so it never pretends to be sung language:
+
+* In lyrics headers / SUNO:
+  `[Verse | Dialect: Subsurface | GO: Manif=sanctioned | Seal=imposed | Denial=irreversible | Witness=system]`
+
+* In SDT-SL blocks:
+  `[SDT-SL | GO: Manif=unsanctioned | Seal=voluntary | Denial=reversible | Witness=many | PressureDensity=mid→high | ResolutionPermission=withheld]`
+
+This mirrors how SDT-SL already treats meaning as operator sets, not vocabulary. 
+
+---
+
+## The four operators (defined operationally, not as “words”)
+
+Each operator should be defined the SDT-SL way: **operational → perceptual → compositional**. That keeps it canon-clean. 
+
+### 1) Manifestation Legitimacy
+
+**GO.Manif ∈ {sanctioned, unsanctioned}**
+
+* **Operational:** sanctioned manifestation uses “clean permission signals” (stable tuning centers, coherent arrivals, unbroken envelopes); unsanctioned uses “breach signatures” (spectral smear, detune drift, destabilizing transients, asymmetrical phrase entries).
+* **Perceptual:** sanctioned feels *recognized/ratified*; unsanctioned feels *stolen/forbidden/contested*.
+* **Compositional:** pair it with SDT-SL **Resolution Permission**: sanctioned more likely permits resolution; unsanctioned tends to deny it. 
+
+### 2) Seal Agency
+
+**GO.Seal ∈ {voluntary, imposed}**
+
+* **Operational:** voluntary sealing = gradual self-closure (fade, self-resolve, breath cadence); imposed sealing = hard constraints (gates, clamps, abrupt cuts, enforced silences).
+* **Perceptual:** voluntary feels *chosen vow*; imposed feels *external lock*.
+* **Compositional:** pair with **Termination Semantics**: voluntary might “close gently,” imposed might “cut off” or “slam shut.” 
+
+### 3) Denial Reversibility
+
+**GO.Denial ∈ {reversible, irreversible}**
+
+* **Operational:** reversible denial includes apertures (periodic micro-openings, temporary consonances, brief motif returns); irreversible denial forbids those apertures (no cadence permission, motif suppressed or permanently transformed).
+* **Perceptual:** reversible feels *withheld but recoverable*; irreversible feels *banished / sealed beyond appeal*.
+* **Compositional:** tie directly to **Resolution Permission** and **Identity Emergence Mode** (irreversible denial may prevent identity from cohering). 
+
+### 4) Witness Modality
+
+**GO.Witness ∈ {many, system}**
+
+* **Operational:** many-witnessed = chorus mass, call/response, unison swells; system-recorded = metronomic ticks, quantized pulses, “audit trail” motifs, machine-consistent repetition.
+* **Perceptual:** many feels *socially sealed*; system feels *logged / adjudicated*.
+* **Compositional:** this pairs beautifully with your existing Koor placement rule (“witnessed by the many”) without overusing Koor as a blunt instrument. 
+
+---
+
+# Why this preserves elegance
+
+* It **doesn’t add roots**, it adds *axes*.
+* It stays in **non-sung** space, just like `:: ⟶ ⟂` and dialect marks already do. 
+* It harmonizes with SDT-SL’s operator grammar (and avoids violating its “no secret lexicon/cipher” boundary). 
+
+---
+
+## Concrete examples (same invocation, different viewpoints)
+
+Using your existing semantics anchors (e.g., Thal=manifest/reveal; Fin=seal/closure; Koor=collective witness): 
+
+1. **Ritual is ratified, self-chosen, reversible, socially witnessed**
+
+* `SDT: Zur Thal :: ᵃ`
+* `[GO: Manif=sanctioned | Seal=voluntary | Denial=reversible | Witness=many]`
+
+2. **Ritual is illicit, externally locked, irreversible, logged by system**
+
+* `SDT: Zur Thal ⟂ :: ᵃ`
+* `[GO: Manif=unsanctioned | Seal=imposed | Denial=irreversible | Witness=system]`
+
+Notice: the spoken tongue didn’t change—**only the meta-operator layer did**, and it’s doing exactly what you want: expressing *stance*.
+
+---
+
+## The “responsible expansion” rule set (v0.1)
+
+1. **Default is unmarked.** Only specify GO operators when they matter.
+2. **Never let GO contradict the spoken intent** when SDT-SL is used in parallel; it should reinforce/enhance, not fight the chant. 
+3. **Keep GO orthogonal:** one axis ≠ another; avoid “meta soup.”
+4. **Version the GO spec** (GO v0.1, v0.2) so future refinements don’t retcon earlier works.
+
+If you want, next we can formalize this as a tiny addendum section (one page) in the same tone as the Primer/Addendum: operator definitions + permitted placements + 4–6 canonical examples—so it becomes a stable “governance layer” the way SDT-SL became a stable “silent layer.”
