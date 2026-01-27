@@ -1,3 +1,135 @@
+# **Spire-Larynx** Register
+
+A synthetic “upper throat” that can generate **supra-human pitch** (think: *one octave above the highest plausible human register*), while still respecting SDT’s phonetic aesthetic (open vowels, ritual continuity).
+
+* **Why “Spire”**: it implies *vertical reach*, a needle of sound piercing the ceiling of biology.
+* **Why “Larynx”**: it’s explicitly a *device*, not a dialect—canon-safe and mechanically honest.
+
+This also pairs beautifully with your existing Abyssal work: **Abyssal depth = the floor**, **Spire-Larynx = the ceiling**. (The room becomes a pillar.)  
+
+---
+
+## What it *is* in canon terms: a **Register** (performance layer)
+
+Just like your Abyssal “law voice” work is prosody + constraint, Spire-Larynx is **spectral constraint + machine voicing**:
+
+**Spire-Larynx (SPLX) rules (v0.1)**
+
+1. **Pitch domain:** locked “octave-up” behavior (or “ceiling-pinned” high pitch), with minimal drift.
+2. **Timbre:** glassy / sine-adjacent / choir-overtone; avoid chest/formant warmth.
+3. **Articulation:** consonants become *suggestions*; vowels do the work (Alethe-friendly).
+4. **Function:** used as **overtone witness**, **aetheric seal**, or **impossible halo** over Subsurface/Abyssal mass. 
+
+---
+
+## How you write it in SDT/SUNO without “mucking up the tongue”
+
+Keep it in the **non-sung directive layer** (section headers + SDT-SL operators), never as “new root words.”
+
+### Bracket tag (simple)
+
+`[Overtone | Spire-Larynx | octave-up | glassy | formant-shifted]`
+
+### SDT-SL operator (optional, clean)
+
+`[SDT-SL | SpectralAltitude=spire | FormantMode=glass | PitchLock=ceiling]`
+
+This matches your established practice of stacking directives with `|` and keeping meaning operators out of the sung line.  
+
+---
+
+## Micro “copy/paste” template to test immediately in Suno
+
+(Notice: **no parentheses**, since Suno sometimes decides to sing them.)
+
+```
+[Intro | Alethe | Spire-Larynx | octave-up | airy overtone choir | no English]
+Lyaréeeee… iiiii… lyaré…
+A-le-theeee… a-le-theeee…
+Morah… siiiiil…
+
+[Bridge | Abyssal | low | monolithic | glottal hammer]
+Koor vahdren los.
+No fin.
+No fin.
+
+[Overtone Return | Spire-Larynx | needle-thin | shimmering | long vowels]
+Zeiinnnn… iiiii…
+Ekaa… seshhhh…
+```
+
+If you want it to feel *impossible* rather than “chipmunk,” keep the **Spire** layer sparse (enter like a halo, not a lead singer). 
+
+---
+
+## Alternate names (if “Spire-Larynx” isn’t your aesthetic)
+
+Pick based on the vibe you want:
+
+* **Crown-Register** (ritual/royal, chakra-ish; “the top gate opens”)
+* **Skyglass Vox** (very Culture-artifact; elegant, alien, clean)
+* **Seraph Needle** (mythic, luminous, slightly terrifying)
+* **Aether-Whistle** (more literal, less epic)
+
+But if we’re declaring a standard device for the canon: **Spire-Larynx** is crisp, legible, and instantly usable.
+
+If you tell me what the Emerald Tablet track’s *primary emotional geometry* is (revelation? authority? ascension? forbidden clarity?), I’ll tune the Spire-Larynx v0.1 defaults so it “belongs” to that imprint instead of just being a cool trick.
+
+Dragon King Leviathan — yes. What we just defined is **explicitly the “As Above” engine**: the *ceiling opens*, the tablet turns face-up, revelation becomes audible light.
+
+Now we complete the hermetic axis by giving it a **matching “As Below” mechanism**—not a new dialect, but a complementary *device/register*, so the *same truth* can be spoken in gravity.
+
+Done, Dragon King Leviathan — **Root-Larynx is now canonized as: *Foundation-Larynx***.
+
+# Foundation-Larynx (FDLX) — canonical device spec
+
+**Role:** the *impossible lower throat* — subharmonic embodiment, “the truth gains mass.”
+**Pairs with:** **Spire-Larynx (SPLX)** as the vertical axis (above ↕ below).
+
+### Foundation-Larynx rules (v0.1)
+
+* **PitchLock:** floor (stable, heavy, minimal drift)
+* **OctaveBias:** “-12 feel” (subharmonics emphasized; not just slowed audio)
+* **Timbre:** basalt / chest-cavity illusion / sub-sine + throat grit
+* **Articulation:** consonants = impacts; vowels = load-bearing mass
+* **Function keywords:** *embody, seal, consequence, gravity, receipt*
+
+## SDT-SL operator block (drop-in)
+
+Use in bracket headers only (non-sung directive layer):
+
+`[SDT-SL | SpectralDepth=foundation | PitchLock=floor | FormantMode=basalt | Confirmation=embody | Gravity=on]`
+
+## How it differs from Abyssal Edict (so outputs don’t collapse)
+
+**Abyssal Edict Register** = *law as speech-act* (percussive syllables, intelligible consonants, “command voice”).
+**Foundation-Larynx** = *law as physics* (sustained vowel mass, subharmonic underlay, “the room is the throat”).
+
+**Rule of thumb:**
+
+* Lots of consonants + decree cadence → **Edict**
+* Long vowels + drone weight → **Foundation-Larynx**
+
+## SUNO-ready header templates
+
+**Edict (sentence):**
+`[Abyssal | Edict Register | glottal hammer | articulate consonants | monolithic]`
+
+**Foundation (consequence layer):**
+`[Foundation-Larynx | subharmonic drone | floor-pinned | long vowels | minimal consonants]`
+
+## Quick paired example (Spire ↕ Foundation)
+
+```
+[Reveal | Spire-Larynx | octave-up | glass | pitch-locked | SDT-SL: SpectralAltitude=spire|PitchLock=ceiling|Revelation=unveil]
+Lyarééé… iiiii… lyaréé…
+
+[Receipt | Foundation-Larynx | subharmonic | basalt | floor-pinned | SDT-SL: SpectralDepth=foundation|PitchLock=floor|Confirmation=embody]
+Ooooo… aaaa… ooooo…
+```
+
+If you want, we can also rename “Emerald Axis” to something more architectural to match the spire/foundation metaphor (e.g., **Emerald Column**), but the device rename itself is now locked: **Foundation-Larynx**.
+
 # Abyssal “Edict Register” (AER) — *Voice-of-the-Abyss*
 
 AER is *Abyssal*, but with **procedural constraints** that make it feel like reality is being *commanded*.
