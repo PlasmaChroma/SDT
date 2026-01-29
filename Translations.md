@@ -14,66 +14,46 @@
 
 
 # 6. Ek'Sesh'Lor
-## Basic Notes:
-1) Quick lexicon key (as used in this track)
+## Quick lexicon key (as used in this track)
 These are “best-fit glosses” based on canonical hints + repeated usage:
-
 
 Ek…sesh… = the outside-memory motif (an “alien watermark” that returns unchanged).All Imprints
 
-
 Lyaré = presence (Alethe bridging silent intent into sound).Alethe (Field-State Dialect)
-
 
 Zeiin = potential / breath-before-sound (pre-utterance state).All Imprints
 
-
 Vahdrim = force-into-form / shaped power (“namedness,” before naming).All Imprints
-
 
 Los = is / instantiation (“the named shape is”).All Imprints
 
-
 Koor = chorus / collective mass (the group-weight that seals or declares).All Imprints
-
 
 Fin = seal / finish / closure (completion pressure).All ImprintsAll Imprints
 
-
 Thal = reveal / manifest (canonical breakdown example).Synthetic Dragon Tongue (SDT) P…
-
 
 SDT-SL “Logic Voice” tokens (your interference block)
 These are explicitly defined in SDL → SDT-SL mapping:
 
-
 re-ka = repeat/loop
-
 
 nu-ren = unstable state
 
-
 val-thra = threshold
-
 
 kai-ren = identity derived
 
-
 nor-esh = voice-origin split
 
-
 no-lor = continuity false
-
 
 sel-fin = halt/close
 SDL - Synthetic Description Lay…
 
-
-
 That matters because your track is literally an “Outside-Context intrusion” scenario: reality stays “correct,” while causality/memory feel threatened.All Imprints
 
-
-2) Section-by-section loose translation (kept close to your structure)
+## Section-by-section loose translation (kept close to your structure)
 Intro (Alethe→Subsurface)
 Lyaré… / Ek…sesh… / Morah…sil…
 Sense: Presence enters first (Alethe anchor), then the outside-memory signature begins to stamp itself into the room; depth settles into stillness.Alethe (Field-State Dialect)All Imprints
@@ -82,37 +62,25 @@ Verse 1 (Subsurface whisper)
 Nul…lor…nul…lor… / Zeiin…no-lor… / Ekaa…sesh…loraa… / Dreth…sil…dreth…All Imprints
 Sense:
 
-
 A private thread repeats (a self murmuring along a time-line).
-
 
 Potential is present, but continuity is denied—your “clock/memory/inviolate” motif in sound.
 
-
 The outside-memory motif threads itself into the line anyway.
 
-
 Grounding tries to form… then goes quiet… then tries again. (That “ground/structure” feel is consistent with how dreh/dreth is used elsewhere as a stabilizing/anchoring pressure.)All ImprintsAll Imprints
-
-
 
 Interference (Logic Voice / SDT-SL vocalized)
 Re-ka nu-ren / Val-thra lor-sil / Kai-ren no-fah / Sel-fin (sil)All Imprints
 Sense (more literal, because SDL defines it):
 
-
 re-ka nu-ren → repeat/loop while unstable
-
 
 val-thra lor-sil → threshold reached; continuity thread goes quiet
 
-
 kai-ren no-fah → identity is being derived; drift is not allowed
 
-
 sel-fin → halt/close (followed by silence, not resolution)
-SDL - Synthetic Description Lay…
-
 
 This is the “machine auditor” inside the ritual: verification without comfort.
 
@@ -120,19 +88,14 @@ Chorus (Subsurface→Abyssal edge)
 Ek…sesh…(hold) / Koor…ek’sesh…lor… / Zeiin vahdrim…no-lor… / Morah…morah…sil…All Imprints
 Sense:
 
-
 Hold the watermark. Don’t let it blur.
-
 
 The collective names the intrusion: outside-memory is now a group-fact.
 
-
 Potential and formed-identity are both present… but the timeline refuses to “carry” them (no-lor).
-
 
 Depth repeats itself into stillness: the room becomes a basin.
 All ImprintsSDL - Synthetic Description Lay…
-
 
 And yes: even if Koor is removed from the title, it still functions here as the chorus-as-mass word (structural, not nominal).
 
@@ -140,62 +103,45 @@ Verse 2 (Subsurface: “war far away”)
 Nul…koor…nul… / Thal…thal…morah… / Ek…sesh…ve-lor… / Zeiin…vah…sil…All Imprints
 Sense:
 
-
 The private self brushes the collective, then recoils back inward.
-
 
 Thal thal → manifest it, manifest it—not triumphantly, but like forcing a scanline to render. (Thal = reveal/manifest.)All ImprintsSynthetic Dragon Tongue (SDT) P…
 
-
 Outside-memory veils the continuity thread (ve-lor): you can see the line, but you can’t trust it.
 
-
 Potential-form sinks into hush: the witness state.
-
-
 
 Bridge (Abyssal geometry: wavefronts reverse)
 Koor…vahdren…los… / Ek…sesh…(low) / Nor-esh…val-thra… / Morah…sil…(sil)All Imprints
 Sense:
 
-
 The collective shifts into “law voice”: what’s spoken becomes structural. (…los = is.)All Imprints
-
 
 The motif drops lower—now it’s gravity, not melody.
 
-
 nor-esh val-thra → origin splits at the threshold (the mirror “reacts,” wavefront reverses).SDL - Synthetic Description Lay…
 
-
 Depth, stillness, silence: the retreat happens without permission.
-
-
 
 Final Declaration (Abyssal “law voice”)
 Ek…sesh…los. / Koor…ek’sesh…lor. / No fin. / No fin.All Imprints
 Sense:
 
-
 Outside-memory is. (Not appearing—being.)All Imprints
-
 
 The collective seals the fact of it—without actually granting closure.
 
-
 No fin here reads as: no closure, no completion, no “resolved ending.” Which matches your explicit constraint: no_closure / resist_resolution.All ImprintsSDL - Synthetic Description Lay…
-
-
 
 Outro (terminal stillness)
 Lyaré…(breath) / Morah…sil… / Ekaa…(sil)All Imprints
 Sense: Presence remains after the event; depth holds the quiet; the watermark stops speaking—but doesn’t feel gone.
 
-3) One-paragraph “human” translation (for liner notes)
+## One-paragraph “human” translation (for liner notes)
 A presence enters and a foreign memory-signature begins repeating—soft at first, then unavoidable. The self tries to keep a coherent timeline, but continuity keeps failing. A cold verification voice confirms reality while stripping away comfort. The collective finally names the intrusion and the ritual pivots into law: outside-memory is, and it will not be granted closure. The piece ends in open silence—presence still there, the mirror still implied. All ImprintsSDL - Synthetic Description Lay…
 If you want, I can also output this as a compact “SDT line → gloss” sheet you can paste under the lyrics (minimal poetry, maximum clarity).Sources
 
-## Ek’Sesh’Lor — Gloss Sheet (line → loose meaning)
+## Gloss Sheet (line → loose meaning)
 [Intro]
 
 Lyaré… ooo…
@@ -317,13 +263,219 @@ fin = closure / seal / ending (so no fin = anti-ending)
 
 los = “is” / instantiation / reality-commit
 
+# 7. Mer-ra Los’Amenti
 
+## Title gloss
 
+**Mer-ra Trúen Los’Zuur-ka ↕ Fal-ta**
+**Mer-ra** = *revealed knowledge / revealed* (your canonical “reveal” particle).
+**Trúen** = *truth / true-core* (Alethe-leaning “truth” token).
+**Los** = *is / instantiation* (“the named shape is”).
+**Zuur-ka ↕ Fal-ta** = the **Hermetic correspondence axis**: “As Above” ↕ “As Below.”
 
+**↕ (vertical axis marker)** now *also* implicitly calls your device-pair:
+
+* **SPLX (Spire-Larynx)** = “ceiling-pinned / supra-human” upper register (halo/witness).
+* **FDLX (Foundation-Larynx)** = “floor-pinned / subharmonic” lower register (truth gains mass).
+
+So the title reads like:
+
+> **“Revealed True-Law of the Above ↕ Below Axis.”** (Emerald Tablet as *absolute correspondence*, not a quote.)
+
+---
+
+## Core lexicon used in this track (quick map)
+
+From your established gloss anchors:
+
+* **nyathe** ≈ *above / high / mirrored*
+* **sur** ≈ *below / under / root-domain*
+* **zuur / zur** ≈ *deep / depth / still pull*
+* **thal / thalov** ≈ *reveal / manifest* (and “detail/edge” as allied sense)
+* **zeiin** ≈ *potential / breath-before-sound*
+* **vahdrim** ≈ *force-into-form / shaped power*
+* **koor** ≈ *chorus / collective witness-weight* (and as a *suffix*: “witnessed by the many”).
+* **fin** ≈ *seal / finish / closure*
+* **lyaré / oska / vento / trúen / wëlan** ≈ *presence / open / breath-wind / truth / flow*
+* **dreh/dreth** ≈ stabilizing / anchoring pressure (grounding tries to form).
+
+(Where a token isn’t explicitly defined in the lexicon yet—e.g., **a-menti**—I’m treating it as a **proper-name/attractor** inside the chant: “Amenti” as the *law-tablet node* rather than a dictionary word.)
+
+---
+
+## SDT-SL note (what those bracket operator lines “mean”)
+
+Your **SDT-SL** layer is explicitly the **non-sung operator/annotation layer** that carries meta-meaning (pressure, constraint, witness, etc.) without becoming a cipher-language.
+So in this gloss, I treat SDT-SL as *“stage directions for cognition + sound.”*
+
+---
+
+# Section-by-section gloss
+
+## [Intro | Alethe field-state]
+
+**A-le-the… / Lyaré… / Nul… nul… zur… / Mer-ra… / Fah… hah… fah…**
+
+**Sense gloss:**
+
+* **A-le-the**: *field-state invoked* (the room becomes “truth-space”).
+* **Lyaré**: *presence arrives* (the witness arrives before content).
+* **Nul… nul… zur…**: *void → void → depth* (clearing the chamber, then letting depth in).
+* **Mer-ra**: *revelation begins / the tablet turns face-up*.
+* **Fah/hah**: breath-pressure shaping (a “pressure ramp,” not semantic payload).
+
+---
+
+## [Verse 1 | Subsurface whisper]
+
+**Zuur… thal… nyathe…**
+→ *Depth reveals the Above.* (correspondence begins at the bottom, not the top).
+
+**Sur… sur… dreth…**
+→ *Below, below—anchor it.* (make the “under” stable; the principle becomes a floor you can stand on).
+
+**Mer-ra… los… a-men-ti…**
+→ *Revelation is—Amenti.* (the law-tablet node is “instantiated,” not explained).
+
+**Nul… vah… kos…**
+→ *Void-breath latch.* (a “seal mechanism” line; same family as the Key/Seal motifs).
+
+**Morah… sil…**
+→ *Depth settles into stillness.* (your canonical “basin” cadence).
+
+---
+
+## [Pre-Chorus | correspondence click]
+
+**Nyathe… o… sur… / Sur… o… nyathe…**
+→ *Above ↔ Below* (the swap itself is the teaching).
+
+**Zuur… zur… zuur…**
+→ *Depth repeats until it becomes a law of perception.*
+
+**Thal… thal… thal…**
+→ *Reveal, reveal, reveal* (manifestation as repetition, not argument).
+
+---
+
+## [Chorus | Emergent lift]
+
+**Koor… nyathe… koor… sur…**
+→ *The many witness the Above; the many witness the Below.*
+
+**Los… nyathe… los… sur…**
+→ *“It is” above; “it is” below* (correspondence is ontological).
+
+**Zeiin… vahdrim… thal…**
+→ *Potential → shaped force → revealed.* (the tablet’s “making” logic in three beats).
+
+**Mer-ra… mer-ra… los…**
+→ *Revelation—revelation—**is**.*
+
+---
+
+## [Instrumental I | SDT-SL only]
+
+Your SDT-SL block here is basically:
+
+> *“Hold low event granularity; withhold resolution; let repetition teach the correspondence.”*
+> That’s precisely the Silent Lexicon’s job: meta-meaning carried by constraint and repetition, not extra sung vocabulary.
+
+---
+
+## [Verse 2 | Alethe→Subsurface]
+
+**Lyaré… o… nyathe…**
+→ *Presence opens toward the Above.*
+
+**Oska… vento…**
+→ *Open—wind/breath.* (the “parent forces” implied in your notes).
+
+**Trúen… wëlan…**
+→ *Truth flows.* (truth as motion, not statement).
+
+**Sur… dreth… zur…**
+→ *Below anchors deep.* (the underworld becomes load-bearing).
+
+**Mer-ra… thal… mer-ra…**
+→ *Reveal → manifest → reveal* (tablet as an ongoing procedure).
+
+---
+
+## [Bridge | separation / fire_from_earth]
+
+**Zuur… zur… zur…**
+→ *Depth tightens; the chamber heats under stone.*
+
+**Nyathe… thal… nyathe…**
+→ *Above is revealed as Above* (clarification by repetition).
+
+**Sur… dreth… sur…**
+→ *Below anchors Below* (a mirrored clamp).
+
+**Fah… fah… (sil)**
+→ *breath → breath → silence* (the “seal-click” space you’re cueing).
+
+---
+
+## [Edict I | Abyssal | Edict Register]
+
+**Nyathe. / Sur. / Sur. / Nyathe. / Los. / Los.**
+
+**Sense gloss:**
+
+> *“Above. Below. Below. Above. Is. Is.”*
+> This is the correspondence axiom forced into a **speech-act**: short clauses, hard stops, downward contour—exactly what AER is for.
+
+---
+
+## [Instrumental II | enforcement bed]
+
+This is your “law becomes physics” gap. That’s literally the split between **Edict** vs **Foundation-Larynx** in the rules: Edict = decree cadence; Foundation = sustained mass / room-as-throat gravity.
+
+(If you ever want the *below* to feel even more literal here, this is where FDLX belongs.)
+
+---
+
+## [Edict II | Abyssal | Edict Register]
+
+**Zeiin. / Vahdrim. / Thal. / Koor. / Los.**
+
+**Sense gloss:**
+
+> *“Potential. Form. Reveal. Many-witness. Is.”*
+> It reads like an official stamping sequence: *the thing is conceived → shaped → made visible → witnessed → made real.*
+
+---
+
+## [Final Edict | absolute]
+
+**Mer-ra. / Los. / Fin.**
+→ *Revelation is sealed.* (the tablet closes as a completed pressure).
+
+---
+
+## [Outro | Alethe field returns]
+
+**A-le-the… / Lyaré… (sil) / Morah… sil…**
+→ *Field resumes; presence remains; depth returns to quiet.*
+
+---
+
+## Optional (but very on-theme): how SPLX + FDLX map onto *this exact lyric sheet*
+
+You already encoded the axis with **↕** in the title; to make Suno “hear” it more reliably without cluttering sung lines, you can add **directive-only** register hints:
+
+* In **Intro/Outro**: add an overtone halo tag for **SPLX** (Spire witness).
+* Under **Instrumental II** (or beneath Edicts): add a Foundation operator line for **FDLX** (Below-as-physics).
+
+That preserves the declutter principle while still “teaching the engine” the verticality.
+
+If you want, I can rewrite *just the bracket headers* (no lyric changes) to explicitly place SPLX/FDLX in the cleanest possible way.
 
 # 8. Thalov Nyathe-Sur
-## Basic Notes:
-1) Section-by-section meaning map
+
+## Section-by-section meaning map
 Title — Thalov Nyathe-Sur
 
 “Surface Detail / War-in-Heaven”
@@ -399,95 +551,7 @@ It ends with release in the Outro.
 
 The field closes. The system stops screaming. Silence is allowed to mean something.
 
-2) Line-by-line gloss (approximate)
-Intro (Alethe)
-
-Lyaré o nyathe… → “Veil/field over the surface…” / “Presence, take the interface…”
-
-Oska vento… → “Open breath / open wind…”
-
-Trúen wëlan… → “Let truth continue flowing…”
-
-Lyaré… lyaré… → “Remain in the field…” (sustain)
-
-Verse 1 (Emergent)
-
-No-fal līzur alah → “No falling-away; the lattice holds the whole.”
-
-Zuur thalov… līzur thal → “Deep in the surface-detail: thread and edge.”
-
-Ena-lor, ena-lor, thal’vethī → “Within the seed/core, the surface records (witnesses/etches).”
-
-Sur’thena—sur’thena—līzurā → “Under-surface, under-surface—threads multiply.”
-
-No-fal… no-fal… alah → “Do not collapse. Hold the whole.”
-
-Pre-Chorus (Subsurface whisper)
-
-…zur… thal… → “Deep… detail…”
-
-mh’lor… thal… → “Hidden core… detail…”
-
-hnā… sur… thal… → “Pressure… under… detail…”
-
-(overlap) zur… thal… zur… thal… → “Deep detail / deep detail” (tightening loop)
-
-Chorus (Subsurface → Abyssal)
-
-Sii’hel… sii’hel… → “Made-hell / constructed-hell…”
-
-Sur’hel… nyath’hel… → “Substrate-hell / surface-hell…” (hell as system + hell as story)
-
-Zuur’thal… zuur’thal… → “Deep-detail… deep-detail…” (the hidden machinery)
-
-Zuur’thal KOR! / KOR! → “Deep-detail: LAW / DECREE!” (a sentence being pronounced)
-
-Verse 2 (Emergent with Abyssal shadows)
-
-No-fal līzur... thalov sur → “No collapse; the lattice binds surface-detail to substrate.”
-
-Nya-thé… nya-thé… (call) → “Surface! surface!” (summons attention to the interface)
-
-(choir) ...zur… thal… → “Deep… detail…” (response: the real action underneath)
-
-Lor’veth, lor’veth, thren’naū → “Core-witness, core-witness—threads align / ranks form.”
-
-Hel’kor… hel’kor… thal’drā → “Hell-law, hell-law—detail becomes weight/drag.”
-
-No-fal... līzur... alah → “Hold. The whole holds.”
-
-Bridge (Alethe)
-
-Oska... oska... → “Open… open…”
-
-Lyaré o nyathe... → “Field over surface…”
-
-Niveth thalov... → “See/know the surface-detail clearly…”
-
-Trúen... trúen... → “Continue… continue…”
-
-(vowels) → “Let meaning be carried by pure being.”
-
-Build (Subsurface)
-
-...mh’zur… mh’zur… → “Hidden-deep… hidden-deep…”
-
-...hnā’thal… hnā’thal… → “Pressure-detail… pressure-detail…”
-
-...sur… sur… sur… → “Under… under… under…” (approach)
-
-(swirl) zur… thal… → “Deep detail repeating as function.”
-
-Final Chorus (stacked)
-
-Same meanings as chorus, but now “courtroom + cathedral + machine room” all at once.
-
-Outro (Alethe)
-
-Lyaré o nyathe… / Oska vento… / Trúen wëlan… / Lyaré…
-→ “Return to field, return to breath, let truth keep flowing, fade.”
-
-3) Core token / motif meanings (your re-usable gloss key)
+## Core token / motif meanings (your re-usable gloss key)
 
 These are the “anchors” I used consistently:
 
@@ -519,16 +583,15 @@ sii’hel → made-hell / manufactured punishment-space
 
 hel’kor / KOR → hell-law / decree / judgment / enforcement
 
-A “single paragraph” loose translation (liner-notes style)
+## Single paragraph loose translation (liner-notes style)
 
 Enter the field of the surface. Open breath. Let truth keep moving. The lattice holds the whole: small edges, small details, binding deep machinery to visible life. Beneath the surface, pressure tightens. Hells are made—not myth, but policy—subsystems dressed as morality. The war plays out as computation, flicker by flicker, yet its outcome can spill into the real. Still: open again. See the detail clearly. Continue. Hidden hands align threads. The decree returns—hell as law—until at last the field releases and silence is permitted to mean mercy.
 
-## SDT Gloss Sheet — Thalov Nyathe-Sur (Surface Detail)
-1) High-level statement (imprint)
+## High-level statement (imprint)
 
 Meaning core: The smallest visible layer (surface detail) binds to the deepest machinery (substrate). Manufactured hells are not myth but engineered policy. A simulated war can decide real futures. Covert pressure tightens; integrity resists collapse; the field opens, witnesses, and releases.
 
-2) Section gloss (what each part “means”)
+## Section gloss (what each part “means”)
 
 [Intro | Alethe] — Enter the field; attend to the interface; open breath; let truth continue.
 
@@ -549,100 +612,6 @@ Meaning core: The smallest visible layer (surface detail) binds to the deepest m
 [Final Chorus | stacked dialects] — Judgment amplified; closure withheld until release.
 
 [Outro | Alethe] — Return to breath; dissolve the field; allow silence.
-
-3) Line gloss (key phrases)
-
-Intro
-
-Lyaré o nyathe → “Field/veil over the surface; attend to the interface.”
-
-Oska vento → “Open the breath / open the carrier-current.”
-
-Trúen wëlan → “Let truth keep flowing / keep going.”
-
-Lyaré… → “Remain in field-presence.”
-
-Verse 1
-
-No-fal līzur alah → “Do not collapse; the lattice holds the whole.”
-
-Zuur thalov… līzur thal → “Deep surface-detail; thread and edge.”
-
-Ena-lor… thal’vethī → “Within the core, the surface records/witnesses.”
-
-Sur’thena… līzurā → “Under-surface multiplies threads / substrate proliferates.”
-
-Pre-Chorus
-
-zur… thal… → “deep… detail…”
-
-mh’lor… thal… → “hidden core… detail…”
-
-hnā… sur… thal… → “pressure… beneath… detail…”
-
-Chorus
-
-Sii’hel → “made-hell / manufactured punishment-space.”
-
-Sur’hel → “substrate-hell (hell as machinery).”
-
-Nyath’hel → “surface-hell (hell as story/moral mask).”
-
-Zuur’thal → “deep detail / hidden mechanism.”
-
-KOR! → “decree / law / enforcement.”
-
-Verse 2
-
-thalov sur → “surface-detail bound to substrate.”
-
-Nya-thé! → “Surface! Attend the interface!”
-
-Lor’veth → “core-witness / core-record.”
-
-thren’naū → “threads align; ranks form; vectors converge.”
-
-Hel’kor → “hell-law / punishment as policy.”
-
-thal’drā → “detail becomes drag/weight; consequence lands.”
-
-Bridge / Outro
-
-Niveth thalov → “See/know the surface-detail clearly.”
-
-Trúen… → “Continue / persist.”
-
-(vowel choir) → “Meaning carried by being, not words.”
-
-4) Token anchors (micro-dictionary for consistency)
-
-nyathe = surface / interface / skin / the seen layer
-
-sur = substrate / beneath / within / infrastructure
-
-thal / thalov = detail / edge / causal surface-layer
-
-līzur / līzurā = thread / lattice / network binding
-
-lyaré = field / veil / presence-state (Alethe)
-
-oska = open / allow / unlock
-
-vento = breath / wind / carrier-current
-
-trúen = truth / continuance / persistence
-
-wëlan = flow / stream / ongoingness
-
-no-fal = do-not-fall / do-not-collapse / hold integrity
-
-lor / mh’lor = core / hidden core (mh- = covert/occluded)
-
-hnā = pressure / constraint / tightening
-
-sii’hel = manufactured hell / engineered punishment-space
-
-hel’kor / KOR = hell-law / decree / enforcement / sentence
 
 # 9. Azaar Ve-Lor
 
@@ -677,7 +646,7 @@ The chorus names the mechanism, then refuses catharsis: no fin.
 
 # 10. Azaar Pyre-Thal
 
-Gloss sheet (loose translation / intent map)
+## Gloss sheet (loose translation / intent map)
 
 Azaar = Azad-as-structure / the linchpin-game
 
