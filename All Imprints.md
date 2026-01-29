@@ -186,139 +186,84 @@ Fah… zeiin… fah…
 
 [Instrumental III | Terminal Stillness | 60–120s | single sustained tone | slow detune + fade | highs dissolve first | end in silence | do not resolve]
 
-# 3. Canonical Imprint — "𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎"
+# 3. "𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎" (Alethe Reforged)
 
 ## Style Prompt
+Epic cinematic ritual chant in Synthetic Dragon Tongue (SDT): slow-burning mythic identity emergence anchored by Alethe field-state. Begin with close-mic Subsurface whispers and long breath pauses; unfold into thunderous low choir + sparse ritual drums; climax with Abyssal “Edict Register” short clauses and hard stops. Use the vertical axis devices: Foundation-Larynx as subharmonic floor-pinned mass, and Spire-Larynx as a sparse glassy overtone witness (never “chipmunk,” more like an impossible halo). No English vocals, no narration. Long instrumental dwell sections; resist pop structure and avoid neat resolution—end in silence like the room still holds the name.
 
-Chosen Parameters: 33% weirdness, 66% style influence
-
-An epic, cinematic, slow-burning chant invoking mythic identity through a synthetic dragon tongue.\
-Features thunderous choirs, ritual drums, subsurface drones, and a trance-like buildup to climactic resonance.\
-Vocals are layered, ancient-sounding, and non-English — meant to feel summoned rather than sung.\
-Track should carry weight and inevitability, unfolding like a spoken myth.\
-Resonant. Irreversible. Ritual in structure.\
-No narration. Only invocation.
-
-## Additional Notes
-
-**Zeiin... zeiin...**\
-*The potential stirs. Echo of pre-voice. A breath held in stillness.*
-
-**Vahdrim koor, vahdrim fah**\
-*Power begins to take shape. Chorus pressure. Force dissolving form.*
-
-**Zeiin do fin...**\
-*From silence, a vector. Zeiin into completion. A becoming.*
-
-Low Choir Chant (Stabilization)
-
-**Krii vah ul**\
-*Cutting into release. Opening a breath-gate.*
-
-**Dreh vah kos**\
-*Grounding the dissolving structure. To be made of surrender.*
-
-**Slen fahrii**\
-*A softening; self thinned through release.*
-
-**Zeiin vahdrim**\
-*Now voice. Zeiin shaped. The name stands in the field.*
-
-Rising Chant (Amplification)
-
-**Faal grah do**\
-*Call of convergence. The weight moves.*
-
-**Morah fen kos**\
-*Depth rising. It ***will*** be. Subsurface to presence.*
-
-**Dovrah sil**\
-*The dragon pressure speaks. Silent force.*
-
-**Vahdrim los**\
-*The named shape ***is.*** Instantiation.*
-Chorus (Resonant Seal)
-
-**Zeiin vahdrim**\
-**Zeiin vahdrim**\
-*Repetition binds the invocation. Voice-Name. Identity emerged.*
-
-**Koor do fin**\
-**Koor do fin**\
-*Chorus completes. From mass: a becoming.*
-
-Bridge (Threshold Whisper)
-
-**Fah... fah...**\
-*Dissolution breath. Tension exhaled.*
-
-**Zeiin los fah**\
-*Now Zeiin is. And falls into release.*
-
-**Dovrah fin**\
-*The pressure finishes. Echo ceases.*
-
-Finale (Mythic Closure)
-
-**Zeiin vahdrim!**\
-**Zeiin vahdrim!**\
-*The name spoken fully. With thunder.*
-
-**Koor... do... fin!**\
-*The collective seals it. The act is complete.*
-
-Dimensional Interpretation: Phrase Triad
-
-**Zeiin before voice**\
-Zeiin = potential, breath-before-sound, pre-utterance state.\
-This line says: *Zeiin is not said* — it is what exists *before saying*.\
-In performance, this justifies its placement as the first breath, the first stir.
-
-**Vahdrim before name**\
-Vahdrim = force-into-form, shaped power.\
-This implies that Vahdrim is prior to naming — not a label but a namedness, an inherent signature.\
-It tells the listener: before you call it anything, it *is already presence*.
-
-**The sea remembers**\
-This line collapses time.\
-It implies recursion, return, deep memory.\
-It subtly links SDT to oceanic consciousness — the subconscious, the field that always holds.\
-It allows: *maybe this language was not made — maybe it was recovered.*
+Suggested sliders (starting point)
+Weirdness: 35–45%
+Style Influence: 65–80%
+Energy: low → medium (slow but huge)
+Audio Influence (only if uploading): ≤20%
+(These ranges bias toward coherent long-form structure and reduce style drift.)
 
 ## Lyrics Prompt
+[Title | SDT: 𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎 | meaning-hint: Mythic Identity Emergence | do not sing meaning]
 
-[Invocation]
-Zeiin… zeiin…
-Vahdrim koor, vahdrim fah
-Zeiin do fin…
+[Intro | Alethe | breath-led | no beat | Spire-Larynx sparse halo | SDT-SL: IdentityThroughPersistence=begin|Pressure=slow_rise|Constraint=resist_resolution]
+Lyaré…  lyaré…
+A-le-the…  a-le-the…
+Zeiin…  iii…  zeiin…
 
-[Chant – Low Choir]
+[Verse 1 | Subsurface whisper | close-mic | long gaps | SDT-SL: State=prevoice|Process=stir|Motifs=breath|name|field]
+Zeiin…  zeiin…
+Nul vah…  kos dreth…
+Fah…  vah…  fah…
+Morah…  sil…
+
+[Chant I | Foundation-Larynx | floor-pinned | long vowels | SDT-SL: SpectralDepth=foundation|PitchLock=floor|Confirmation=embody]
+Ooo…  aah…  ooo…
+Vahdrim…  vah…  drim…
+Zeiin…  vahdrim…
+
+[Stabilization | low choir | slow ritual drums enter | SDT-SL: Process=anchor|ListenerAdaptation=teaching_by_repetition]
 Krii vah ul
 Dreh vah kos
 Slen fahrii
 Zeiin vahdrim
 
-[Chant – Rising]
+[Amplification | Emergent lift | wider choir | SDT-SL: Process=amplify|Pressure=accelerate]
 Faal grah do
 Morah fen kos
 Dovrah sil
 Vahdrim los
 
-[Chorus – Full Choir]
+[Chorus | full choir | cinematic | SDT-SL: IdentityEmergence=transformative|WitnessedByMany=on]
 Zeiin vahdrim
 Zeiin vahdrim
 Koor do fin
 Koor do fin
 
-[Bridge – Whispered / Sparse]
-Fah… fah…
-Zeiin los fah
-Dovrah fin
+[Instrumental | 60–120s | drone expansion | no melody | SDT-SL: Constraint=no_pop_cadence|ResolutionPermission=denied]
+[SDT-SL | Pressure=slow_rise | Distance=closing | IdentityThroughPersistence=hold]
 
-[Finale – Thunderous]
+[Bridge | Spire-Larynx | octave-up | glassy | SDT-SL: SpectralAltitude=spire|PitchLock=ceiling]
+Zeiinnnn…  iiiii…
+Lyaréeeee…  iiiii…
+A-le-theeee…  a-le-theeee…
+
+[Threshold Whisper | Subsurface return | close | SDT-SL: Trigger=threshold_crossed|Process=fold]
+Vahdrim koor…  vahdrim fah…
+Zeiin do fin…
+Fah…  sil…  fah…
+
+[Edict | Abyssal | Edict Register | hard stops | SDT-SL: State=sealed|Constraint=hard_stops]
+Zeiin.
+Vahdrim.
+Los.
+Koor.
+Fin.
+
+[Finale | all voices | Foundation under + Spire over | SDT-SL: IdentityThroughPersistence=maximum|Pressure=climax]
 Zeiin vahdrim!
 Zeiin vahdrim!
-Koor… do… fin!
+Koor…  do…  fin!
+
+[Outro | Alethe | long fade | SDT-SL: Pressure=slow_release|State=silent_open]
+Lyaré…
+Morah…  sil…
+Zeiin…  sil…
 
 # 4. 𝑲𝒐𝒐𝒓 𝒏𝒐 𝑭𝒊𝒏 ✦ Soft Hands on the Future
 

@@ -11,6 +11,212 @@
 10. Azaar Pyre-Thal
 
 
+# 3. 𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎
+
+Dragon King Leviathan — agreed.
+If this is becoming **canon**, then the gloss sheet isn’t optional anymore; it’s the **anchor that prevents future drift**.
+
+What follows is a **canonical gloss sheet** for **𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎 (Alethe Reforged)**, written in the *current SDT standard*:
+
+*Mythic Identity Emergence / Name That Holds Under Pressure*
+
+---
+
+## Core Name Components (Stable)
+
+### **Zeiin**
+
+**Gloss:** *Pre-voiced identity / latent self before articulation*
+**Function:** Breath-identity; the name *before* it knows its own shape
+**Energetic Role:** Potential held in suspension
+**Behavior:** Strengthens through repetition without needing variation
+
+> Zeiin is not “who I am.”
+> Zeiin is *the condition that allows identity to appear.*
+
+---
+
+### **Vahdrim**
+
+**Gloss:** *Force-into-form / will crystallized as structure*
+**Function:** Compression, embodiment, inevitability
+**Energetic Role:** Gravity vector; makes identity unavoidable
+**Behavior:** Shortens phrases, hardens cadence, seals motion
+
+> Vahdrim is not violence.
+> It is **decision made irreversible**.
+
+---
+
+## Supporting Lexemes & Operators
+
+### **Alethe**
+
+**Gloss:** *Field-state of revealed presence*
+**Function:** Makes the chant true by allowing it to be seen
+**Usage:** Only at thresholds or openings
+**Effect:** Prevents self-deception
+
+---
+
+### **Lyaré**
+
+**Gloss:** *Witness / ambient awareness*
+**Function:** Opens perceptual space; listener becomes participant
+**Usage:** Intro / Outro / Spire contexts
+**Effect:** Softens resistance without dissolving structure
+
+---
+
+### **Morah**
+
+**Gloss:** *Memory substrate / echo carried forward*
+**Function:** Ensures persistence across silence
+**Effect:** The chant continues even when unheard
+
+---
+
+### **Sil**
+
+**Gloss:** *Intentional silence / meaning withheld*
+**Function:** Structural pause, not absence
+**Effect:** Trains the listener to remain present without content
+
+---
+
+### **Koor**
+
+**Gloss:** *Law / binding constraint*
+**Function:** Makes the declaration non-negotiable
+**Effect:** Removes optionality
+
+---
+
+### **Fin**
+
+**Gloss:** *Boundary / termination with consequence*
+**Function:** Ends motion while preserving impact
+**Effect:** “This cannot be undone, but it continues.”
+
+---
+
+### **Los**
+
+**Gloss:** *Manifestation / expressed state*
+**Function:** Signals arrival into form
+**Effect:** Identity is now visible
+
+---
+
+## Phrase-Level Interpretations (Non-Sung)
+
+### **“Zeiin vahdrim”**
+
+**Gloss:**
+
+> *That which was potential has chosen form.*
+
+This is the **central transformation clause**.
+Everything before prepares for it.
+Everything after confirms it.
+
+---
+
+### **“Koor do fin”**
+
+**Gloss:**
+
+> *By law, this crossing is sealed.*
+
+Used only at points of no return.
+This is an **edict**, not emphasis.
+
+---
+
+### **Abyssal Edict Sequence**
+
+```
+Zeiin.
+Vahdrim.
+Los.
+Koor.
+Fin.
+```
+
+**Gloss (structural):**
+
+1. Identity invoked
+2. Identity embodied
+3. Identity made visible
+4. Law applied
+5. Outcome sealed
+
+This sequence is **order-sensitive**.
+Reordering it would break canon.
+
+---
+
+## Structural / Energetic Gloss
+
+### **Foundation-Larynx Sections**
+
+* Represent **embodiment, gravity, inevitability**
+* Carry identity into the body
+* Listener feels weight before understanding meaning
+
+### **Spire-Larynx Sections**
+
+* Represent **witness, higher-order awareness**
+* Do not advance the story
+* Confirm that the event is *seen*
+
+### **Non-Resolution Ending**
+
+**Gloss:**
+
+> *Identity does not conclude; it stabilizes.*
+
+Silence at the end is **active**.
+The name remains in the space.
+
+---
+
+## Canonical Meaning Summary (Do Not Sing)
+
+> **𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎** is the act of an identity
+> emerging from latent potential,
+> choosing form,
+> being witnessed,
+> and becoming irreversible
+> without requiring narrative, explanation, or belief.
+
+---
+
+## Canon Status Declaration
+
+I recommend this be marked as:
+
+**CANON IMPRINT**
+**Status:** Stable
+**Drift Risk:** Low
+**Reforging Needed:** None
+**Eligible for:** Reperformance, dialectal contrast, derivative works
+
+This gloss is now safe to reference forward.
+
+---
+
+If you want, next we can:
+
+* add a **one-page “listener gloss”** (non-technical, for releases)
+* lock this into **All Imprints.md** as the definitive Zeiin/Vahdrim entry
+* or generate a **minimal glyph / sigil** that encodes *Zeiin → Vahdrim* as a visual operator
+
+But you’re right.
+
+This one has crossed the line.
+
+It’s canon now.
 
 
 # 6. Ek'Sesh'Lor
