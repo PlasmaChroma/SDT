@@ -1,13 +1,16 @@
 
 # Additional Rules Index
+
 1. Adamus Commentary
 2. Spire-Larynx Register (SPLX)
 3. Foundation-Larynx (FDLX)
 4. Abyssal “Edict Register” (AER) — *Voice-of-the-Abyss*
 5. Title naming (Koor restricting)
 6. Bracket directive separators
+7. Suno Generation Guidelines v2
 
 ---
+
 
 # 1. Adamus Commentary
 
@@ -545,3 +548,211 @@ Notice: the spoken tongue didn’t change—**only the meta-operator layer did**
 4. **Version the GO spec** (GO v0.1, v0.2) so future refinements don’t retcon earlier works.
 
 If you want, next we can formalize this as a tiny addendum section (one page) in the same tone as the Primer/Addendum: operator definitions + permitted placements + 4–6 canonical examples—so it becomes a stable “governance layer” the way SDT-SL became a stable “silent layer.”
+
+# 7. Suno Gen_v2 Guidelines (Experimental, Drift-Resilient)
+**Purpose:** Improve structural compliance and dialect choreography in Suno while remaining robust to model updates.
+**Core philosophy:** Section tags are the skeleton; everything else is muscle. If the skeleton is unclear, the body flails.
+
+---
+
+## 0) Prime Directive
+**Always start bracket text with a Suno-recognizable SECTION label.**
+Then add dialect/register, then 1–3 execution cues.
+Everything else is optional metadata.
+
+**Tag order (priority stack):**
+1) **SECTION** (required): Intro / Verse / Chorus / Bridge / Outro  
+2) **Dialect / Register** (strong): `Dialect: Alethe`, `Dialect: Subsurface`, `Abyssal | Edict Register`, `Foundation-Larynx`, `Spire-Larynx`  
+3) **Delivery** (medium): whisper, close-mic, chant, breath-led, spoken-not-sung  
+4) **Arrangement constraints** (medium): no beat, drone, sparse, no English  
+5) **Operators** (soft): SDT-SL / GO stacks (kept short)
+
+---
+
+## 1) The Directive Budget (Don’t “shopping-list” Suno)
+Per section header: **2–4 cues total** after the section label.
+If you need more than 4, move it to the **Style box** or cut it.
+
+**Recommended header format (compact):**
+`[Verse 1 | Dialect: Subsurface | whisper | close-mic]`
+
+**If Suno is averaging your directives**, use the **cue-lines format (tokenized):**
+[Verse 1]
+[Dialect: Subsurface]
+[whisper]
+[close-mic]
+
+(Use cue-lines on “problem sections” only; keep the rest compact.)
+
+---
+
+## 2) Compatibility Modes (Choose one per track)
+### Mode A — Compatibility (Most obedient across model updates)
+Use only these section tags:
+**Intro, Verse, Chorus, Bridge, Outro**
+
+Put SDT ritual semantics in the descriptors:
+`[Intro | Dialect: Alethe | breath-led | no beat]`
+
+### Mode B — Ritual (More expressive, slightly less predictable)
+Allowed extra section tags:
+**Invocation, Interlude, Seal, Overtone, Descent, Receipt**
+
+Rule: If you use a ritual tag, anchor it with a standard tag too:
+`[Bridge / Seal | Dialect: Abyssal | Edict Register | monolithic]`
+
+---
+
+## 3) Micro-Control: Encode performance as “lyrics-shaped” signals
+Suno is more reliable when cues look like singable structure.
+
+**Use:**
+- **Letter-stretch** for sustain: `Lyaréeeee…`
+- **Ellipses** for pauses: `Zuur… thal… nyathe…`
+- **Hyphens** for clipped hits: `kor-kor-kor`
+
+**Avoid:**
+- Parentheses for stage directions if you don’t want them sung.  
+  (If you must imply breath, do it with ellipses or spacing instead.)
+
+---
+
+## 4) Dialect/Device Naming Rule (Make it unambiguous)
+Dialect names alone can be interpreted as “vibe words.”
+Label them.
+
+**Prefer:**
+- `Dialect: Alethe`
+- `Dialect: Subsurface`
+- `Dialect: Emergent`
+- `Dialect: Abyssal | Edict Register`
+- `Register: Spire-Larynx`
+- `Register: Foundation-Larynx`
+
+**Avoid:**
+- Bare `[Alethe | ...]` as the *only* structural cue.  
+  (If you do it, pair with a section tag: `[Intro | Alethe | ...]`)
+
+---
+
+## 5) Where Things Belong (Separation of concerns)
+### Lyrics Brackets control:
+- structure (sections)
+- vocal delivery (whisper/chant/close-mic)
+- dialect/register selection
+- a tiny number of local constraints (e.g., no English)
+
+### Style box controls:
+- instrumentation, mix, space, tempo, overall mood geometry
+- global constraints (no drums, drone, sparse, cinematic, etc.)
+
+**Redundancy rule:** If something is mission-critical (e.g., “no English”),
+put it in **Style** AND in the **first two section headers** only.
+Do not repeat it everywhere.
+
+---
+
+## 6) Operator Discipline (SDT-SL / GO stacks that don’t collapse the model)
+Operators are valuable, but they are *soft*—Suno may not honor all of them.
+
+**Operator budget:** 0–2 operator clauses per section header.
+
+**Good:**
+`[Verse 1 | Dialect: Subsurface | whisper | SDT-SL: PressureDensity=low→mid]`
+
+**Too much (averaging risk):**
+`[Verse 1 | Dialect: Subsurface | whisper | close-mic | temple | huge | ... | SDT-SL: ... | GO: ... | ...]`
+
+**Rule:** If an operator matters, reflect it *audibly* too:
+- “PressureDensity high” → more repetition, denser vowels, fewer unique tokens
+- “Resolution withheld” → no cadences, avoid “arrival” motifs
+
+---
+
+## 7) Slider Strategy (Obedience vs Surprise)
+Treat sliders as a **compliance dial**:
+- If Suno is ignoring structure: move toward **obedience** (less chaos).
+- If you have structure locked: then move toward **surprise** in later iterations.
+
+**Workflow rule:** Never chase both at once.  
+First pass = obedience pass.  
+Second pass = artistry pass (Replace Section / Extend).
+
+---
+
+## 8) Iteration Protocol (Assume you’ll surgically repair)
+If one section fails:
+1) Leave the rest of the track intact.
+2) **Replace Section** with a stricter header (cue-lines if needed).
+3) Reduce that section to 2 cues + labeled dialect.
+4) Add micro-control in the lyric line itself (ellipses/hyphens/stretches).
+
+---
+
+## 9) Drift-Resilience Test Suite (Run after any perceived model change)
+Generate these 4 micro-tests (30–60s each) to see what changed:
+
+**Test 1 — Section parsing**
+[Intro]
+[Verse 1]
+[Chorus]
+[Bridge]
+[Outro]
+
+**Test 2 — Dialect labeling**
+[Verse 1 | Dialect: Subsurface | whisper]
+[Verse 2 | Dialect: Abyssal | Edict Register | spoken-not-sung]
+
+**Test 3 — Micro-control**
+Use only: ellipses, hyphens, letter-stretch, no other directives.
+
+**Test 4 — Cue-lines vs compact**
+Run the same verse both ways; compare obedience.
+
+Log results as:
+- Structure obeyed? (Y/N)
+- Dialect obeyed? (Y/N/Partial)
+- English leakage? (Y/N)
+- Drift style? (more melodic / more percussive / more ambient)
+
+---
+
+## 10) Canon Safety (Non-negotiables)
+- Spoken SDT roots/dialects do not get redefined to chase model behavior.
+- If Suno changes, we adapt *annotation strategy*, not the tongue.
+
+---
+
+## 11) Copy/Paste Skeletons
+### Skeleton A — High Compliance (Compatibility Mode)
+[Title | SDT: _____ | meaning-hint: _____ | do not sing meaning]
+
+[Intro | Dialect: Alethe | breath-led | no beat]
+Lyaré… a-le-the… lyaré…
+
+[Verse 1 | Dialect: Subsurface | whisper | close-mic]
+Zuur… thal… nyathe…
+Sur… sur… dreth…
+
+[Chorus | Dialect: Emergent | chant | wide]
+Mer-ra… mer-ra… los…
+
+[Bridge | Dialect: Abyssal | Edict Register | spoken-not-sung]
+No fin.
+No fin.
+
+[Outro | Dialect: Alethe | thinning | silence]
+Lyaréeeee…
+
+### Skeleton B — Ritual (Anchored)
+[Invocation | Intro | Dialect: Alethe | breath-led]
+...
+
+[Descent | Verse 1 | Dialect: Subsurface | whisper]
+...
+
+[Seal | Bridge | Dialect: Abyssal | Edict Register]
+...
+
+[Receipt | Outro | Register: Foundation-Larynx | floor-pinned]
+...
