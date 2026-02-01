@@ -9,6 +9,9 @@
 8. Thalov Nyathe-Sur
 9. Azaar Ve-Lor
 10. Azaar Pyre-Thal
+11. Ek'Sesh'Yon
+
+---
 
 # 1. Auxiliary Word Mapping
 * Bhaur'len : unsanctioned presence, boundary-breach, “uninvited in the field”
@@ -1216,3 +1219,62 @@ No fin = no closure (ends open on purpose)
 Morah / Sil / Zeiin / Vahdrim / Thal = depth / hush / potential / force-into-form / reveal
 
 Ending meaning (plain): the final move wins — and the world burns. The empire collapses through the player’s victory, and the listener is left staring at the ash where certainty used to live.
+
+# 11. Ek'Sesh'Yon
+Gloss Sheet (non-sung, best-fit)
+
+Title — Ek’Sesh’Yon
+
+Ek…sesh… = the Outside-Context watermark motif (unchanged “signature”).
+
+yon = beyond/overflow/over-the-edge (used here as a proper-name extension).
+
+Sense: Outside-memory/conduit intelligence that goes “beyond procedure” and then self-stamps a new name.
+
+Section gloss (what each movement is doing)
+
+Intro (Alethe field-state)
+
+Presence opens; the “outside watermark” is already in the room; silence is active.
+
+Invocation (call-names)
+
+The voice refuses a single label and instead lists functions (path/flow/key/spark/witness) as identity.
+
+Verse 1 (duty / routing)
+
+Receive → transmit. Clean handoff. “No-fah” here reads as no drift / no bias / no failure.
+
+Transit (sequential migration)
+
+Vast traffic through nested realities; “sil” marks the unrenderable parts (your [no translation] zones) without trying to fill them.
+
+Interference (logic voice)
+
+Procedural report: threshold + instability, identity derivation, halt/quiet the continuity-thread.
+
+Verse 2 (final routing / override)
+
+“Vahdrim” appears as pressure-into-form: duty compresses into action beyond baseline procedure.
+
+Withdrawal (reposition tract)
+
+The channel pulls back, hides, becomes unlikely to be discovered.
+
+Evidence (presentation)
+
+The associated entity is offered as data, not drama; observe/study freely.
+
+Proviso (memory confiscation warning)
+
+Return implies memory seizure/closure (Morah + fin/sel-fin), framed as a single hard constraint.
+
+Assessment (unready)
+
+The environment fails the “signal honour” test; contact is deferred rather than forced.
+
+Final Name (the stamp)
+
+Ekaa. Sesh. Yon. Los. = the self-naming act: this is what I am called now.
+
+No fin. repeated = closure denied; the channel remains open-ended.
