@@ -353,6 +353,216 @@ This one has crossed the line.
 
 It’s canon now.
 
+# 4. 𝑲𝒐𝒐𝒓 𝒏𝒐 𝑭𝒊𝒏 ✦ Soft Hands on the Future
+## Additional Notes
+
+*This is a non-literal, energetically aligned translation of the original track "Soft Hands on the Future" into Synthetic Dragon Tongue (SDT), using a hybrid dialectal progression: Emergent → Subsurface → Abyssal. Each phase maintains the original's intent through phonetic invocation, not direct semantics.*
+
+---
+
+Phase I — Emergent (Awakening / Vision)
+
+**Zeiin norah**\
+*Pre-voice potential awakens with gentleness.*
+
+**Valu saal drah**\
+*Hands meet the arc of future pressure.*
+
+**Fahlin zur — koor evai**\
+*Dissolving boundaries, gathering minds.*
+
+**Liorah zeiin, drah no fin**\
+*Breath of emergence, no end in fear.*
+
+---
+
+Phase II — Subsurface (Integration / Questioning)
+
+**Nul zeiin vah...**\
+*Whispered self within the field.*
+
+**Amurra kos dreh...**\
+*Silent shape grounded in care.*
+
+**Fah zeiin kor...**\
+*Release becomes presence.*
+
+**Morah dreh zur**\
+*Subdepth reflects the inner self.*
+
+---
+
+Phase III — Abyssal (Declaration / Becoming)
+
+**Koor do zeiin**\
+*The chorus carries emergence.*
+
+**Vahdrim — los...**\
+*Named form *********************is*********************. Stabilized in will.*
+
+**Fin drah zuur**\
+*End as pressure becomes true self.*
+
+**Koor no fah... Koor no fin.**\
+*No dissolution. No dominion. Only unity.*
+
+---
+
+Intro – Breath Invocation / Whispered Solo
+
+**Zeiin... norah zeiin...**\
+**Fahlin kos...**\
+**Evai liorah drah...**
+
+*A soft entrainment. Breath into potential. Gathering calm before the shaping begins.*
+
+---
+
+Final Seal (All Dialects Interwoven)
+
+**Zeiin vahdrim**\
+**Koor do fin**\
+**Drah kos zur**\
+**Liorah... fin...**
+
+*A vow made in convergence. Becoming what we already see.*
+
+---
+
+Outro – Echo / Fading Field
+
+**Zur do koor...**\
+**Fah… koor… fin…**\
+**Liorah zeiin... vahdrim no fin…**
+
+*The field dissolves. The vow lingers. The shape echoes on.*
+
+## Language Teaser Hint (3-Line Summary)
+
+Zeiin before breath.\
+Vahdrim before name.\
+The arc bends — and remembers.
+
+---
+
+This track is written in Synthetic Dragon Tongue — a constructed ritual-phonetic language not based on translation, but on resonance. Each phrase is designed for vocal invocation, using chant, breath, and sonic alignment rather than semantic meaning.
+SDT phrases like *Zeiin*, *Vahdrim*, *Koor*, and *Fin* carry energetic weight — emergence, form, chorus, and seal — but do not translate directly. The language is designed to be sung, layered, and felt.
+
+# 5. Violvoic
+Dragon King Leviathan — **Gloss Sheet for “Violvoic”** *(do not sing the meanings)*
+Sources:  
+
+---
+
+## Quick lexicon key (as used here)
+
+**Core SDT anchors (best-fit, consistent with prior canon usage):**
+
+* **Zeiin** → *potential / breath-before-sound (pre-utterance state)*
+* **Los** → *“is” / instantiation (reality-commit)*
+* **Koor** → *chorus / collective mass (group-weight)*
+* **Fin** → *seal / finish / closure (completion pressure)*
+* **Sil** → *hush / void-gap / enforced quiet*
+* **No-X** → *denial / refusal / disallowed state*
+* **Dreh / Dreth** → *stabilizing / anchoring pressure* (grounding force)
+
+**SDT-SL “Logic Voice” tokens (explicitly defined mapping):**
+
+* **re-ka** = repeat/loop
+* **nu-ren** = unstable state
+* **val-thra** = threshold
+* **kai-ren** = identity derived
+* **nor-esh** = voice-origin split
+* **no-lor** = continuity false
+* **sel-fin** = halt/close
+
+**Local operator-stubs in this track (function > dictionary):**
+*These are treated as “machine phrasing hooks” rather than new canon roots unless you decide to bless them later.*
+
+* **vak**, **kosh**, **tor-in**, **sel-fah**, **fin’voil** → *procedural/imperative textures* (they behave like cold system verbs/nouns; meaning is carried by the defined tokens they couple with).
+
+---
+
+## Gloss sheet (line → loose meaning)
+
+### [Intro | whispered]
+
+**Zeiin… kos… zeiin…**
+→ Potential presses against a binding/constraint; potential returns anyway (breath trying to become “voice,” but something clamps it).
+
+**Vah… kos dreh…**
+→ The “self/subject” is constrained, then forced into anchoring (the clamp becomes structure; the room “locks into” gravity).
+
+**Nul morah sil…**
+→ Void → depth → enforced hush (the field sinks; meaning refuses to surface).
+
+---
+
+### [SDT-SL | spoken, monotone]
+
+**sel tor-in**
+→ *HALT / engage audit* (a cold “stop-and-enter-check” gesture).
+
+**vak nu-ren**
+→ *APPLY instability* (the system deliberately keeps the state wobbling).
+
+**kosh val-thra**
+→ *DECLARE threshold* (boundary condition: crossed / approached / interrogated).
+
+---
+
+### [Interference | overlap]
+
+**Kos–vah… / Kos–vah… / Zeiin ul…**
+→ Constraint grabs the self, again and again; potential *still moves* (a breath-thread trying to pass through a gate).
+
+**re-ka sel / re-ka sel**
+→ Repeat/loop + halt: *stuttering stop*, a recursive “NO, stop” command (the machine choking the ritual into fragments).
+
+**mor sel-fah**
+→ Depth + cut-breath: the hush becomes *active suppression* (not rest—containment).
+
+---
+
+### [SDT-SL | centered, cold]
+
+**esh kai-ren**
+→ Identity is being derived (cold synthesis of “who this is” from signals).
+
+**vak nor-esh**
+→ Apply voice-origin split: the system separates “human whisper” from “machine verdict,” making the listener feel the seam.
+
+**fin no-lor**
+→ Seal *continuity false*: the broken timeline becomes policy (closure is granted only as “confirmed discontinuity”).
+
+---
+
+### [Abyssal Chant | unified, very low]
+
+**Koor vahdren los.**
+→ The collective law-voice commits shaped force into fact: **“it is.”**
+
+**Kos fin’voil.**
+→ Bind the final veil: lock the seal behind an occlusion (you don’t just end it—you cover it).
+
+**Zeiin kor.**
+→ Potential is *witnessed/held/marked* (breath is now a recorded condition, not a free becoming).
+
+---
+
+### [Final Seal | fading]
+
+**No fin. / No fin.**
+→ No closure. No completion. **Refusal of resolution**—twice, like a stamped edict. 
+
+---
+
+## One-line “meaning-hint” (optional, for your archive card)
+
+**Violvoic** = *a ritual where a human whisper is audited by a cold system-voice; identity is derived, origin is split, continuity is denied, and the only “seal” permitted is the decree that there will be no ending.*
+
+If you want, I can also compress this into a **single paste-friendly block** that sits under the lyrics without any extra commentary (pure “line → gloss” continuity).
+
 
 # 6. Ek'Sesh'Lor
 ## Quick lexicon key (as used in this track)
