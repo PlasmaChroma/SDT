@@ -408,7 +408,7 @@ Zur Vahdrim ⟂
 Fin Thal ᵃ ::
 
 # 6. Bracket directive separators
-According to a document from January 16, 2026, the most reliable pattern is: use the pipe | to “stack” multiple bracket directives, and reserve commas for lists inside a single directive/value.
+The current known reliable pattern is: use the pipe | to “stack” multiple bracket directives, and reserve commas for lists inside a single directive/value.
 
 Practical rule of thumb (works great for SDT too)
 

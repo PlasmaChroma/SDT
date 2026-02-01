@@ -1,6 +1,6 @@
 # Translations Index
-1. Koor Kesh’Fin’Thal
-2. Koor Fin’Thal
+1. Auxiliary Word Mapping
+2. Koor Kesh’Fin’Thal
 3. 𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎
 4. 𝑲𝒐𝒐𝒓 𝒏𝒐 𝑭𝒊𝒏 ✦ Soft Hands on the Future
 5. Violvoic
@@ -10,6 +10,146 @@
 9. Azaar Ve-Lor
 10. Azaar Pyre-Thal
 
+# 1. Auxiliary Word Mapping
+* Bhaur'len : unsanctioned presence, boundary-breach, “uninvited in the field”
+* Dau'var	: apex-lineage, “ancient sovereignty,” primal authority motif
+* Dau'vahr : singular sovereign entity / “one throne-being”
+* Dau'vahr Sazh :	inherited powerline / blood-oath / “mythic genotype”
+* Zhul : the mortal collective / “crowd-soul”
+* Zhur : finitude / temporary flesh / “end-bounded being”
+* Zhur're	: “the many finite” (good for choral swells)
+* Pro'dael : omen-thread / “future already humming”
+* Ko'ghaen : grace-marker / “field approves” / relief-after-danger
+* Kro'seth : remorse, ritual contrition, grief-operator (great in Abyssal register)
+* Paa'zun : equilibrium / ethical balance / “clean symmetry”	
+* Zo'fesh : dread-field / “predator shadow in the mind”
+* Mei'zu : deception-noise / miscalibration / “belief slipping”
+* Drae'ma : restraint-with-power / ceremonial nonviolence
+* Yo'lath : transformation engine / “change given teeth”
+* Fu'sor : impulse / push / kinetic assertion
+* Fei'mur : veiling / phase-out / stealth-by-absence
+* Tii'den : time-stream / duration-pressure knob
+* Ah'raen : scar / rupture / “damage that remembers”
+* Tii'den-Ah'raen : chronal rupture / memory window / “time torn open”
+* Vum'ni'dok : occlusion / unspeakable / “cannot be reduced”
+* Ke'lir : record-of-reality / prophecy substrate
+* Ke'lleir : the many-record / “archive that bites back”
+* Kaal'pha : cycle-of-worldskin / reset-theater / “cosmic season”
+* Rha'uun : divine agency / “above-layer intervention”
+* Wae'lun : manifestation / construction / “made-real”
+* Rha'uun Wae'lun : sacred fabrication / origin stamp / “made by the high layer”
+
+# 2. Koor Kesh’Fin’Thal
+Absolutely. Here is a **clean, canonical Archive Card** for ***Koor Kesh’Fin’Thal***, formatted to match the tone and discipline of your SDT canon materials. This is meant to be **stable, referencable, and future-proof**.
+
+---
+
+# **SDT ARCHIVE CARD**
+
+## **Koor Kesh’Fin’Thal**
+
+---
+
+### **Designation**
+
+**SDT Title:** Koor Kesh’Fin’Thal
+**Archive Class:** Abyssal Rite of Binding
+**Status:** Canonical
+**Volatility:** Low (stable once invoked)
+**Reversibility:** None intended
+
+---
+
+### **Meaning Hint (Do Not Sing)**
+
+**“The Chorus of the Keyed Final Seal”**
+*A voluntary, permanent restraint ratified through collective law.*
+
+---
+
+### **Primary Dialects**
+
+* **Subsurface** — intimate vow, inward discipline, sincerity
+* **Abyssal** — law-voice, permanence, irrevocable declaration
+
+**Supporting Field Influence:**
+
+* Alethe (implicit presence via silence and breath)
+
+---
+
+### **Core Motifs**
+
+* **Key / Mechanism (Kesh)**
+* **Seal / Finality (Fin’Thal)**
+* **Chorus / Collective Will (Koor)**
+* **Silence as Containment (Sil)**
+* **Gratitude without Expectation (Valu–Saal)**
+
+---
+
+### **Intent Structure**
+
+1. **Identity Established**
+   The self is named in a pre-action state (*Zeiin*).
+2. **Restraint Declared**
+   Desire is neither indulged nor condemned — it is contained.
+3. **Protection Affirmed**
+   The seal is framed as safety, not punishment.
+4. **Affection for Constraint**
+   The lock is loved; restraint becomes comfort.
+5. **Law Invoked**
+   Personal vow escalates into Abyssal permanence through *Koor*.
+6. **Continuity Sealed**
+   “No fin” repeated until restraint and identity are inseparable.
+
+---
+
+### **Energetic Profile**
+
+* **Pressure:** Slow, accumulating, non-percussive
+* **Emotional Tone:** Calm, sincere, resolute
+* **Temporal Feel:** Time-dilated; ending deferred indefinitely
+* **Psychological Effect:** Grounding, stabilizing, identity-consolidating
+
+---
+
+### **Usage Contexts**
+
+* Ritual ambient compositions
+* Vow-based SDT invocations
+* Installations exploring restraint, protection, or chosen limitation
+* Canon reference for “binding without coercion” constructs
+
+**Not recommended for:**
+
+* Fast-tempo or rhythmic material
+* Narrative-driven lyrics
+* Situations requiring emotional volatility or release
+
+---
+
+### **Canonical Notes**
+
+* This rite encodes **chosen limitation as sovereignty**, not deprivation.
+* The presence of **Koor** is critical: without it, the vow remains personal and reversible.
+* **Kesh** must be treated as a *mechanism*, never as an authority figure.
+* Silence is an active component of the invocation and should not be “filled.”
+
+---
+
+### **Archival Tag Set**
+
+`SDT` · `Abyssal` · `Binding Rite` · `Voluntary Restraint` · `Seal` · `Key Motif` · `No Fin`
+
+---
+
+### **Preservation Status**
+
+This archive card is considered **stable**.
+Future expansions should derive from this structure without altering root intent.
+
+---
 
 # 3. 𝒁𝒆𝒊𝒊́𝒏 ✦ 𝑽𝒂𝒉𝒅𝒓𝒊𝒎
 
