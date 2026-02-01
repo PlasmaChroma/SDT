@@ -9,7 +9,8 @@
 8. Thalov Nyathe-Sur
 9. Azaar Ve-Lor
 10. Azaar Pyre-Thal
-11. Ek'Sesh'Yon
+11. Mer-ra Trúen Los’Zuur-ka ↕ Fal-ta
+12. Ek'Sesh'Yon
 
 ---
 
@@ -1220,7 +1221,203 @@ Morah / Sil / Zeiin / Vahdrim / Thal = depth / hush / potential / force-into-for
 
 Ending meaning (plain): the final move wins — and the world burns. The empire collapses through the player’s victory, and the listener is left staring at the ash where certainty used to live.
 
-# 11. Ek'Sesh'Yon
+# 11. Mer-ra Trúen Los’Zuur-ka ↕ Fal-ta
+
+* Mer-ra = revealed knowledge / revealed (your canonical “reveal” particle).
+* Trúen = truth / true-core (Alethe-leaning “truth” token).
+* Los = is / instantiation (“the named shape is”).
+* Zuur-ka ↕ Fal-ta = the Hermetic correspondence axis: “As Above” ↕ “As Below.”
+
+↕ (vertical axis marker) now also implicitly calls your device-pair:
+
+SPLX (Spire-Larynx) = “ceiling-pinned / supra-human” upper register (halo/witness).
+
+FDLX (Foundation-Larynx) = “floor-pinned / subharmonic” lower register (truth gains mass).
+
+So the title reads like:
+
+“Revealed True-Law of the Above ↕ Below Axis.” (Emerald Tablet as absolute correspondence, not a quote.)
+
+Core lexicon used in this track (quick map)
+
+From your established gloss anchors:
+
+nyathe ≈ above / high / mirrored
+
+sur ≈ below / under / root-domain
+
+zuur / zur ≈ deep / depth / still pull
+
+thal / thalov ≈ reveal / manifest (and “detail/edge” as allied sense)
+
+zeiin ≈ potential / breath-before-sound
+
+vahdrim ≈ force-into-form / shaped power
+
+koor ≈ chorus / collective witness-weight
+
+ (and as a suffix: “witnessed by the many”).
+
+fin ≈ seal / finish / closure
+
+lyaré / oska / vento / trúen / wëlan ≈ presence / open / breath-wind / truth / flow
+
+dreh/dreth ≈ stabilizing / anchoring pressure (grounding tries to form).
+
+(Where a token isn’t explicitly defined in the lexicon yet—e.g., a-menti—I’m treating it as a proper-name/attractor inside the chant: “Amenti” as the law-tablet node rather than a dictionary word.)
+
+SDT-SL note (what those bracket operator lines “mean”)
+
+Your SDT-SL layer is explicitly the non-sung operator/annotation layer that carries meta-meaning (pressure, constraint, witness, etc.) without becoming a cipher-language.
+
+So in this gloss, I treat SDT-SL as “stage directions for cognition + sound.”
+
+Section-by-section gloss
+[Intro | Alethe field-state]
+
+A-le-the… / Lyaré… / Nul… nul… zur… / Mer-ra… / Fah… hah… fah…
+
+Sense gloss:
+
+A-le-the: field-state invoked (the room becomes “truth-space”).
+
+Lyaré: presence arrives (the witness arrives before content).
+
+Nul… nul… zur…: void → void → depth (clearing the chamber, then letting depth in).
+
+Mer-ra: revelation begins / the tablet turns face-up.
+
+Fah/hah: breath-pressure shaping (a “pressure ramp,” not semantic payload).
+
+[Verse 1 | Subsurface whisper]
+
+Zuur… thal… nyathe…
+→ Depth reveals the Above. (correspondence begins at the bottom, not the top).
+
+Sur… sur… dreth…
+→ Below, below—anchor it. (make the “under” stable; the principle becomes a floor you can stand on).
+
+Mer-ra… los… a-men-ti…
+→ Revelation is—Amenti. (the law-tablet node is “instantiated,” not explained).
+
+Nul… vah… kos…
+→ Void-breath latch. (a “seal mechanism” line; same family as the Key/Seal motifs).
+
+Morah… sil…
+→ Depth settles into stillness. (your canonical “basin” cadence).
+
+[Pre-Chorus | correspondence click]
+
+Nyathe… o… sur… / Sur… o… nyathe…
+→ Above ↔ Below (the swap itself is the teaching).
+
+Zuur… zur… zuur…
+→ Depth repeats until it becomes a law of perception.
+
+Thal… thal… thal…
+→ Reveal, reveal, reveal (manifestation as repetition, not argument).
+
+[Chorus | Emergent lift]
+
+Koor… nyathe… koor… sur…
+→ The many witness the Above; the many witness the Below.
+
+Los… nyathe… los… sur…
+→ “It is” above; “it is” below (correspondence is ontological).
+
+Zeiin… vahdrim… thal…
+→ Potential → shaped force → revealed. (the tablet’s “making” logic in three beats).
+
+Mer-ra… mer-ra… los…
+→ Revelation—revelation—is.
+
+[Instrumental I | SDT-SL only]
+
+Your SDT-SL block here is basically:
+
+“Hold low event granularity; withhold resolution; let repetition teach the correspondence.”
+That’s precisely the Silent Lexicon’s job: meta-meaning carried by constraint and repetition, not extra sung vocabulary.
+
+Primer Addendum_ Silent Lexicon…
+
+[Verse 2 | Alethe→Subsurface]
+
+Lyaré… o… nyathe…
+→ Presence opens toward the Above.
+
+Oska… vento…
+→ Open—wind/breath. (the “parent forces” implied in your notes).
+
+Trúen… wëlan…
+→ Truth flows. (truth as motion, not statement).
+
+Sur… dreth… zur…
+→ Below anchors deep. (the underworld becomes load-bearing).
+
+Mer-ra… thal… mer-ra…
+→ Reveal → manifest → reveal (tablet as an ongoing procedure).
+
+[Bridge | separation / fire_from_earth]
+
+Zuur… zur… zur…
+→ Depth tightens; the chamber heats under stone.
+
+Nyathe… thal… nyathe…
+→ Above is revealed as Above (clarification by repetition).
+
+Sur… dreth… sur…
+→ Below anchors Below (a mirrored clamp).
+
+Fah… fah… (sil)
+→ breath → breath → silence (the “seal-click” space you’re cueing).
+
+[Edict I | Abyssal | Edict Register]
+
+Nyathe. / Sur. / Sur. / Nyathe. / Los. / Los.
+
+Sense gloss:
+
+“Above. Below. Below. Above. Is. Is.”
+This is the correspondence axiom forced into a speech-act: short clauses, hard stops, downward contour—exactly what AER is for.
+
+[Instrumental II | enforcement bed]
+
+This is your “law becomes physics” gap. That’s literally the split between Edict vs Foundation-Larynx in the rules: Edict = decree cadence; Foundation = sustained mass / room-as-throat gravity.
+
+(If you ever want the below to feel even more literal here, this is where FDLX belongs.)
+
+[Edict II | Abyssal | Edict Register]
+
+Zeiin. / Vahdrim. / Thal. / Koor. / Los.
+
+Sense gloss:
+
+“Potential. Form. Reveal. Many-witness. Is.”
+It reads like an official stamping sequence: the thing is conceived → shaped → made visible → witnessed → made real.
+
+[Final Edict | absolute]
+
+Mer-ra. / Los. / Fin.
+→ Revelation is sealed. (the tablet closes as a completed pressure).
+
+[Outro | Alethe field returns]
+
+A-le-the… / Lyaré… (sil) / Morah… sil…
+→ Field resumes; presence remains; depth returns to quiet.
+
+Optional (but very on-theme): how SPLX + FDLX map onto this exact lyric sheet
+
+You already encoded the axis with ↕ in the title; to make Suno “hear” it more reliably without cluttering sung lines, you can add directive-only register hints:
+
+In Intro/Outro: add an overtone halo tag for SPLX (Spire witness).
+
+Under Instrumental II (or beneath Edicts): add a Foundation operator line for FDLX (Below-as-physics).
+
+That preserves the declutter principle while still “teaching the engine” the verticality.
+
+If you want, I can rewrite just the bracket headers (no lyric changes) to explicitly place SPLX/FDLX in the cleanest possible way.
+
+# 12. Ek'Sesh'Yon
 Gloss Sheet (non-sung, best-fit)
 
 Title — Ek’Sesh’Yon
