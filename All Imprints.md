@@ -11,6 +11,7 @@
 10. Azaar Pyre-Thal
 11. Mer-ra Trúen Los’Zuur-ka ↕ Fal-ta
 12. Ek'Sesh'Yon
+13. Bhaur’len — Nul’Fin Koor’Thal
 
 ---
 
@@ -904,3 +905,87 @@ No fin.
 Lyaré… (thin)
 Morah… sil…
 A-le-the… (sil)
+
+# 13. Bhaur’len — Nul’Fin Koor’Thal
+
+## Style Prompt
+Dark cinematic ritual / protest liturgy. Slow-tempo, huge low-end, subharmonic drones, sparse percussion like distant batons on stone (nonliteral), choral swells that feel like “the many” arriving. No English narration. Alternate: whisper-close Subsurface vocals → percussive Abyssal Edict declarations → Foundation-Larynx seismic vowel mass. Resist pop resolution; end in held silence.
+
+Slider starting points (coherence-biased)
+Weirdness: 35–45%
+Style Influence: 65–80%
+Audio Influence (if any): ≤20% 
+
+## Lyrics Prompt
+[Title | SDT: Bhaur’len ⟂ Nul’Fin Koor’Thal | meaning-hint: Counter-edict against imposed power; consent as law; unsanctioned presence (Bhaur'len) | do not sing meaning]
+
+[Intro | Alethe | breath-led | no beat | distant civic-space reverb | GO: Manif=unsanctioned | Witness=system | Motifs=zo'fesh]
+A-le-the…  a-le-the…
+Lyaré…  lyaré…
+Zo’fesh…  zo’fesh…
+Nul…  nul…  zur…
+(sil) … (sil)
+
+[Verse 1 | Subsurface whisper | close-mic | tremor | GO: Seal=imposed | Denial=irreversible | Witness=system | Motifs=bhaur'len|kro'seth]
+Bhaur’len…  bhaur’len…  (sil)
+Zuur…  kesh…  ul…
+Zo’fesh…  nul…  kos…
+Kro’seth…  morah…  sil…
+Nul vah…  kos…  dreth…
+
+[SDT-SL | GO: Manif=unsanctioned | Seal=imposed | Denial=irreversible | Witness=system | PressureDensity=mid→high | ResolutionPermission=denied | Motifs=bhaur'len|zo'fesh|kro'seth]
+
+[Chant I | Foundation-Larynx | subharmonic floor-pinned | long vowels | “law as physics” | Motifs=zhul]
+Oooo…  aaaa…  oooo…
+Zhul…  zhul…  zhuuul…
+Fah…  vah…  fah…
+Nuuul…  fiiin…  nuuul…
+(sil) …
+
+[Edict A | Abyssal | Edict Register | glottal hammer | hard stops | short clauses]
+BHAUR’LEN.  (UNSANCTIONED)
+ZO’FESH.  (MASK)
+NUL.  FIN.  (NO SEAL)
+MORAH.  SIL.
+NUL.  NUL.  (STOP)
+
+[Pre-Chorus | Emergent | pulse begins (slow) | chorus distant | GO: Denial=reversible | Witness=many | Motifs=zhul|koor]
+Zhul…  koor…  zhul…
+Thal…  thal…  thal…
+Nul fin…  nul fin…
+Koor thal…  koor thal…
+
+[SDT-SL | GO: Seal=voluntary | Denial=reversible | Witness=many | PressureDensity=high | ResolutionPermission=withheld | Motifs=zhul|koor]
+
+[Chorus | Full choir | huge ritual protest energy | call/response]
+Zhul koor fin
+Zhul koor fin
+Zhul thal vah kos
+Zhul thal vah kos
+Nul’fin!  Nul’fin!
+Koor’thal!  Koor’thal!
+
+[Instrumental | 60–90s | siren-like synth (nonliteral) | no lyrics | deny neat cadence]
+[SDT-SL | Constraint=no_pop_cadence | AuditTrail=tick | Breath=audible | ListenerAdaptation=teaching_by_repetition | Motifs=zo'fesh]
+
+[Bridge | Spire-Larynx | glass halo witness | octave-up | purity without sweetness | Motifs=kro'seth]
+Lyaréeeee…  iiiii…
+Kro’seth…  kro’seth…
+A-le-theeee…  a-le-theeee…
+Thaaaal…  thaaaal…
+(sil) …
+
+[Counter-Edict | Abyssal | Edict Register | articulate consonants | “consent as boundary”]
+BHAUR’LEN.  NUL.  (NO CLAIM)
+ZO’FESH.  NUL.  (NO MASK)
+KESH.  (NOT IMPOSED)
+FIN.  (ONLY VOLUNTARY)
+THAL.  (TRUTH)
+KOOR.  (WITNESS)
+
+[Outro | Foundation-Larynx → Subsurface | floor holds | then human breath | end in silence]
+Oooo…  oooo…  (long)
+Zhul…  zhul…
+Kro’seth…  morah…
+Nul…  nul…
+(sil) … (sil) … (sil)
