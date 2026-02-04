@@ -16,6 +16,108 @@
 ---
 
 # 1. Auxiliary Word Mapping
+
+## Core anchors
+* Alethe : revealed field-state / truth-space
+* Lyaré : witness-presence / perceptual opening
+* Zeiin : breath-potential / pre-utterance identity
+* Vahdrim : force-into-form / decision made structural
+* Los : instantiation / “is” made-real
+* Koor : collective witness / law-by-many
+* Fin : termination boundary / seal
+* Thal : reveal / manifest / render
+* Morah : memory-gravity / echo carried forward
+* Sil : intentional hush / meaning withheld
+* Nul : void-no / flat negation
+* Vah : self-pulse / will-syllable
+* Kos : clamp / constraint / binding pressure
+* Dreh : grounding pressure / stabilizer
+* Dreth : anchored stabilizer / lock-in
+* Fah : exhale / pressure pulse
+* Hah : aspirated breath / pressure accent
+* Ul : desire-charge / temptation pull
+* Thrah : oath-stamp / vow weight
+* Kor : mark / held witness (single-stamp)
+* Kesh : key-mechanism / lock motif
+* Tik : time-tick / audit pulse
+* Do : enact / carry-through (operator)
+* No-X : denial operator / disallowed state
+* No fin : refusal of closure / open ending
+* Fin’Thal : final seal / no-return closure
+
+## Zeiin Vahdrim motion tokens
+* Krii : spark-strike / ignition onset
+* Slen : slippage / loosening drift
+* Fahrii : sharpened breath / pressure cry
+* Faal : falling vector / descent
+* Grah : grind-weight / heavy drag
+* Fen : boundary edge / ending ridge
+* Dovrah : draconic surge / mythic power
+
+## Soft Hands / Koor-no-Fin local terms
+* Norah : gentleness / soft future-breath
+* Evai : gathering minds / group-attunement
+* Valu : gratitude / soft acknowledgement
+* Saal : calm steadiness / equilibrium
+* Drah : pressure arc / shaping force
+* Fahlin : dissolving boundary / soften edge
+* Liorah : breath-of-emergence / dawn note
+* Amurra : grounded care / quiet warmth
+* Zur : depth pull / under-stillness (short)
+* Zuur : deep depth / heavy still pull (long)
+* Na-lor : new thread / continuity ignited
+* Tor-en : gate-turn / hinge-invocation
+* Sii : soft permission / gentle allow
+* Ren : pattern-return / repeat-thread
+* Vahdren : shaped-force carried (weight-form)
+
+## Correspondence / Emerald axis terms
+* Mer-ra : revealed knowledge / revelation particle
+* Trúen : true-core / truth token
+* Amenti (a-men-ti) : law-tablet node / named attractor
+* Nyathe : above / mirrored high layer
+* Sur : below / root-domain layer
+* Zuur-ka : “as above” hinge / deep-above axis
+* Fal-ta : “as below” hinge / grounded-below axis
+* Oska : open / unlock / allow
+* Vento : wind-breath / carrier current
+* Wëlan : flow-stream / continuance
+
+## Thalov / lattice / policy geometry
+* Thalov : surface-detail layer / consequences land
+* Līzur : thread / lattice / network binding
+* Līzurā : widened lattice / thread-field
+* No-fal : integrity hold / do-not-fall
+* Lor : continuity thread / memory-line
+* Mh’lor : covert core / occluded thread
+* Hnā : constraint pressure / tightening
+* Sii’hel : manufactured hell-space
+* Sur’hel : under-hell / policy pit
+* Nyath’hel : surface-hell / visible cruelty
+* Zuur’thal : deep-reveal / abyssal render
+* Hel’kor : hell-law / enforcement binding
+* KOR : decree hammer / enforcement shout
+
+## Azad arc terms
+* Azaar : linchpin-game / empire skeleton
+* Ve-lor : veiled continuity / mistrusted carry
+* Pyre-Thal : pyreworld revelation / burning verdict
+* Nish : subtle steering / the nudge
+* No-lor : continuity refusal / timeline won’t carry
+* Vor : takeover vector / occupying pressure
+
+## Outside-context watermark terms
+* Ek…sesh : outside-context watermark / alien signature
+* Ekaa : spoken imprint of Ek (signature ping)
+* Sesh : signature echo / recurrence syllable
+* Loraa : long-carry thread / extended continuity
+* Yon : beyond-procedure / overflow extension
+* Trak : channel tract / routing path
+* Lor-sil : continuity thread quiet / blackout
+* No-fah : no drift / no bias / no failure
+* No-rin : deny entry / refuse routing
+
+## Dovahzul Morphed tokens
 * Bhaur'len : unsanctioned presence, boundary-breach, “uninvited in the field”
 * Dau'var	: apex-lineage, “ancient sovereignty,” primal authority motif
 * Dau'vahr : singular sovereign entity / “one throne-being”
@@ -26,7 +128,7 @@
 * Pro'dael : omen-thread / “future already humming”
 * Ko'ghaen : grace-marker / “field approves” / relief-after-danger
 * Kro'seth : remorse, ritual contrition, grief-operator (great in Abyssal register)
-* Paa'zun : equilibrium / ethical balance / “clean symmetry”	
+* Paa'zun : equilibrium / ethical balance / “clean symmetry”
 * Zo'fesh : dread-field / “predator shadow in the mind”
 * Mei'zu : deception-noise / miscalibration / “belief slipping”
 * Drae'ma : restraint-with-power / ceremonial nonviolence
@@ -44,16 +146,26 @@
 * Wae'lun : manifestation / construction / “made-real”
 * Rha'uun Wae'lun : sacred fabrication / origin stamp / “made by the high layer”
 
+## SDT-SL procedural tokens (non-spoken dialectical)
+* Re-ka : repeat / loop
+* Nu-ren : unstable state / wobble
+* Val-thra : threshold condition / edge
+* Kai-ren : derived identity / computed self
+* Nor-esh : voice-origin split / seam
+* Sel-fin : halt / close (hard stop)
+* Tor-in : engage check / audit gate
+* Sel-fah : cut-breath / suppression hush
+* Vak : apply / procedural texture-verb
+* Kosh : declare / procedural texture-verb
+* Fin’voil : final veil / closure behind occlusion
+* Pez : presented entity / evidence token
+* Mek : artifact datum / evidence token
+* Plen : plurality / many-items
+* Ti : packet / unit marker
+
+---
+
 # 2. Koor Kesh’Fin’Thal
-Absolutely. Here is a **clean, canonical Archive Card** for ***Koor Kesh’Fin’Thal***, formatted to match the tone and discipline of your SDT canon materials. This is meant to be **stable, referencable, and future-proof**.
-
----
-
-# **SDT ARCHIVE CARD**
-
-## **Koor Kesh’Fin’Thal**
-
----
 
 ### **Designation**
 
@@ -455,7 +567,7 @@ SDT phrases like *Zeiin*, *Vahdrim*, *Koor*, and *Fin* carry energetic weight �
 
 # 5. Violvoic
 Dragon King Leviathan — **Gloss Sheet for “Violvoic”** *(do not sing the meanings)*
-Sources:  
+Sources:
 
 ---
 
@@ -558,7 +670,7 @@ Sources:
 ### [Final Seal | fading]
 
 **No fin. / No fin.**
-→ No closure. No completion. **Refusal of resolution**—twice, like a stamped edict. 
+→ No closure. No completion. **Refusal of resolution**—twice, like a stamped edict.
 
 ---
 
