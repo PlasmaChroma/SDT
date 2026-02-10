@@ -35,8 +35,22 @@ DRONE_CUTOFF   = 75   # lowpass cutoff Hz-ish (Sonic Pi cutoff is not exact Hz)
 DRONE_MOVEMENT = 0.06 # subtle motion depth
 
 # Sub pulse (not a beat; a gravity reminder)
-PULSE_AMP      = 0.10
-PULSE_PERIOD_S = 9.0  # seconds between pulses
+PULSE_AMP = 0.10
+# Make pulse *non-periodic* so the mind can't count it.
+# Winddown tends slightly more present; sleep becomes more geological.
+PULSE_WINDDOWN_RANGE = [8.0, 15.0]   # seconds
+PULSE_SLEEP_RANGE    = [12.0, 24.0]  # seconds
+
+# Descent ramp between winddown and full sleep stability (minutes)
+DESCENT_MINUTES = 12.0
+
+# One-organism "climate" (a single slow control stream that modulates most layers)
+CLIMATE_ON        = true
+CLIMATE_UPDATE_S  = 28.0
+CLIMATE_DEPTH     = 0.22   # 0..~0.35 is sane
+
+# Micro-chimes fade out over time (minutes into sleep)
+CHIME_FADE_MINUTES = 25.0
 
 # Breath / wind texture
 WIND_AMP       = 0.14
@@ -78,18 +92,18 @@ end
 # Soft random drift without sudden jumps
 # Returns a value that slowly wanders around a base.
 
-def slow_wander(base, depth: 0.1, step: 0.02)
-  # seed a per-thread state
-  t = (get(:wander_t) || 0.0)
-  x = (get(:wander_x) || 0.0)
+def slow_wander(base, depth: 0.1, step: 0.02, key: :wander)
+  # seed a per-key state so different modulators don't fight each other
+  t = (get(("#{key}_t").to_sym) || 0.0)
+  x = (get(("#{key}_x").to_sym) || 0.0)
   
   # drift
   t = t + step
   x = x + rrand(-depth, depth) * 0.08
   x = clamp(x, -depth, depth)
   
-  set :wander_t, t
-  set :wander_x, x
+  set ("#{key}_t").to_sym, t
+  set ("#{key}_x").to_sym, x
   
   base + x
 end
@@ -114,6 +128,32 @@ live_loop :global_bus do
 end
 
 # ----------------------------
+# CLIMATE (single slow control stream)
+# ----------------------------
+# Goal: fewer independent "decisions" per minute; the whole field breathes together.
+set :climate, 0.0
+set :sleep_t0, nil
+
+live_loop :climate do
+  stop if get(:stop_all)
+  unless CLIMATE_ON
+    sleep 10
+    next
+  end
+  
+  # climate gently wanders in [-CLIMATE_DEPTH, +CLIMATE_DEPTH]
+  c = slow_wander(0.0, depth: CLIMATE_DEPTH, step: 0.05, key: :climate)
+  set :climate, c
+  
+  # stamp the beginning of sleep for long-horizon fades
+  if get(:phase) == :sleep && get(:sleep_t0).nil?
+    set :sleep_t0, vt
+  end
+  
+  sleep CLIMATE_UPDATE_S
+end
+
+# ----------------------------
 # BINAURAL (L/R sine offset)
 # ----------------------------
 
@@ -128,18 +168,20 @@ live_loop :binaural do
   base = BIN_CARRIER_HZ
   beat = BIN_BEAT_HZ
   
-  # tiny drift to avoid static fatigue (very subtle)
-  drift = rrand(-0.4, 0.4)
+  # Use the shared climate for drift (coherence > randomness)
+  c = (get(:climate) || 0.0)
+  drift = c * 1.2  # ~±0.25 Hz if CLIMATE_DEPTH=0.22
+  
   l_hz = base + drift
   r_hz = base + drift + beat
   
-  # Use long envelope so nothing clicks.
+  # Long envelope so nothing clicks.
   synth :sine, note: hz_to_midi(l_hz), amp: BINAURAL_AMP, pan: -1,
-    attack: 2, sustain: 8, release: 2
+    attack: 2, sustain: 10, release: 2
   synth :sine, note: hz_to_midi(r_hz), amp: BINAURAL_AMP, pan: 1,
-    attack: 2, sustain: 8, release: 2
+    attack: 2, sustain: 10, release: 2
   
-  sleep 10
+  sleep 12
 end
 
 # ----------------------------
@@ -152,19 +194,24 @@ live_loop :drone_bed do
   # Root: deep fundamental + gentle harmonic breath
   base_note = :c2
   
-  cutoff = slow_wander(DRONE_CUTOFF, depth: 10, step: 0.03)
-  detune = slow_wander(0.0, depth: 0.12, step: 0.02)
+  # One-organism modulation: most movement comes from shared climate
+  c = (get(:climate) || 0.0)
+  
+  cutoff = slow_wander(DRONE_CUTOFF + (c * 18), depth: 7, step: 0.03, key: :drone_cut)
+  detune = slow_wander(0.0 + (c * 0.08), depth: 0.10, step: 0.02, key: :drone_det)
+  
+  amp_main = DRONE_AMP * (1.0 + (c * 0.18))
   
   with_fx :lpf, cutoff: cutoff do
     with_fx :hpf, cutoff: 35 do
       # Two layers: triangle-ish + sine for warmth
-      synth :tri, note: base_note, amp: DRONE_AMP * 0.65,
+      synth :tri, note: base_note, amp: amp_main * 0.65,
         attack: 6, sustain: 24, release: 6, detune: detune
-      synth :sine, note: base_note - 12, amp: DRONE_AMP * 0.35,
+      synth :sine, note: base_note - 12, amp: amp_main * 0.35,
         attack: 8, sustain: 26, release: 8
       
       # A very slow, barely-there upper shadow
-      synth :sine, note: base_note + 12, amp: DRONE_AMP * 0.10,
+      synth :sine, note: base_note + 12, amp: amp_main * 0.10,
         attack: 10, sustain: 18, release: 10
     end
   end
@@ -179,17 +226,23 @@ end
 live_loop :sub_pulse do
   stop if get(:stop_all)
   
-  # If you ever feel this becomes "rhythm", increase PULSE_PERIOD_S.
-  period = PULSE_PERIOD_S
+  # Non-periodic pulse: the body feels it, the mind can't count it.
+  phase = get(:phase)
+  rng = (phase == :sleep) ? PULSE_SLEEP_RANGE : PULSE_WINDDOWN_RANGE
+  
+  # Small climate bias: in "heavier" moments, pulse tends slightly slower
+  c = (get(:climate) || 0.0)
+  base_period = rrand(rng[0], rng[1])
+  period = clamp(base_period + (c * 2.0), rng[0], rng[1])
   
   with_fx :lpf, cutoff: 70 do
     with_fx :hpf, cutoff: 28 do
-      # Use a sine burst with long attack/release to avoid clicks.
+      # Long attack/release to avoid clicks.
       synth :sine, note: :c1, amp: PULSE_AMP,
-        attack: 0.9, sustain: 0.4, release: 2.8
-      # A faint upper body to make it audible on small speakers
-      synth :tri, note: :c2, amp: PULSE_AMP * 0.35,
-        attack: 1.0, sustain: 0.2, release: 2.4
+        attack: 1.0, sustain: 0.35, release: 3.2
+      # Faint upper body for small speakers
+      synth :tri, note: :c2, amp: PULSE_AMP * 0.30,
+        attack: 1.1, sustain: 0.2, release: 2.8
     end
   end
   
@@ -204,18 +257,20 @@ live_loop :wind_breath do
   stop if get(:stop_all)
   
   # Sleep-safe noise: filtered, slow-moving, never bright.
-  c = slow_wander(WIND_CUTOFF, depth: 18, step: 0.04)
-  a = slow_wander(WIND_AMP, depth: 0.05, step: 0.03)
+  # Shared climate keeps the whole field coherent.
+  c0 = (get(:climate) || 0.0)
+  
+  c = slow_wander(WIND_CUTOFF + (c0 * 20), depth: 14, step: 0.04, key: :wind_cut)
+  a = slow_wander(WIND_AMP * (1.0 + (c0 * 0.16)), depth: 0.04, step: 0.03, key: :wind_amp)
   
   with_fx :lpf, cutoff: c do
     with_fx :hpf, cutoff: 22 do
-      # Use :bnoise for softer spectrum
       synth :bnoise, amp: a,
-        attack: 4, sustain: 10, release: 4
+        attack: 5, sustain: 11, release: 5
     end
   end
   
-  sleep 12
+  sleep 14
 end
 
 # ----------------------------
@@ -230,22 +285,33 @@ live_loop :micro_chime do
   end
   
   # Only during sleep phase, and only rarely.
-  if get(:phase) == :sleep && one_in( (1.0 / CHIME_ODDS).round )
-    with_fx :lpf, cutoff: 95 do
-      with_fx :echo, phase: 1.5, decay: 6 do
-        # A tiny bell shimmer, low and distant.
-        use_synth :pretty_bell
-        play (scale :c4, :minor_pentatonic).choose,
-          amp: CHIME_AMP,
-          attack: 0.6,
-          sustain: 0.2,
-          release: 3.5,
-          pan: rrand(-0.4, 0.4)
+  if get(:phase) == :sleep
+    # Fade chimes out over time so "events" disappear as sleep deepens.
+    t0 = get(:sleep_t0)
+    elapsed = t0.nil? ? 0.0 : (vt - t0)
+    fade_total = seconds_from_minutes(CHIME_FADE_MINUTES)
+    fade = clamp(1.0 - (elapsed / fade_total), 0.0, 1.0)
+    
+    # Effective odds get smaller over time (rarer), and amp fades toward zero.
+    odds = (1.0 / CHIME_ODDS).round
+    odds = (odds + ((1.0 - fade) * odds * 3.0)).round  # up to 4x rarer
+    
+    if fade > 0.02 && one_in([odds, 2].max)
+      with_fx :lpf, cutoff: 95 do
+        with_fx :echo, phase: 1.6, decay: 7 do
+          use_synth :pretty_bell
+          play (scale :c4, :minor_pentatonic).choose,
+            amp: CHIME_AMP * fade,
+            attack: 0.7,
+            sustain: 0.15,
+            release: 4.0,
+            pan: rrand(-0.35, 0.35)
+        end
       end
     end
   end
   
-  sleep 18
+  sleep 20
 end
 
 # ----------------------------
@@ -262,9 +328,13 @@ live_loop :sdt_whisper do
     next
   end
   
-  # More active in winddown; almost absent in sleep.
+  # More active in winddown; almost absent in descent/sleep.
   phase = get(:phase)
-  density = (phase == :winddown) ? 0.28 : 0.08
+  density = case phase
+  when :winddown then 0.24
+  when :descent  then 0.12
+  else 0.06
+  end
   
   if rand < density
     motif = [
@@ -326,13 +396,22 @@ end
 live_loop :phase_controller do
   stop if get(:stop_all)
   
-  # Start in winddown; then switch to sleep.
+  # Start in winddown; then descent; then sleep.
   set :phase, :winddown
   guide_s = seconds_from_minutes(GUIDE_MINUTES)
+  descent_s = seconds_from_minutes(DESCENT_MINUTES)
   
-  # A gentle fade-in moment at start
   cue :winddown_start
   sleep guide_s
+  
+  # Descent: same world, fewer "decisions" and slightly lower activity.
+  set :phase, :descent
+  cue :descent_start
+  
+  # During descent we gently bias down certain layers by nudging the climate
+  # and letting event generators naturally become less frequent.
+  # (No hard fades; just a slope.)
+  sleep descent_s
   
   set :phase, :sleep
   cue :sleep_start
