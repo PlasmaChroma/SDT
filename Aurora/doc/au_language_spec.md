@@ -225,6 +225,27 @@ Implemented oscillator parameter behavior (`osc_*` nodes):
 - `pw` is used by `osc_pulse_blep`.
 - `freq` in oscillator params is currently parsed but not applied by the renderer.
 
+Implemented filter behavior (`svf` / `biquad` nodes):
+- Filter node type may be `svf` or `biquad`; both use the same renderer filter core.
+- Mode is read from:
+  - `mode` param first (e.g. `mode: lp`)
+  - else `type` param (e.g. `type: hp`)
+  - else default `lp`
+- Supported modes (with aliases):
+  - low-pass: `lp` (default/fallback)
+  - high-pass: `hp`, `highpass`
+  - band-pass: `bp`, `bandpass`
+  - notch/band-stop: `notch`, `bandstop`
+- Cutoff parameter:
+  - `cutoff` preferred
+  - `freq` accepted as alias
+  - numeric or `Hz` unit values are accepted
+  - runtime clamp: `[20 Hz, 0.99 * Nyquist]`
+- Resonance shaping:
+  - `q` is used (default `0.707`, minimum `0.05`)
+  - `res` is used (default `0.0`, clamped `[0,1]`) as an additional resonance boost factor on top of `q`
+- Filters are stateful per rendered voice (continuous state through each note event).
+
 ## 6. Score and Event Semantics
 
 ## 6.1 Section Header
@@ -274,6 +295,12 @@ Curves recognized by renderer:
 Target handling:
 - Must have at least 4 dot-separated parts and begin with `patch.` to take effect.
 - Effective automation key is `<node>.<param>` inside the named patch.
+- Automation targets currently used by renderer:
+  - `<filter_node>.cutoff`
+  - `<filter_node>.freq` (alias for cutoff when `.cutoff` lane is absent)
+  - `<filter_node>.q`
+  - `<filter_node>.res`
+  - `<gain_node>.gain`
 
 ## 6.4 `seq`
 Format:
@@ -339,6 +366,10 @@ Warnings:
 - `out: stem("name")` is just syntactic sugar for output name extraction; plain string also works.
 - Times in `beats` are converted via tempo map.
 - Automation values are interpreted numerically (`ValueToNumber`); non-numeric values become `0`.
+- Current audio-rendering automation usage is parameter-specific:
+  - filter: `cutoff|freq`, `q`, `res`
+  - gain: `gain`
+  - other automation lanes currently do not alter rendered audio.
 - `play` velocities are clamped to `[0, 1.5]` in rendering.
 - `seq` velocities are clamped to `[0, 1.0]`.
 
