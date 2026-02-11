@@ -609,6 +609,8 @@ struct PatchProgram {
     bool enabled = false;
     std::string mode = "lp";
     double cutoff_hz = 1500.0;
+    double q = 0.707;
+    double res = 0.0;
   } filter;
 
   double gain_db = -6.0;
@@ -707,6 +709,8 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
           program.filter.cutoff_hz = ValueToNumber(fit->second, program.filter.cutoff_hz);
         }
       }
+      program.filter.q = std::max(0.05, NodeParamNumber(node.params, "q", program.filter.q));
+      program.filter.res = Clamp(NodeParamNumber(node.params, "res", program.filter.res), 0.0, 1.0);
     } else if (node.type == "gain") {
       program.gain_node_id = node.id;
       if (const auto it = node.params.find("gain"); it != node.params.end()) {
@@ -775,11 +779,22 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
     return;
   }
   const double base_gain = DbToLinear(program.gain_db) * play.velocity;
+  const std::string cutoff_key = program.filter_node_id + ".cutoff";
+  const std::string freq_key = program.filter_node_id + ".freq";
+  const std::string q_key = program.filter_node_id + ".q";
+  const std::string res_key = program.filter_node_id + ".res";
+  const auto cutoff_auto_it = automation.find(cutoff_key);
+  const auto freq_auto_it = automation.find(freq_key);
+  const auto q_auto_it = automation.find(q_key);
+  const auto res_auto_it = automation.find(res_key);
+  const std::string gain_key = program.gain_node_id + ".gain";
+  const auto gain_auto_it = automation.find(gain_key);
 
   for (size_t pitch_index = 0; pitch_index < play.pitches.size(); ++pitch_index) {
     const ResolvedPitch& pitch = play.pitches[pitch_index];
     std::vector<double> phases(program.oscillators.size(), 0.0);
-    double filter_state = 0.0;
+    double ic1eq = 0.0;
+    double ic2eq = 0.0;
     PCG32 noise_rng(Hash64FromParts(seed, "voice", play.patch, std::to_string(play.start_sample),
                                     std::to_string(static_cast<int>(pitch_index))));
 
@@ -822,29 +837,58 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
       }
 
       double cutoff = program.filter.cutoff_hz;
-      if (!program.filter_node_id.empty()) {
-        const std::string key = program.filter_node_id + ".cutoff";
-        if (const auto it = automation.find(key); it != automation.end()) {
-          cutoff = std::max(20.0, EvaluateLane(it->second, abs_sample));
-        }
+      if (cutoff_auto_it != automation.end()) {
+        cutoff = std::max(20.0, EvaluateLane(cutoff_auto_it->second, abs_sample));
+      } else if (freq_auto_it != automation.end()) {
+        cutoff = std::max(20.0, EvaluateLane(freq_auto_it->second, abs_sample));
       }
 
       if (program.filter.enabled) {
-        const double alpha = Clamp(1.0 - std::exp(-2.0 * kPi * cutoff / static_cast<double>(sample_rate)), 0.0, 1.0);
-        filter_state += alpha * (sample - filter_state);
-        if (program.filter.mode == "hp") {
-          sample = sample - filter_state;
+        const double nyquist = static_cast<double>(sample_rate) * 0.5;
+        cutoff = Clamp(cutoff, 20.0, nyquist * 0.99);
+
+        double q = program.filter.q;
+        if (q_auto_it != automation.end()) {
+          q = std::max(0.05, EvaluateLane(q_auto_it->second, abs_sample));
+        }
+
+        double res = program.filter.res;
+        if (res_auto_it != automation.end()) {
+          res = Clamp(EvaluateLane(res_auto_it->second, abs_sample), 0.0, 1.0);
+        }
+
+        // Convert normalized resonance to an additional Q boost, while keeping explicit Q authoritative.
+        const double effective_q = Clamp(q * (1.0 + res * 8.0), 0.05, 24.0);
+        const double g = std::tan(kPi * cutoff / static_cast<double>(sample_rate));
+        const double k = 1.0 / effective_q;
+        const double a1 = 1.0 / (1.0 + g * (g + k));
+        const double a2 = g * a1;
+        const double a3 = g * a2;
+        const double v3 = sample - ic2eq;
+        const double v1 = a1 * ic1eq + a2 * v3;
+        const double v2 = ic2eq + a2 * ic1eq + a3 * v3;
+        ic1eq = 2.0 * v1 - ic1eq;
+        ic2eq = 2.0 * v2 - ic2eq;
+
+        const double lp = v2;
+        const double bp = v1;
+        const double hp = v3 - k * v1 - v2;
+        const double notch = hp + lp;
+        const std::string& mode = program.filter.mode;
+        if (mode == "hp" || mode == "highpass") {
+          sample = hp;
+        } else if (mode == "bp" || mode == "bandpass") {
+          sample = bp;
+        } else if (mode == "notch" || mode == "bandstop") {
+          sample = notch;
         } else {
-          sample = filter_state;
+          sample = lp;
         }
       }
 
       double gain = base_gain;
-      if (!program.gain_node_id.empty()) {
-        const std::string key = program.gain_node_id + ".gain";
-        if (const auto it = automation.find(key); it != automation.end()) {
-          gain = DbToLinear(EvaluateLane(it->second, abs_sample)) * play.velocity;
-        }
+      if (gain_auto_it != automation.end()) {
+        gain = DbToLinear(EvaluateLane(gain_auto_it->second, abs_sample)) * play.velocity;
       }
       (*stem)[abs_sample] += static_cast<float>(sample * env * gain);
     }
