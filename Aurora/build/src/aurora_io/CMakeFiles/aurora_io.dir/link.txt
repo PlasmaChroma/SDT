@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaurora_io.a CMakeFiles/aurora_io.dir/wav_writer.cpp.o CMakeFiles/aurora_io.dir/midi_writer.cpp.o CMakeFiles/aurora_io.dir/json_writer.cpp.o
-/usr/bin/ranlib libaurora_io.a

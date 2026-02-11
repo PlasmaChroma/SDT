@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaurora_core.a CMakeFiles/aurora_core.dir/renderer.cpp.o
-/usr/bin/ranlib libaurora_core.a

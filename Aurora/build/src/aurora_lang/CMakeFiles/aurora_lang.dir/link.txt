@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaurora_lang.a CMakeFiles/aurora_lang.dir/parser.cpp.o CMakeFiles/aurora_lang.dir/validation.cpp.o
-/usr/bin/ranlib libaurora_lang.a
