@@ -1,0 +1,87 @@
+aurora { version: "1.0" }
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir: "./renders/midi/",
+  mix_dir: "./renders/mix/",
+  meta_dir: "./renders/meta/",
+  master: "master.wav",
+  render_json: "render.json"
+}
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 60
+}
+
+bus ReverbBus {
+  out: stem("fx_reverb"),
+  graph: {
+    nodes: [
+      { id: "bus_in", type: mix },
+      { id: "rev", type: reverb_algo, params: { size: 0.7, decay: 8s, predelay: 12ms, mix: 1.0 } }
+    ],
+    connect: [
+      { from: "bus_in", to: "rev.in" }
+    ],
+    io: { out: "rev" }
+  }
+}
+
+patch SubDrone {
+  poly: 4,
+  voice_steal: oldest,
+  out: stem("sub_drone"),
+  send: { bus: "ReverbBus", amount: -18dB },
+  graph: {
+    nodes: [
+      { id: "osc1", type: osc_sine, params: { freq: 55Hz } },
+      { id: "osc2", type: osc_pulse_blep, params: { freq: 55Hz, pw: 0.45 } },
+      { id: "sum", type: mix },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 80Hz, res: 0.2 } },
+      { id: "env", type: env_adsr, params: { a: 2s, d: 6s, s: 0.7, r: 10s, curve: exp } },
+      { id: "amp", type: gain, params: { gain: -6dB } }
+    ],
+    connect: [
+      { from: "osc1", to: "sum.in1" },
+      { from: "osc2", to: "sum.in2" },
+      { from: "sum", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "env", to: "amp.gain", rate: control }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch MetalTicks {
+  poly: 8,
+  voice_steal: quietest,
+  out: stem("metal_ticks"),
+  send: { bus: "ReverbBus", amount: -10dB },
+  graph: {
+    nodes: [
+      { id: "sp", type: sample_player, params: { sample: "tick", mode: oneshot, gain: -8dB } },
+      { id: "hp", type: biquad, params: { type: hp, freq: 1800Hz, q: 0.9 } }
+    ],
+    connect: [
+      { from: "sp", to: "hp.in" }
+    ],
+    io: { out: "hp" }
+  }
+}
+
+score {
+  section Subsurface at 0s dur 3min | pressure="slow_rise", density="low", silence="long" {
+    play SubDrone { at: 0s, dur: 12min, vel: 0.6, pitch: C2 }
+    automate patch.SubDrone.filt.cutoff linear { 0s: 70Hz, 3min: 140Hz }
+  }
+
+  section Hold at 3min dur 6min | pressure="stable", density="low", silence="medium" {
+    seq MetalTicks { at: 3min, dur: 6min, rate: 1beats, pattern: euclid(3,8,1), prob: 0.12, pick: "cycle", pitch: [C5, D5, G5], swing: 0.58, jitter: 25ms, max: 120 }
+  }
+
+  section Seal at 9min dur 3min | pack="long_breath", pressure="fall" {
+    automate patch.SubDrone.filt.cutoff smooth { 9min: 120Hz, 12min: 60Hz }
+  }
+}

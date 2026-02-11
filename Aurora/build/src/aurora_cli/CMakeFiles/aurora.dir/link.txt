@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/aurora.dir/main.cpp.o -o aurora  ../aurora_lang/libaurora_lang.a ../aurora_core/libaurora_core.a ../aurora_io/libaurora_io.a ../aurora_core/libaurora_core.a ../aurora_lang/libaurora_lang.a 

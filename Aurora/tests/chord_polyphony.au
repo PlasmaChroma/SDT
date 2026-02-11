@@ -1,0 +1,54 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 60
+}
+
+patch Chords {
+  poly: 3,
+  voice_steal: oldest,
+  out: stem("chords"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 220Hz } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 1400Hz, res: 0.2 } },
+      { id: "amp", type: gain, params: { gain: -14dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch Bass {
+  mono: true,
+  out: stem("bass"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 55Hz } },
+      { id: "amp", type: gain, params: { gain: -8dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section PhraseA at 0s dur 90s {
+    play Chords { at: 0s, dur: 20s, vel: 0.6, pitch: [C3, E3, G3, Bb3] }
+    play Chords { at: 25s, dur: 20s, vel: 0.62, pitch: [A2, C3, E3, G3] }
+    play Bass { at: 0s, dur: 90s, vel: 0.75, pitch: C2 }
+  }
+
+  section PhraseB at 90s dur 90s {
+    play Chords { at: 90s, dur: 22s, vel: 0.58, pitch: [F2, A2, C3, Eb3] }
+    play Chords { at: 118s, dur: 22s, vel: 0.6, pitch: [G2, B2, D3, F3] }
+    seq Bass { at: 90s, dur: 90s, rate: 2beats, pattern: "x..x..", prob: 0.9, pick: "cycle", pitch: [C2, Bb1, Ab1, G1], swing: 0.54, max: 160 }
+  }
+}

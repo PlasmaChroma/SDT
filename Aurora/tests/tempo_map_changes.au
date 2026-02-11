@@ -1,0 +1,55 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo_map: [
+    { at: 0s, bpm: 62 },
+    { at: 90s, bpm: 54 },
+    { at: 210s, bpm: 48 }
+  ],
+  tail_policy: fixed(2s)
+}
+
+patch Pulse {
+  out: stem("pulse"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_pulse_blep, params: { freq: 110Hz, pw: 0.42 } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 1500Hz, res: 0.25 } },
+      { id: "amp", type: gain, params: { gain: -10dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch Perc {
+  out: stem("perc"),
+  graph: {
+    nodes: [
+      { id: "src", type: sample_player, params: { sample: "tick", mode: oneshot } },
+      { id: "hp", type: biquad, params: { type: hp, freq: 2500Hz, q: 0.9 } }
+    ],
+    connect: [
+      { from: "src", to: "hp.in" }
+    ],
+    io: { out: "hp" }
+  }
+}
+
+score {
+  section SlowOpen at 0s dur 4min | density="low", silence="short" {
+    play Pulse { at: 0s, dur: 6min, vel: 0.65, pitch: C2 }
+    seq Perc { at: 0s, dur: 4min, rate: 1beats, pattern: "x...x...", prob: 0.15, pitch: [C5, D5], pick: "cycle", max: 64 }
+    automate patch.Pulse.filt.cutoff linear { 0s: 900Hz, 4min: 2400Hz }
+  }
+
+  section SlowClose at 4min dur 3min | density="very_low", silence="medium" {
+    seq Perc { at: 4min, dur: 3min, rate: 2beats, pattern: euclid(2,7,0), prob: 0.12, pitch: [G4, A4], pick: "uniform", max: 20 }
+    automate patch.Pulse.filt.cutoff smooth { 4min: 2000Hz, 7min: 700Hz }
+  }
+}

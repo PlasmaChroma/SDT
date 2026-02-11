@@ -1,0 +1,98 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 58,
+  tail_policy: fixed(4s)
+}
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir: "./renders/midi/",
+  mix_dir: "./renders/mix/",
+  meta_dir: "./renders/meta/",
+  master: "master.wav",
+  render_json: "render.json"
+}
+
+bus Space {
+  out: stem("fx_space"),
+  graph: {
+    nodes: [
+      { id: "bus_in", type: mix },
+      { id: "rev", type: reverb_algo, params: { decay: 6s, predelay: 18ms, mix: 1.0 } }
+    ],
+    connect: [
+      { from: "bus_in", to: "rev.in" }
+    ],
+    io: { out: "rev" }
+  }
+}
+
+patch Root {
+  out: stem("root"),
+  send: { bus: "Space", amount: -15dB },
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 48Hz } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 120Hz, res: 0.15 } },
+      { id: "env", type: env_adsr, params: { a: 600ms, d: 2s, s: 0.85, r: 6s } },
+      { id: "amp", type: gain, params: { gain: -8dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "env", to: "amp.gain", rate: control }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch DroneTop {
+  out: stem("drone_top"),
+  send: { bus: "Space", amount: -22dB },
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_tri_blep, params: { freq: 196Hz } },
+      { id: "filt", type: biquad, params: { type: lp, freq: 2200Hz, q: 0.8 } },
+      { id: "amp", type: gain, params: { gain: -20dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch TickNoise {
+  out: stem("tick_noise"),
+  send: { bus: "Space", amount: -9dB },
+  graph: {
+    nodes: [
+      { id: "src", type: sample_player, params: { sample: "tick", mode: oneshot } },
+      { id: "hp", type: biquad, params: { type: hp, freq: 1600Hz, q: 0.7 } }
+    ],
+    connect: [
+      { from: "src", to: "hp.in" }
+    ],
+    io: { out: "hp" }
+  }
+}
+
+score {
+  section Foundation at 0s dur 2min | pressure="slow_rise", density="low", silence="short" {
+    play Root { at: 0s, dur: 9min, vel: 0.68, pitch: C2 }
+    play DroneTop { at: 0s, dur: 9min, vel: 0.45, pitch: [C4, G4] }
+    automate patch.Root.filt.cutoff linear { 0s: 80Hz, 2min: 200Hz }
+  }
+
+  section Motion at 2min dur 6min | pack="resist_resolution" {
+    seq TickNoise { at: 2min, dur: 6min, rate: 1beats, pattern: euclid(5,13,1), prob: 0.2, pick: "cycle", pitch: [C5, D5, G5], jitter: 15ms, swing: 0.56, max: 80 }
+  }
+
+  section Gate at 8min dur 1min | density="very_low", silence="long", pressure="fall" {
+    automate patch.Root.filt.cutoff smooth { 8min: 120Hz, 9min: 55Hz }
+  }
+}
