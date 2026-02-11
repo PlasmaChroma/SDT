@@ -212,6 +212,19 @@ Required:
 
 Renderer behavior only interprets a subset of node types/params (others parse but may have no audible effect).
 
+Implemented oscillator parameter behavior (`osc_*` nodes):
+- Note/event `pitch` drives oscillator frequency.
+- `detune` offsets oscillator pitch:
+  - `<number>` = cents (e.g. `-7`)
+  - `<number>c` = cents (e.g. `-7c`)
+  - `<number>st` = semitones (e.g. `+12st`)
+- `transpose` offsets oscillator pitch:
+  - `<number>` = semitones
+  - `<number>st` = semitones
+  - `<number>c` = cents
+- `pw` is used by `osc_pulse_blep`.
+- `freq` in oscillator params is currently parsed but not applied by the renderer.
+
 ## 6. Score and Event Semantics
 
 ## 6.1 Section Header
@@ -352,7 +365,7 @@ patch Tone {
   out: stem("tone"),
   graph: {
     nodes: [
-      { id: "osc", type: osc_sine, params: { freq: 220Hz } },
+      { id: "osc", type: osc_sine, params: { detune: -7c } },
       { id: "amp", type: gain, params: { gain: -12dB } }
     ],
     connect: [ { from: "osc", to: "amp.in" } ],

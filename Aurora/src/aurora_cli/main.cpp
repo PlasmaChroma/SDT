@@ -140,10 +140,18 @@ int main(int argc, char** argv) {
 
   const std::filesystem::path au_parent =
       au_file.has_parent_path() ? std::filesystem::absolute(au_file).parent_path() : std::filesystem::current_path();
-  const std::filesystem::path stems_dir = ResolveOutputPath(parse.file.outputs.stems_dir, au_parent, options.out_root);
-  const std::filesystem::path midi_dir = ResolveOutputPath(parse.file.outputs.midi_dir, au_parent, options.out_root);
-  const std::filesystem::path mix_dir = ResolveOutputPath(parse.file.outputs.mix_dir, au_parent, options.out_root);
-  const std::filesystem::path meta_dir = ResolveOutputPath(parse.file.outputs.meta_dir, au_parent, options.out_root);
+  const std::filesystem::path stems_dir =
+      options.out_root.has_value() ? options.out_root.value() / "stems"
+                                   : ResolveOutputPath(parse.file.outputs.stems_dir, au_parent, std::nullopt);
+  const std::filesystem::path midi_dir =
+      options.out_root.has_value() ? options.out_root.value() / "midi"
+                                   : ResolveOutputPath(parse.file.outputs.midi_dir, au_parent, std::nullopt);
+  const std::filesystem::path mix_dir =
+      options.out_root.has_value() ? options.out_root.value() / "mix"
+                                   : ResolveOutputPath(parse.file.outputs.mix_dir, au_parent, std::nullopt);
+  const std::filesystem::path meta_dir =
+      options.out_root.has_value() ? options.out_root.value() / "meta"
+                                   : ResolveOutputPath(parse.file.outputs.meta_dir, au_parent, std::nullopt);
 
   for (const auto& stem : rendered.patch_stems) {
     std::string error;
@@ -198,4 +206,3 @@ int main(int argc, char** argv) {
   std::cout << "  midi_tracks: " << rendered.midi_tracks.size() << "\n";
   return 0;
 }
-

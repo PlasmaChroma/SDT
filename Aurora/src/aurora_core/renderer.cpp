@@ -590,8 +590,8 @@ struct PatchProgram {
 
   struct Osc {
     std::string type;
-    double freq = 0.0;
     double pw = 0.5;
+    double detune_semitones = 0.0;
   };
   std::vector<Osc> oscillators;
   bool noise_white = false;
@@ -632,6 +632,24 @@ std::string NodeParamText(const std::map<std::string, aurora::lang::ParamValue>&
   return ValueToText(it->second);
 }
 
+double ParseDetuneSemitones(const aurora::lang::ParamValue& value) {
+  if (value.kind == aurora::lang::ParamValue::Kind::kUnitNumber) {
+    const std::string& unit = value.unit_number_value.unit;
+    if (unit == "c") {
+      return value.unit_number_value.value / 100.0;
+    }
+    if (unit == "st") {
+      return value.unit_number_value.value;
+    }
+    return 0.0;
+  }
+  if (value.kind == aurora::lang::ParamValue::Kind::kNumber) {
+    // Bare numeric detune is interpreted as cents.
+    return value.number_value / 100.0;
+  }
+  return 0.0;
+}
+
 PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
   PatchProgram program;
   program.send = patch.send;
@@ -639,14 +657,22 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
     if (StartsWith(node.type, "osc_")) {
       PatchProgram::Osc osc;
       osc.type = node.type;
-      if (const auto it = node.params.find("freq"); it != node.params.end()) {
-        if (it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber && it->second.unit_number_value.unit == "Hz") {
-          osc.freq = it->second.unit_number_value.value;
+      osc.pw = NodeParamNumber(node.params, "pw", 0.5);
+      if (const auto it = node.params.find("detune"); it != node.params.end()) {
+        osc.detune_semitones += ParseDetuneSemitones(it->second);
+      }
+      if (const auto it = node.params.find("transpose"); it != node.params.end()) {
+        // Transpose is semitones by default for bare numbers.
+        if (it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber) {
+          if (it->second.unit_number_value.unit == "st") {
+            osc.detune_semitones += it->second.unit_number_value.value;
+          } else if (it->second.unit_number_value.unit == "c") {
+            osc.detune_semitones += it->second.unit_number_value.value / 100.0;
+          }
         } else {
-          osc.freq = ValueToNumber(it->second, 0.0);
+          osc.detune_semitones += ValueToNumber(it->second, 0.0);
         }
       }
-      osc.pw = NodeParamNumber(node.params, "pw", 0.5);
       program.oscillators.push_back(osc);
     } else if (node.type == "noise_white" || node.type == "noise_pink") {
       program.noise_white = true;
@@ -695,7 +721,6 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
   if (program.oscillators.empty() && !program.noise_white && !program.sample_player) {
     PatchProgram::Osc fallback;
     fallback.type = "osc_sine";
-    fallback.freq = 110.0;
     program.oscillators.push_back(fallback);
   }
   return program;
@@ -779,7 +804,8 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
       double sample = 0.0;
       for (size_t osc_idx = 0; osc_idx < program.oscillators.size(); ++osc_idx) {
         const auto& osc = program.oscillators[osc_idx];
-        const double freq = osc.freq > 0.0 ? osc.freq : pitch.frequency;
+        const double semitones = osc.detune_semitones;
+        const double freq = std::max(1.0, pitch.frequency * std::pow(2.0, semitones / 12.0));
         phases[osc_idx] += freq / static_cast<double>(sample_rate);
         sample += OscSample(osc, phases[osc_idx]);
       }

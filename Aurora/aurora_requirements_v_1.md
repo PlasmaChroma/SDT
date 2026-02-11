@@ -408,6 +408,12 @@ Bus input contract:
 - `noise_pink(amp)`
 - `osc_wavetable(table, freq, interp)`
 
+Current implementation note (renderer):
+- Event `pitch` is the oscillator frequency source.
+- Per-oscillator offsets are supported via `params.detune` and `params.transpose`.
+- `detune` accepts cents by default (`-7`), or explicit `c`/`st` units (`-7c`, `+12st`).
+- `transpose` accepts semitones by default (`+12`), or explicit `st`/`c`.
+
 ### 9.3 External samples
 
 - `sample_player(sample, mode, start, end, speed, gain, xfade, stop_on_release)`
@@ -656,4 +662,3 @@ score {
   - no NaNs/INFs
   - no clipping unless allowed
   - boundary click metrics
-
