@@ -89,6 +89,19 @@ def seconds_from_minutes(m)
   (m.to_f * 60.0)
 end
 
+# Coerce values coming from get/set or constants into a Float safely.
+# (Sonic Pi sometimes returns Rings/Arrays depending on context.)
+
+def as_f(x, default = 0.0)
+  return x.to_f if x.is_a?(Numeric)
+  if x.is_a?(Array) && !x.empty?
+    v = x[0]
+    return v.to_f if v.is_a?(Numeric) || v.respond_to?(:to_f)
+  end
+  return x.to_f if x.respond_to?(:to_f)
+  default
+end
+
 # Soft random drift without sudden jumps
 # Returns a value that slowly wanders around a base.
 
@@ -165,11 +178,12 @@ live_loop :binaural do
   end
   
   # Keep binaural ultra-stable and soft.
-  base = BIN_CARRIER_HZ
-  beat = BIN_BEAT_HZ
+  # Defensive float coercion prevents rare Ruby type issues.
+  base = as_f(BIN_CARRIER_HZ, 100.0)
+  beat = as_f(BIN_BEAT_HZ, 3.0)
   
   # Use the shared climate for drift (coherence > randomness)
-  c = (get(:climate) || 0.0)
+  c = as_f(get(:climate), 0.0)
   drift = c * 1.2  # ~±0.25 Hz if CLIMATE_DEPTH=0.22
   
   l_hz = base + drift
@@ -195,7 +209,7 @@ live_loop :drone_bed do
   base_note = :c2
   
   # One-organism modulation: most movement comes from shared climate
-  c = (get(:climate) || 0.0)
+  c = as_f(get(:climate), 0.0)
   
   cutoff = slow_wander(DRONE_CUTOFF + (c * 18), depth: 7, step: 0.03, key: :drone_cut)
   detune = slow_wander(0.0 + (c * 0.08), depth: 0.10, step: 0.02, key: :drone_det)
@@ -231,7 +245,7 @@ live_loop :sub_pulse do
   rng = (phase == :sleep) ? PULSE_SLEEP_RANGE : PULSE_WINDDOWN_RANGE
   
   # Small climate bias: in "heavier" moments, pulse tends slightly slower
-  c = (get(:climate) || 0.0)
+  c = as_f(get(:climate), 0.0)
   base_period = rrand(rng[0], rng[1])
   period = clamp(base_period + (c * 2.0), rng[0], rng[1])
   
@@ -258,10 +272,13 @@ live_loop :wind_breath do
   
   # Sleep-safe noise: filtered, slow-moving, never bright.
   # Shared climate keeps the whole field coherent.
-  c0 = (get(:climate) || 0.0)
+  c0 = as_f(get(:climate), 0.0)
   
-  c = slow_wander(WIND_CUTOFF + (c0 * 20), depth: 14, step: 0.04, key: :wind_cut)
-  a = slow_wander(WIND_AMP * (1.0 + (c0 * 0.16)), depth: 0.04, step: 0.03, key: :wind_amp)
+  base_cut = as_f(WIND_CUTOFF, 80.0)
+  base_amp = as_f(WIND_AMP, 0.14)
+  
+  c = slow_wander(base_cut + (c0 * 20.0), depth: 14, step: 0.04, key: :wind_cut)
+  a = slow_wander(base_amp * (1.0 + (c0 * 0.16)), depth: 0.04, step: 0.03, key: :wind_amp)
   
   with_fx :lpf, cutoff: c do
     with_fx :hpf, cutoff: 22 do
