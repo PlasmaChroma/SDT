@@ -202,6 +202,7 @@ struct PlayOccurrence {
   uint64_t dur_samples = 0;
   double velocity = 1.0;
   std::vector<ResolvedPitch> pitches;
+  std::map<std::string, aurora::lang::ParamValue> params;
 };
 
 struct SeqDensity {
@@ -272,6 +273,25 @@ struct ExpansionResult {
   std::map<std::string, std::map<std::string, AutomationLane>> automation;
   uint64_t timeline_end = 0;
 };
+
+void FlattenEventParamsInto(const std::map<std::string, aurora::lang::ParamValue>& input, const std::string& prefix,
+                            std::map<std::string, aurora::lang::ParamValue>* out) {
+  for (const auto& [key, value] : input) {
+    const std::string full_key = prefix.empty() ? key : (prefix + "." + key);
+    if (value.kind == aurora::lang::ParamValue::Kind::kObject) {
+      FlattenEventParamsInto(value.object_values, full_key, out);
+      continue;
+    }
+    (*out)[full_key] = value;
+  }
+}
+
+std::map<std::string, aurora::lang::ParamValue> FlattenEventParams(
+    const std::map<std::string, aurora::lang::ParamValue>& input) {
+  std::map<std::string, aurora::lang::ParamValue> out;
+  FlattenEventParamsInto(input, "", &out);
+  return out;
+}
 
 std::vector<aurora::lang::ParamValue> SeqPitchList(const std::map<std::string, aurora::lang::ParamValue>& fields) {
   const auto it = fields.find("pitch");
@@ -416,7 +436,8 @@ bool SeqStepActive(const aurora::lang::ParamValue* pattern_value, size_t step_in
 }
 
 void AddSeqHit(std::vector<PlayOccurrence>* plays, std::deque<double>* rolling_times, double absolute_seconds, uint64_t start_sample,
-               uint64_t dur_samples, const std::string& patch, double velocity, const ResolvedPitch& pitch, int max_events_per_minute) {
+               uint64_t dur_samples, const std::string& patch, double velocity, const ResolvedPitch& pitch,
+               const std::map<std::string, aurora::lang::ParamValue>& params, int max_events_per_minute) {
   while (!rolling_times->empty() && absolute_seconds - rolling_times->front() > 60.0) {
     rolling_times->pop_front();
   }
@@ -430,6 +451,7 @@ void AddSeqHit(std::vector<PlayOccurrence>* plays, std::deque<double>* rolling_t
   occurrence.dur_samples = dur_samples;
   occurrence.velocity = velocity;
   occurrence.pitches.push_back(pitch);
+  occurrence.params = params;
   plays->push_back(std::move(occurrence));
 }
 
@@ -459,6 +481,7 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
         if (occurrence.pitches.empty()) {
           occurrence.pitches.push_back(ResolvePitchValue(aurora::lang::ParamValue::Identifier("C4")));
         }
+        occurrence.params = FlattenEventParams(play.params);
         out.timeline_end = std::max(out.timeline_end, occurrence.start_sample + occurrence.dur_samples);
         out.plays.push_back(std::move(occurrence));
         continue;
@@ -526,6 +549,11 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
         const auto pattern_it = fields.find("pattern");
         const aurora::lang::ParamValue* pattern = pattern_it != fields.end() ? &pattern_it->second : nullptr;
         std::vector<int> euclid_pattern;
+        std::map<std::string, aurora::lang::ParamValue> seq_event_params;
+        if (const auto params_it = fields.find("params");
+            params_it != fields.end() && params_it->second.kind == aurora::lang::ParamValue::Kind::kObject) {
+          seq_event_params = FlattenEventParams(params_it->second.object_values);
+        }
 
         const BurstConfig burst = ParseBurst(fields, tempo_map);
 
@@ -557,14 +585,15 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
           const auto event_len_samples = static_cast<uint64_t>(
               std::max<int64_t>(1, static_cast<int64_t>(std::llround(event_len_s * static_cast<double>(sample_rate)))));
           const uint64_t dur_samples = event_len_samples;
-          AddSeqHit(&out.plays, &rolling_times, time_s, start_sample, dur_samples, seq.patch, velocity, pitch, max_per_minute);
+          AddSeqHit(&out.plays, &rolling_times, time_s, start_sample, dur_samples, seq.patch, velocity, pitch, seq_event_params,
+                    max_per_minute);
 
           if (burst.count > 1 && rng.NextUnit() < burst.probability) {
             const double spread = (burst.spread_seconds > 0.0) ? burst.spread_seconds : (rate_s * 0.8);
             for (int i = 1; i < burst.count; ++i) {
               const double burst_t = time_s + spread * (static_cast<double>(i) / static_cast<double>(burst.count));
               const uint64_t burst_start = static_cast<uint64_t>(std::llround(burst_t * sample_rate));
-              AddSeqHit(&out.plays, &rolling_times, burst_t, burst_start, dur_samples, seq.patch, velocity, pitch,
+              AddSeqHit(&out.plays, &rolling_times, burst_t, burst_start, dur_samples, seq.patch, velocity, pitch, seq_event_params,
                         max_per_minute);
             }
           }
@@ -587,11 +616,14 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
 struct PatchProgram {
   std::string filter_node_id;
   std::string gain_node_id;
+  std::string env_node_id;
 
   struct Osc {
+    std::string node_id;
     std::string type;
     double pw = 0.5;
     double detune_semitones = 0.0;
+    std::optional<double> freq_hz;
   };
   std::vector<Osc> oscillators;
   bool noise_white = false;
@@ -658,8 +690,16 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
   for (const auto& node : patch.graph.nodes) {
     if (StartsWith(node.type, "osc_")) {
       PatchProgram::Osc osc;
+      osc.node_id = node.id;
       osc.type = node.type;
       osc.pw = NodeParamNumber(node.params, "pw", 0.5);
+      if (const auto it = node.params.find("freq"); it != node.params.end()) {
+        if (it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber && it->second.unit_number_value.unit == "Hz") {
+          osc.freq_hz = std::max(1.0, it->second.unit_number_value.value);
+        } else {
+          osc.freq_hz = std::max(1.0, ValueToNumber(it->second, 0.0));
+        }
+      }
       if (const auto it = node.params.find("detune"); it != node.params.end()) {
         osc.detune_semitones += ParseDetuneSemitones(it->second);
       }
@@ -682,6 +722,7 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
       program.sample_player = true;
     } else if (node.type == "env_adsr") {
       program.env.enabled = true;
+      program.env_node_id = node.id;
       if (const auto it = node.params.find("a"); it != node.params.end()) {
         program.env.a = ValueToUnit(it->second).value;
       }
@@ -755,19 +796,19 @@ double EnvelopeValue(const PatchProgram::Env& env, double t, double note_dur) {
   return 0.0;
 }
 
-double OscSample(const PatchProgram::Osc& osc, double phase) {
+double OscSample(const std::string& osc_type, double phase, double pulse_width) {
   const double norm = phase - std::floor(phase);
-  if (osc.type == "osc_sine") {
+  if (osc_type == "osc_sine") {
     return std::sin(2.0 * kPi * norm);
   }
-  if (osc.type == "osc_saw_blep") {
+  if (osc_type == "osc_saw_blep") {
     return 2.0 * norm - 1.0;
   }
-  if (osc.type == "osc_tri_blep") {
+  if (osc_type == "osc_tri_blep") {
     return 4.0 * std::fabs(norm - 0.5) - 1.0;
   }
-  if (osc.type == "osc_pulse_blep") {
-    return (norm < osc.pw) ? 1.0 : -1.0;
+  if (osc_type == "osc_pulse_blep") {
+    return (norm < pulse_width) ? 1.0 : -1.0;
   }
   return std::sin(2.0 * kPi * norm);
 }
@@ -779,16 +820,59 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
     return;
   }
   const double base_gain = DbToLinear(program.gain_db) * play.velocity;
-  const std::string cutoff_key = program.filter_node_id + ".cutoff";
-  const std::string freq_key = program.filter_node_id + ".freq";
-  const std::string q_key = program.filter_node_id + ".q";
-  const std::string res_key = program.filter_node_id + ".res";
-  const auto cutoff_auto_it = automation.find(cutoff_key);
-  const auto freq_auto_it = automation.find(freq_key);
-  const auto q_auto_it = automation.find(q_key);
-  const auto res_auto_it = automation.find(res_key);
-  const std::string gain_key = program.gain_node_id + ".gain";
-  const auto gain_auto_it = automation.find(gain_key);
+  const auto resolve_number = [&](const std::string& key, double fallback, uint64_t sample) {
+    double value = fallback;
+    if (const auto lane_it = automation.find(key); lane_it != automation.end()) {
+      value = EvaluateLane(lane_it->second, sample);
+    }
+    if (const auto param_it = play.params.find(key); param_it != play.params.end()) {
+      value = ValueToNumber(param_it->second, value);
+    }
+    return value;
+  };
+
+  const auto resolve_seconds = [&](const std::string& key, double fallback, uint64_t sample) {
+    double value = fallback;
+    if (const auto lane_it = automation.find(key); lane_it != automation.end()) {
+      value = EvaluateLane(lane_it->second, sample);
+    }
+    if (const auto param_it = play.params.find(key); param_it != play.params.end()) {
+      value = ValueToUnit(param_it->second).value;
+    }
+    return std::max(0.0001, value);
+  };
+
+  const auto resolve_semitones = [&](const std::string& key, double fallback, bool numeric_is_cents, uint64_t sample) {
+    double value = fallback;
+    if (const auto lane_it = automation.find(key); lane_it != automation.end()) {
+      const double lane_value = EvaluateLane(lane_it->second, sample);
+      value = numeric_is_cents ? (lane_value / 100.0) : lane_value;
+    }
+    if (const auto param_it = play.params.find(key); param_it != play.params.end()) {
+      if (numeric_is_cents) {
+        value = ParseDetuneSemitones(param_it->second);
+      } else if (param_it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber) {
+        if (param_it->second.unit_number_value.unit == "c") {
+          value = param_it->second.unit_number_value.value / 100.0;
+        } else {
+          value = param_it->second.unit_number_value.value;
+        }
+      } else {
+        value = ValueToNumber(param_it->second, value);
+      }
+    }
+    return value;
+  };
+
+  const auto resolve_cutoff = [&](double fallback, uint64_t sample) {
+    double value = fallback;
+    value = resolve_number(program.filter_node_id + ".cutoff", value, sample);
+    if (play.params.find(program.filter_node_id + ".cutoff") == play.params.end() &&
+        automation.find(program.filter_node_id + ".cutoff") == automation.end()) {
+      value = resolve_number(program.filter_node_id + ".freq", value, sample);
+    }
+    return value;
+  };
 
   for (size_t pitch_index = 0; pitch_index < play.pitches.size(); ++pitch_index) {
     const ResolvedPitch& pitch = play.pitches[pitch_index];
@@ -806,7 +890,15 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
       }
       const double t = static_cast<double>(i) / sample_rate;
       const double note_dur = static_cast<double>(play.dur_samples) / sample_rate;
-      double env = EnvelopeValue(program.env, t, note_dur);
+      PatchProgram::Env env_state = program.env;
+      if (program.env.enabled && !program.env_node_id.empty()) {
+        const std::string env_prefix = program.env_node_id + ".";
+        env_state.a = resolve_seconds(env_prefix + "a", program.env.a, abs_sample);
+        env_state.d = resolve_seconds(env_prefix + "d", program.env.d, abs_sample);
+        env_state.s = Clamp(resolve_number(env_prefix + "s", program.env.s, abs_sample), 0.0, 1.0);
+        env_state.r = resolve_seconds(env_prefix + "r", program.env.r, abs_sample);
+      }
+      double env = EnvelopeValue(env_state, t, note_dur);
 
       if (i < fade_samples && fade_samples > 0) {
         env *= static_cast<double>(i) / static_cast<double>(fade_samples);
@@ -819,10 +911,25 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
       double sample = 0.0;
       for (size_t osc_idx = 0; osc_idx < program.oscillators.size(); ++osc_idx) {
         const auto& osc = program.oscillators[osc_idx];
-        const double semitones = osc.detune_semitones;
-        const double freq = std::max(1.0, pitch.frequency * std::pow(2.0, semitones / 12.0));
+        const std::string osc_prefix = osc.node_id + ".";
+        const double detune = resolve_semitones(osc_prefix + "detune", osc.detune_semitones, true, abs_sample);
+        const double transpose = resolve_semitones(osc_prefix + "transpose", 0.0, false, abs_sample);
+        const double pitch_freq = std::max(1.0, pitch.frequency * std::pow(2.0, (detune + transpose) / 12.0));
+
+        double freq = pitch_freq;
+        if (osc.freq_hz.has_value()) {
+          freq = *osc.freq_hz;
+        }
+        if (const auto freq_lane_it = automation.find(osc_prefix + "freq"); freq_lane_it != automation.end()) {
+          freq = std::max(1.0, EvaluateLane(freq_lane_it->second, abs_sample));
+        }
+        if (const auto freq_param_it = play.params.find(osc_prefix + "freq"); freq_param_it != play.params.end()) {
+          freq = std::max(1.0, ValueToUnit(freq_param_it->second).value);
+        }
+
+        const double pw = Clamp(resolve_number(osc_prefix + "pw", osc.pw, abs_sample), 0.01, 0.99);
         phases[osc_idx] += freq / static_cast<double>(sample_rate);
-        sample += OscSample(osc, phases[osc_idx]);
+        sample += OscSample(osc.type, phases[osc_idx], pw);
       }
       if (program.noise_white) {
         sample += noise_rng.Uniform(-1.0, 1.0) * 0.25;
@@ -836,26 +943,14 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
         sample /= static_cast<double>(program.oscillators.size());
       }
 
-      double cutoff = program.filter.cutoff_hz;
-      if (cutoff_auto_it != automation.end()) {
-        cutoff = std::max(20.0, EvaluateLane(cutoff_auto_it->second, abs_sample));
-      } else if (freq_auto_it != automation.end()) {
-        cutoff = std::max(20.0, EvaluateLane(freq_auto_it->second, abs_sample));
-      }
+      double cutoff = std::max(20.0, resolve_cutoff(program.filter.cutoff_hz, abs_sample));
 
       if (program.filter.enabled) {
         const double nyquist = static_cast<double>(sample_rate) * 0.5;
         cutoff = Clamp(cutoff, 20.0, nyquist * 0.99);
 
-        double q = program.filter.q;
-        if (q_auto_it != automation.end()) {
-          q = std::max(0.05, EvaluateLane(q_auto_it->second, abs_sample));
-        }
-
-        double res = program.filter.res;
-        if (res_auto_it != automation.end()) {
-          res = Clamp(EvaluateLane(res_auto_it->second, abs_sample), 0.0, 1.0);
-        }
+        const double q = std::max(0.05, resolve_number(program.filter_node_id + ".q", program.filter.q, abs_sample));
+        const double res = Clamp(resolve_number(program.filter_node_id + ".res", program.filter.res, abs_sample), 0.0, 1.0);
 
         // Convert normalized resonance to an additional Q boost, while keeping explicit Q authoritative.
         const double effective_q = Clamp(q * (1.0 + res * 8.0), 0.05, 24.0);
@@ -887,8 +982,9 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
       }
 
       double gain = base_gain;
-      if (gain_auto_it != automation.end()) {
-        gain = DbToLinear(EvaluateLane(gain_auto_it->second, abs_sample)) * play.velocity;
+      if (!program.gain_node_id.empty()) {
+        const double gain_db = resolve_number(program.gain_node_id + ".gain", program.gain_db, abs_sample);
+        gain = DbToLinear(gain_db) * play.velocity;
       }
       (*stem)[abs_sample] += static_cast<float>(sample * env * gain);
     }

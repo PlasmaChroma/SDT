@@ -127,16 +127,18 @@ The render duration is determined deterministically as:
 
 ### 5.3 Pitch + polyphony
 
-- Internal pitch representation: frequency in Hz.
-- Authoring accepts:
-  - Note names (`C2`, `F#3`, `Bb4`), MIDI (`0..127`), or `Hz`.
-  - Optional `+/- cents` (e.g., `A4+7c`) or `+/- semitones` (e.g., `C3+3st`).
+- Internal pitch representation at render time is `{ frequency_hz, midi_note }`.
+- Authoring currently resolves pitch from:
+  - Note text (`C2`, `F#3`, `Bb4`) with optional octave (default octave is 4 when omitted).
+  - Numeric values (including non-`Hz` unit numbers) interpreted as MIDI note numbers and rounded.
+  - `Hz` unit literals (for example `55Hz`), clamped to `>= 1Hz`.
 - Default tuning: 12-TET A4=440Hz.
-- Chords: a single event can specify multiple pitches (`pitch: [C3,E3,G3]` or `pitch: chord(C3,"min7")`) which expands to simultaneous note-ons.
-- Polyphony:
-  - `poly: N` (default 8), `voice_steal: oldest|quietest|none`.
-  - Chord expansion respects `poly` deterministically.
-- Mono mode: `mono: true` forces last-note priority legato behavior (glide future).
+- Event default pitch is `C4` when `pitch` is omitted.
+- Chords are supported via explicit pitch lists (`pitch: [C3,E3,G3]`) which expand to simultaneous note-ons.
+- Current renderer limitations:
+  - `pitch` call expressions (for example `chord(C3,"min7")`) are parsed but not expanded by pitch resolution; unhandled forms fall back to A4.
+  - Note suffix offsets such as `A4+7c` or `C3+3st` are currently not applied during pitch resolution.
+  - `poly`, `voice_steal`, and `mono` are parsed but not currently enforced during rendering.
 
 ### 5.4 Event scheduling
 
@@ -196,7 +198,8 @@ After the header, the file may contain (in any order):
 - Time: `ms`, `s`, `min`, `h`, `beats`
 - Frequency: `Hz`
 - Gain: `dB` or linear float
-- Notes: `C2`, `F#3`, `Bb4`, MIDI `0..127`, or `Hz`, with optional `+7c` / `+3st`.
+- Notes: `C2`, `F#3`, `Bb4` (octave optional, defaults to 4), MIDI `0..127`, or `Hz`.
+- Current implementation note: note suffix offsets like `+7c` / `+3st` are parsed as text but not applied to pitch.
 
 ### 6.4 Assets (external samples)
 
@@ -302,6 +305,11 @@ Bus input contract:
 - `automate <target> <curve> { time: value, ... }`
 - `seq <Name> { ... }` (deterministic expander)
 
+Current implementation note (renderer):
+- `play.params` and `seq.params` are active and routed as per-event overrides.
+- Param keys support dotted form (`"node.param"`) or nested objects (`node: { param: ... }`).
+- Resolution precedence per key is: event params > automation > static node/default value.
+
 #### 6.7.4 Directives
 
 `section` can include directives:
@@ -398,6 +406,25 @@ Bus input contract:
 - Automated params smoothed unless `step`.
 - dB params default range: `-120dB..+12dB` unless otherwise specified.
 
+### 9.1.1 Param routing precedence (renderer)
+
+General order for routed params:
+1. event params (`play.params` / `seq.params`)
+2. automation lane (`patch.<Patch>.<node>.<param>`)
+3. static node/default value
+
+Key table:
+- Oscillator:
+  - `<osc>.freq`: static `params.freq`; if unresolved, falls back to pitch path.
+  - `<osc>.detune`, `<osc>.transpose`, `<osc>.pw`
+- Envelope:
+  - `<env>.a`, `<env>.d`, `<env>.s`, `<env>.r`
+- Filter:
+  - `<filter>.cutoff`, `<filter>.q`, `<filter>.res`
+  - `<filter>.freq` is a cutoff alias when `.cutoff` event/automation is absent
+- Gain:
+  - `<gain>.gain`
+
 ### 9.2 Oscillators
 
 - `osc_sine(freq, phase)`
@@ -409,10 +436,15 @@ Bus input contract:
 - `osc_wavetable(table, freq, interp)`
 
 Current implementation note (renderer):
-- Event `pitch` is the oscillator frequency source.
+- Oscillator frequency precedence is:
+  1. event-level `params.<oscNode>.freq`
+  2. automation lane `patch.<Patch>.<oscNode>.freq`
+  3. static oscillator `params.freq`
+  4. event `pitch` with detune/transpose
 - Per-oscillator offsets are supported via `params.detune` and `params.transpose`.
 - `detune` accepts cents by default (`-7`), or explicit `c`/`st` units (`-7c`, `+12st`).
 - `transpose` accepts semitones by default (`+12`), or explicit `st`/`c`.
+- `pw` is routable for pulse oscillators via automation/event params.
 
 ### 9.3 External samples
 
@@ -430,6 +462,12 @@ Current implementation note (renderer):
 
 - `svf(mode, cutoff, res, drive)`
 - `biquad(type, freq, q, gain)`
+
+Current implementation note (renderer):
+- Filter cutoff reads `cutoff` first, with `freq` accepted as an alias.
+- Filter automation accepts both `<filterNode>.cutoff` and `<filterNode>.freq` (`.cutoff` takes precedence when both exist).
+- Runtime cutoff clamp is `20Hz..0.99 * Nyquist`.
+- `q` and `res` are routable through automation/event params.
 
 ### 9.6 Mix + dynamics
 

@@ -213,7 +213,11 @@ Required:
 Renderer behavior only interprets a subset of node types/params (others parse but may have no audible effect).
 
 Implemented oscillator parameter behavior (`osc_*` nodes):
-- Note/event `pitch` drives oscillator frequency.
+- Oscillator frequency precedence:
+  1. event-level `params.<oscNode>.freq`
+  2. automation lane `patch.<Patch>.<oscNode>.freq`
+  3. static node `params.freq`
+  4. event `pitch` with detune/transpose
 - `detune` offsets oscillator pitch:
   - `<number>` = cents (e.g. `-7`)
   - `<number>c` = cents (e.g. `-7c`)
@@ -223,7 +227,6 @@ Implemented oscillator parameter behavior (`osc_*` nodes):
   - `<number>st` = semitones
   - `<number>c` = cents
 - `pw` is used by `osc_pulse_blep`.
-- `freq` in oscillator params is currently parsed but not applied by the renderer.
 
 Implemented filter behavior (`svf` / `biquad` nodes):
 - Filter node type may be `svf` or `biquad`; both use the same renderer filter core.
@@ -278,7 +281,13 @@ Pitch forms accepted:
 - `Hz` unit number
 - list of any of the above
 
-`params` parses but is currently not used by renderer.
+`params` is used by renderer as per-event node parameter overrides.
+- Supported shapes:
+  - flat: `params: { "filt.cutoff": 1200Hz, "amp.gain": -9dB }`
+  - nested: `params: { filt: { cutoff: 1200Hz }, amp: { gain: -9dB } }`
+- Nested objects are flattened to dotted keys (`filt.cutoff`).
+- Precedence for a routed key is:
+  - event param (`play/seq params`) > automation lane > static node/default value.
 
 ## 6.3 `automate`
 Format:
@@ -295,12 +304,11 @@ Curves recognized by renderer:
 Target handling:
 - Must have at least 4 dot-separated parts and begin with `patch.` to take effect.
 - Effective automation key is `<node>.<param>` inside the named patch.
-- Automation targets currently used by renderer:
-  - `<filter_node>.cutoff`
-  - `<filter_node>.freq` (alias for cutoff when `.cutoff` lane is absent)
-  - `<filter_node>.q`
-  - `<filter_node>.res`
-  - `<gain_node>.gain`
+- Routed automation targets currently used by renderer:
+  - oscillator: `<osc_node>.freq`, `<osc_node>.detune`, `<osc_node>.transpose`, `<osc_node>.pw`
+  - envelope: `<env_node>.a`, `<env_node>.d`, `<env_node>.s`, `<env_node>.r`
+  - filter: `<filter_node>.cutoff`, `<filter_node>.freq` (cutoff alias when `.cutoff` is absent), `<filter_node>.q`, `<filter_node>.res`
+  - gain: `<gain_node>.gain`
 
 ## 6.4 `seq`
 Format:
@@ -319,6 +327,7 @@ seq PatchName {
   jitter: <time>,
   max: <events_per_minute>,
   burst: { prob: <0..1>, count: <int>, spread: <time> }
+  params: { ... }
 }
 ```
 
@@ -366,12 +375,32 @@ Warnings:
 - `out: stem("name")` is just syntactic sugar for output name extraction; plain string also works.
 - Times in `beats` are converted via tempo map.
 - Automation values are interpreted numerically (`ValueToNumber`); non-numeric values become `0`.
-- Current audio-rendering automation usage is parameter-specific:
-  - filter: `cutoff|freq`, `q`, `res`
-  - gain: `gain`
-  - other automation lanes currently do not alter rendered audio.
+- Routed render params currently include oscillator/filter/envelope/gain keys listed above.
+- `play.params` and `seq.params` override automation and static node values for the same key.
+- `osc.freq` is now an active/static parameter and participates in precedence.
 - `play` velocities are clamped to `[0, 1.5]` in rendering.
 - `seq` velocities are clamped to `[0, 1.0]`.
+
+## 8.1 Param Routing Precedence Tables
+
+All routed params follow:
+1. event param (`play/seq params`)
+2. automation lane
+3. static node/default value
+
+| Domain | Key form | Static source | Notes |
+| --- | --- | --- | --- |
+| Oscillator | `<osc>.freq` | oscillator node `params.freq` | If none of the above exist, renderer uses pitch path (`event pitch` + detune/transpose). |
+| Oscillator | `<osc>.detune` | oscillator node `params.detune` | Bare numeric automation/event values are treated as cents. |
+| Oscillator | `<osc>.transpose` | oscillator node `params.transpose` | Bare numeric automation/event values are semitones. |
+| Oscillator | `<osc>.pw` | oscillator node `params.pw` | Runtime clamped to `[0.01, 0.99]`. |
+| Envelope | `<env>.a`, `<env>.d`, `<env>.r` | env node params `a/d/r` | Event values may be unit times (for example `10ms`, `0.2s`). |
+| Envelope | `<env>.s` | env node param `s` | Runtime clamped to `[0, 1]`. |
+| Filter | `<filter>.cutoff` | filter `cutoff` (or static `freq` alias) | Runtime clamped to `[20Hz, 0.99*Nyquist]`. |
+| Filter | `<filter>.freq` | filter `cutoff` fallback path | Alias path for cutoff, used only when `<filter>.cutoff` event/automation is absent. |
+| Filter | `<filter>.q` | filter `q` | Runtime min `0.05`. |
+| Filter | `<filter>.res` | filter `res` | Runtime clamped to `[0, 1]`. |
+| Gain | `<gain>.gain` | gain node `params.gain` | Treated as dB in render path and converted to linear gain. |
 
 ## 9. Authoring Checklist for LLMs
 

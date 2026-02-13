@@ -1,0 +1,50 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 60,
+  tail_policy: fixed(200ms)
+}
+
+patch Tone {
+  out: stem("tone"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_pulse_blep, params: { freq: 110Hz, pw: 0.35, detune: 0c } },
+      { id: "env", type: env_adsr, params: { a: 20ms, d: 120ms, s: 0.8, r: 100ms } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 1200Hz, q: 0.7, res: 0.2 } },
+      { id: "amp", type: gain, params: { gain: -10dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "env", to: "amp.gain", rate: control }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section A at 0s dur 2s {
+    automate patch.Tone.osc.freq linear { 0s: 220, 2s: 330 }
+    automate patch.Tone.filt.cutoff smooth { 0s: 900, 2s: 2600 }
+
+    // event params should override automation/static for the same key.
+    play Tone {
+      at: 0.2s,
+      dur: 0.8s,
+      pitch: C3,
+      vel: 0.85,
+      params: {
+        osc: { freq: 440Hz, pw: 0.5 },
+        filt: { cutoff: 1400Hz, q: 1.1, res: 0.35 },
+        amp: { gain: -14dB },
+        env: { a: 10ms, d: 80ms, s: 0.7, r: 120ms }
+      }
+    }
+
+    // this note follows static/automation (no per-event overrides).
+    play Tone { at: 1.1s, dur: 0.7s, pitch: A2, vel: 0.8 }
+  }
+}
