@@ -1,0 +1,58 @@
+aurora { version: "1.0" }
+
+globals { sr: 48000, block: 256, tempo: 60, tail_policy: fixed(120ms) }
+
+patch MonoHigh {
+  mono: true,
+  voice_steal: highest,
+  retrig: always,
+  out: stem("m2_mono_highest"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 110Hz } },
+      { id: "env", type: env_adsr, params: { a: 20ms, d: 80ms, s: 0.5, r: 120ms } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.0 } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "amp", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: control }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+patch MonoFirst {
+  mono: true,
+  voice_steal: first,
+  retrig: always,
+  out: stem("m2_mono_first"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_tri_blep, params: { freq: 110Hz } },
+      { id: "env", type: env_adsr, params: { a: 20ms, d: 90ms, s: 0.45, r: 130ms } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.0 } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "amp", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: control }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+score {
+  section A at 0s dur 1.8s {
+    // Overlap: highest should switch to E4 and ignore lower C3.
+    play MonoHigh  { at: 0.10s, dur: 0.8s, pitch: C3, vel: 0.9 }
+    play MonoHigh  { at: 0.35s, dur: 0.6s, pitch: E4, vel: 0.85 }
+    play MonoHigh  { at: 0.55s, dur: 0.5s, pitch: C2, vel: 0.8 }
+
+    // Overlap: first should keep first note, ignore later overlaps.
+    play MonoFirst { at: 0.20s, dur: 0.8s, pitch: G3, vel: 0.88 }
+    play MonoFirst { at: 0.45s, dur: 0.6s, pitch: C4, vel: 0.84 }
+  }
+}

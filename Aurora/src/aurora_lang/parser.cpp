@@ -603,6 +603,12 @@ class Parser {
     if (const auto it = body.find("mono"); it != body.end() && it->second.kind == ParamValue::Kind::kBool) {
       patch.mono = it->second.bool_value;
     }
+    if (const auto it = body.find("legato"); it != body.end() && it->second.kind == ParamValue::Kind::kBool) {
+      patch.legato = it->second.bool_value;
+    }
+    if (const auto it = body.find("retrig"); it != body.end()) {
+      patch.retrig = ValueAsString(it->second);
+    }
     if (const auto it = body.find("binaural"); it != body.end() && it->second.kind == ParamValue::Kind::kObject) {
       const auto binaural_obj = it->second.object_values;
       if (const auto enabled_it = binaural_obj.find("enabled");
@@ -695,6 +701,36 @@ class Parser {
     return event;
   }
 
+  PlayEvent ParseGateLikeEvent(const std::string& context, const UnitNumber& default_dur) {
+    PlayEvent event;
+    event.patch = ExpectIdentifierLike(context + " patch name");
+    const ParamValue body_value = ParseValue();
+    const auto body = ValueAsObject(body_value);
+
+    if (const auto it = body.find("at"); it != body.end()) {
+      event.at = ValueAsUnitNumber(it->second);
+    }
+    if (const auto it = body.find("dur"); it != body.end()) {
+      event.dur = ValueAsUnitNumber(it->second);
+    } else {
+      event.dur = default_dur;
+    }
+    if (const auto it = body.find("vel"); it != body.end()) {
+      event.vel = ValueAsNumber(it->second, 1.0);
+    }
+    if (const auto it = body.find("pitch"); it != body.end()) {
+      if (it->second.kind == ParamValue::Kind::kList) {
+        event.pitch_values = it->second.list_values;
+      } else {
+        event.pitch_values.push_back(it->second);
+      }
+    }
+    if (const auto it = body.find("params"); it != body.end() && it->second.kind == ParamValue::Kind::kObject) {
+      event.params = it->second.object_values;
+    }
+    return event;
+  }
+
   AutomateEvent ParseAutomateEvent() {
     AutomateEvent event;
     event.target = ParseDottedIdentifier("automation target");
@@ -763,6 +799,10 @@ class Parser {
     while (!MatchSymbol('}')) {
       if (MatchIdentifier("play")) {
         section.events.push_back(ParsePlayEvent());
+      } else if (MatchIdentifier("trigger")) {
+        section.events.push_back(ParseGateLikeEvent("trigger", UnitNumber{0.01, "s"}));
+      } else if (MatchIdentifier("gate")) {
+        section.events.push_back(ParseGateLikeEvent("gate", UnitNumber{0.25, "s"}));
       } else if (MatchIdentifier("automate")) {
         section.events.push_back(ParseAutomateEvent());
       } else if (MatchIdentifier("seq")) {

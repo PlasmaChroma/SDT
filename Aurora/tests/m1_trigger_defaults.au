@@ -1,0 +1,29 @@
+aurora { version: "1.0" }
+
+globals { sr: 48000, block: 256, tempo: 60, tail_policy: fixed(120ms) }
+
+patch Ping {
+  out: stem("m1_trigger_defaults"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 220Hz } },
+      { id: "env", type: env_adsr, params: { a: 2ms, d: 90ms, s: 0.2, r: 80ms } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.0 } },
+      { id: "amp", type: gain, params: { gain: -10dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "amp", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: control }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+score {
+  section A at 0s dur 1.4s {
+    trigger Ping { at: 0.1s, pitch: C4, vel: 0.9 }
+    trigger Ping { at: 0.4s, pitch: E4, vel: 0.8 }
+    gate Ping { at: 0.8s, pitch: G3, vel: 0.85 }
+  }
+}

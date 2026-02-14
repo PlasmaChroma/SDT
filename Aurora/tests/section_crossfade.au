@@ -1,0 +1,30 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 60,
+  tail_policy: fixed(200ms)
+}
+
+patch Pad {
+  out: stem("pad"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 220Hz } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [ { from: "osc", to: "amp.in" } ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section A at 0s dur 3s | xfade_out=300ms {
+    play Pad { at: 0s, dur: 3.5s, vel: 0.75, pitch: C3 }
+  }
+
+  section B at 3s dur 3s | xfade_in=300ms {
+    play Pad { at: 3s, dur: 3.2s, vel: 0.75, pitch: G3 }
+  }
+}

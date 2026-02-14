@@ -1,0 +1,44 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 60,
+  tail_policy: fixed(200ms)
+}
+
+patch ModSynth {
+  out: stem("m1_cv_nodes_trigger"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 110Hz } },
+      { id: "env", type: env_adsr, params: { a: 5ms, d: 120ms, s: 0.35, r: 140ms } },
+      { id: "lfo", type: lfo, params: { shape: sine, rate: 1.2Hz, depth: 1.0, unipolar: true } },
+      { id: "cv_a", type: cv_scale, params: { scale: 0.8, bias: 0.1 } },
+      { id: "cv_b", type: cv_mix, params: { a: 0.9, b: 0.6, bias: 0.0 } },
+      { id: "cv_s", type: cv_slew, params: { rise: 20ms, fall: 60ms } },
+      { id: "amp", type: gain, params: { gain: -12dB } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.0 } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "amp", to: "vca.in" },
+      { from: "env.out", to: "cv_a.in", rate: control },
+      { from: "lfo.out", to: "cv_b.in2", rate: control, map: { invert: true, bias: 0.15, scale: 0.5 } },
+      { from: "cv_a.out", to: "cv_b.in1", rate: control },
+      { from: "cv_b.out", to: "cv_s.in", rate: control },
+      { from: "cv_s.out", to: "vca.cv", rate: control, map: { type: set, min: 0, max: 1 } },
+      { from: "env.out", to: "amp.gain", rate: control, map: { type: db, min: -26, max: -4 } }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+score {
+  section A at 0s dur 2.2s {
+    trigger ModSynth { at: 0.10s, vel: 0.85, pitch: C3 }
+    trigger ModSynth { at: 0.32s, vel: 0.82, pitch: G2 }
+    gate ModSynth { at: 0.70s, dur: 0.55s, vel: 0.88, pitch: E3 }
+    gate ModSynth { at: 1.45s, dur: 0.35s, vel: 0.80, pitch: A2 }
+  }
+}

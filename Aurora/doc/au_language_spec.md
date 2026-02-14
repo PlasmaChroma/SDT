@@ -179,6 +179,8 @@ Body keys:
 - `poly` (number, default `8`)
 - `voice_steal` (text, default `oldest`)
 - `mono` (bool, default `false`)
+- `legato` (bool, default `false`)
+- `retrig` (`always|legato|never`, default `always`)
 - `binaural` object (optional):
   - `enabled` (bool, default `false`)
   - `shift` or `shift_hz` (number or `Hz`, default `0`)
@@ -228,12 +230,16 @@ Required:
 Control modulation (`connect`) behavior implemented by renderer:
 - Connections that target non-audio inputs (`to: "<node>.<param>"`) and are `rate: control` are treated as modulation routes.
 - Source nodes currently supported as control sources:
-  - `env_adsr` (`<env>.out`)
+  - `env_adsr` / `env_ad` / `env_ar` (`<env>.out`)
   - `lfo` (`<lfo>.out`)
+  - `cv_scale`, `cv_offset`, `cv_mix`, `cv_slew`, `cv_clip`
 - Map fields:
   - `type`: `set|add|mul|range|db|hz|lin` (`db/range/hz/lin` behave as `set`)
+  - `curve`: `linear|step|smooth|exp` (applied on normalized source before range/map math)
   - `min`, `max`: optional range mapping (source clamped to `[0,1]` before scaling to range)
   - `scale`, `offset`: optional final affine transform
+  - `invert` (bool): transforms source as `1 - source` before mapping
+  - `bias` (number): additive source bias before mapping
 - If `map.type` is omitted:
   - default op is `set` when destination port is `cv`
   - otherwise default op is `add`
@@ -296,6 +302,12 @@ Implemented VCA behavior (`vca` node):
 ```au
 { from: "env.out", to: "vca.cv", rate: control }
 ```
+
+Implemented envelope mode behavior:
+- `env_adsr`: attack/decay/sustain during gate, release after gate-off.
+- `env_ad`: attack then decay to zero (one-shot contour).
+- `env_ar`: attack to full level while gate is high, release after gate-off.
+- Time units on envelope params (`a/d/r`) support `ms|s|min|h` and are converted to seconds.
 
 ## 6. Score and Event Semantics
 
@@ -371,6 +383,19 @@ Pitch forms accepted:
 - Nested objects are flattened to dotted keys (`filt.cutoff`).
 - Precedence for a routed key is:
   - event param (`play/seq params`) > automation lane > static node/default value.
+
+## 6.2.1 `trigger` and `gate`
+Format:
+```au
+trigger PatchName { at: <time>, [dur: <time>], vel: <num>, pitch: <pitch-or-list>, params: { ... } }
+gate PatchName    { at: <time>, [dur: <time>], vel: <num>, pitch: <pitch-or-list>, params: { ... } }
+```
+
+Renderer behavior:
+- Both forms are expanded to play-like note events.
+- Default durations when `dur` is omitted:
+  - `trigger`: `10ms`
+  - `gate`: `250ms`
 
 ## 6.3 `automate`
 Format:
@@ -463,6 +488,27 @@ Warnings:
 - Routed render params also include:
   - `vca`: `<vca>.cv`, `<vca>.gain`
 - Modulation routes from graph `connect` are applied after event/automation/static resolution for each sample.
+- CV utility nodes are evaluated as control sources:
+  - `cv_scale`: `out = in * scale + bias`
+  - `cv_offset`: `out = in + offset`
+  - `cv_mix`: `out = in1 * a + in2 * b + bias`
+  - `cv_clip`: `out = clamp(in + bias, min, max)`
+  - `cv_slew`: one-pole slew with independent `rise`/`fall` times
+- Graph validation enforces simple port-type rules for known node classes:
+  - audio sources cannot connect to control destinations
+  - control sources cannot connect to audio inputs
+- Mono voice policy:
+  - when `patch.mono` is `true`, overlapping notes for that patch are serialized (single active voice)
+  - overlap priority in mono mode is based on `voice_steal`:
+    - `first`: keep currently active note during overlap, ignore new overlaps
+    - `highest`: keep higher-pitch note on overlap
+    - `lowest`: keep lower-pitch note on overlap
+    - `last`/`oldest`/other: newest note wins
+  - retrigger behavior:
+    - `always`: normal attack behavior on note transitions
+    - `legato`: with `legato: true`, suppress attack on overlap transitions
+    - `never`: suppress attack on all mono note transitions after first note
+- Envelope release tails are rendered beyond note duration (`gate`/`play`), and render length accounts for those tails.
 - `play.params` and `seq.params` override automation and static node values for the same key.
 - `osc.freq` is now an active/static parameter and participates in precedence.
 - Patch stems are stereo (`channels=2`) when `patch.binaural.enabled` is `true`; otherwise mono.

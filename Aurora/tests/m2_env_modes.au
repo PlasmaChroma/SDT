@@ -1,0 +1,49 @@
+aurora { version: "1.0" }
+
+globals { sr: 48000, block: 256, tempo: 60, tail_policy: fixed(0s) }
+
+patch ADPatch {
+  out: stem("m2_env_ad"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 180Hz } },
+      { id: "env", type: env_ad, params: { a: 20ms, d: 220ms } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.0 } },
+      { id: "amp", type: gain, params: { gain: -10dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "amp", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: control }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+patch ARPatch {
+  out: stem("m2_env_ar"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_pulse_blep, params: { freq: 120Hz, pw: 0.45 } },
+      { id: "env", type: env_ar, params: { a: 15ms, r: 180ms } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.0 } },
+      { id: "amp", type: gain, params: { gain: -11dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "amp", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: control }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+score {
+  section A at 0s dur 1.8s {
+    trigger ADPatch { at: 0.1s, pitch: C4, vel: 0.9 }
+    trigger ADPatch { at: 0.7s, pitch: E4, vel: 0.85 }
+
+    gate ARPatch { at: 0.2s, dur: 0.35s, pitch: C3, vel: 0.85 }
+    gate ARPatch { at: 1.0s, dur: 0.40s, pitch: G2, vel: 0.8 }
+  }
+}

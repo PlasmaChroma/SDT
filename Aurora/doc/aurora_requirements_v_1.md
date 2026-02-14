@@ -138,7 +138,8 @@ The render duration is determined deterministically as:
 - Current renderer limitations:
   - `pitch` call expressions (for example `chord(C3,"min7")`) are parsed but not expanded by pitch resolution; unhandled forms fall back to A4.
   - Note suffix offsets such as `A4+7c` or `C3+3st` are currently not applied during pitch resolution.
-  - `poly`, `voice_steal`, and `mono` are parsed but not currently enforced during rendering.
+  - `poly` and full `voice_steal` strategies are not yet fully enforced as independent voice allocators.
+  - `mono` is enforced as single-active-note serialization; `legato/retrig` provides basic overlap behavior.
 
 ### 5.4 Event scheduling
 
@@ -285,6 +286,7 @@ Rules:
 Minimal keys:
 
 - `poly`, `voice_steal`, `mono`
+- optional `legato`, `retrig: always|legato|never`
 - optional `binaural: { enabled, shift|shift_hz, mix }`
 - `graph: { nodes: [...], connect: [...], io: { out: "nodeId" } }`
 - `out: stem("name")`
@@ -308,10 +310,16 @@ Bus input contract:
 #### 6.7.3 Events
 
 - `play <PatchName> { at, dur, vel, pitch, params }`
+- `trigger <PatchName> { at, [dur], vel, pitch, params }`
+- `gate <PatchName> { at, [dur], vel, pitch, params }`
 - `automate <target> <curve> { time: value, ... }`
 - `seq <Name> { ... }` (deterministic expander)
 
 Current implementation note (renderer):
+- `trigger` and `gate` currently expand to play-like note events.
+  - `trigger` default `dur` is `10ms` when omitted.
+  - `gate` default `dur` is `250ms` when omitted.
+- Envelope release tails are rendered after gate-off and included in timeline sizing.
 - `play.params` and `seq.params` are active and routed as per-event overrides.
 - Param keys support dotted form (`"node.param"`) or nested objects (`node: { param: ... }`).
 - Resolution precedence per key is: event params > automation > static node/default value.
@@ -406,11 +414,14 @@ Current implementation notes (parser):
 
 Control modulation mapping (implemented):
 - Optional `map` object on a control connection:
-  - `{ type, min, max, scale, offset }`
+  - `{ type, curve, min, max, scale, offset, invert, bias }`
 - `type` supports: `set|add|mul|range|db|hz|lin`
   - `db/range/hz/lin` are set-style mappings.
+- `curve` supports: `linear|step|smooth|exp` on normalized control source.
 - `min/max` map a normalized control value (`0..1`) into destination range.
 - `scale/offset` apply after range mapping.
+- `invert` flips the source as `1-source` before mapping.
+- `bias` adds a source bias before mapping.
 - Default op when `type` is omitted:
   - `set` for `*.cv`
   - `add` otherwise
@@ -499,7 +510,13 @@ Current implementation note (renderer):
 
 - `env_adsr(a,d,s,r,curve)`
 - `env_ad(a,d,curve)`
+- `env_ar(a,r,curve)`
 - `lfo(shape, rate, depth, pw)`
+- `cv_scale(scale, bias)`     // `out = in * scale + bias`
+- `cv_offset(offset)`         // `out = in + offset`
+- `cv_mix(a, b, bias)`        // `out = in1*a + in2*b + bias`
+- `cv_clip(min, max, bias)`   // `out = clamp(in + bias, min, max)`
+- `cv_slew(rise, fall)`       // smoothed control transition
 - `slew(rise, fall)`
 
 ### 9.5 Filters
@@ -525,6 +542,20 @@ Current implementation notes:
 - `vca` is a real output multiply stage.
 - Final per-voice gain includes `vca.cv * vca.gain` in addition to gain/env stages.
 - `vca.cv` is intended for envelope/LFO control patching (`env.out -> vca.cv`).
+- CV utility nodes are valid modulation sources for downstream control routing.
+- Graph validation enforces port-type legality for known node classes.
+- Envelope time params (`a/d/r`) support `ms|s|min|h` conversion to seconds.
+- Mono voice behavior:
+  - overlapping notes are serialized when `mono: true`
+  - mono overlap priority uses `voice_steal`:
+    - `first`: keep active note, ignore incoming overlaps
+    - `highest`: keep higher-pitch note
+    - `lowest`: keep lower-pitch note
+    - `last`/`oldest`/other: newest note wins
+  - retrigger modes:
+    - `always`: normal attack on transitions
+    - `legato`: with `legato: true`, suppress attack on overlap transitions
+    - `never`: suppress attack on all mono transitions after first note
 
 ### 9.7 FX
 

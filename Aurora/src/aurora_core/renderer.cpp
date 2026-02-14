@@ -5,8 +5,10 @@
 #include <cmath>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -48,6 +50,22 @@ aurora::lang::UnitNumber ValueToUnit(const aurora::lang::ParamValue& value, cons
     return aurora::lang::UnitNumber{value.number_value, default_unit};
   }
   return aurora::lang::UnitNumber{0.0, default_unit};
+}
+
+double UnitLiteralToSeconds(const aurora::lang::UnitNumber& value) {
+  if (value.unit.empty() || value.unit == "s") {
+    return value.value;
+  }
+  if (value.unit == "ms") {
+    return value.value * 0.001;
+  }
+  if (value.unit == "min") {
+    return value.value * 60.0;
+  }
+  if (value.unit == "h") {
+    return value.value * 3600.0;
+  }
+  return value.value;
 }
 
 bool StartsWith(const std::string& value, const std::string& prefix) {
@@ -652,7 +670,106 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
   return out;
 }
 
+void ApplyMonoPolicies(const aurora::lang::AuroraFile& file, std::vector<PlayOccurrence>* plays) {
+  if (plays == nullptr || plays->empty()) {
+    return;
+  }
+  std::map<std::string, const aurora::lang::PatchDefinition*> patch_by_name;
+  for (const auto& patch : file.patches) {
+    patch_by_name[patch.name] = &patch;
+  }
+
+  std::map<std::string, std::vector<size_t>> by_patch;
+  for (size_t i = 0; i < plays->size(); ++i) {
+    by_patch[(*plays)[i].patch].push_back(i);
+  }
+
+  for (const auto& [patch_name, indices] : by_patch) {
+    const auto patch_it = patch_by_name.find(patch_name);
+    if (patch_it == patch_by_name.end()) {
+      continue;
+    }
+    const auto& patch = *patch_it->second;
+    if (!patch.mono) {
+      continue;
+    }
+    if (indices.empty()) {
+      continue;
+    }
+    auto primary_midi = [&](const PlayOccurrence& p) {
+      if (!p.pitches.empty()) {
+        return p.pitches.front().midi;
+      }
+      return 69;
+    };
+    auto keep_current_on_overlap = [&](const PlayOccurrence& current, const PlayOccurrence& candidate) {
+      const std::string mode = patch.voice_steal;
+      if (mode == "first") {
+        return true;
+      }
+      if (mode == "highest") {
+        return primary_midi(current) >= primary_midi(candidate);
+      }
+      if (mode == "lowest") {
+        return primary_midi(current) <= primary_midi(candidate);
+      }
+      // Default mono priority: most recent note wins (`last`/`oldest`/unknown).
+      return false;
+    };
+
+    size_t active_idx = indices.front();
+    bool first_note = true;
+    for (size_t n = 0; n < indices.size(); ++n) {
+      const size_t cur_idx = indices[n];
+      auto& cur = (*plays)[cur_idx];
+      if (cur.dur_samples == 0) {
+        continue;
+      }
+
+      if (first_note) {
+        first_note = false;
+        if (patch.retrig == "never") {
+          cur.params["__env_no_attack"] = aurora::lang::ParamValue::Bool(false);
+        }
+        active_idx = cur_idx;
+        continue;
+      }
+
+      auto& active = (*plays)[active_idx];
+      const uint64_t active_end = active.start_sample + active.dur_samples;
+      const bool overlap = cur.start_sample < active_end;
+
+      if (overlap) {
+        if (keep_current_on_overlap(active, cur)) {
+          cur.dur_samples = 0;
+          continue;
+        }
+        const uint64_t new_active_dur =
+            (cur.start_sample > active.start_sample) ? (cur.start_sample - active.start_sample) : 1;
+        active.dur_samples = std::max<uint64_t>(1, new_active_dur);
+        if ((patch.legato && patch.retrig == "legato") || patch.retrig == "never") {
+          cur.params["__env_no_attack"] = aurora::lang::ParamValue::Bool(true);
+        }
+        active_idx = cur_idx;
+        continue;
+      }
+
+      if (patch.retrig == "never") {
+        cur.params["__env_no_attack"] = aurora::lang::ParamValue::Bool(true);
+      }
+      active_idx = cur_idx;
+    }
+  }
+
+  plays->erase(std::remove_if(plays->begin(), plays->end(), [](const PlayOccurrence& p) { return p.dur_samples == 0; }),
+               plays->end());
+}
+
 struct PatchProgram {
+  bool mono = false;
+  bool legato = false;
+  std::string retrig = "always";
+
   std::string filter_node_id;
   std::string gain_node_id;
   std::string env_node_id;
@@ -669,7 +786,9 @@ struct PatchProgram {
   bool sample_player = false;
 
   struct Env {
+    enum class Mode { kAdsr, kAd, kAr };
     bool enabled = false;
+    Mode mode = Mode::kAdsr;
     double a = 0.01;
     double d = 0.1;
     double s = 0.8;
@@ -709,7 +828,7 @@ struct PatchProgram {
   } vca;
 
   struct ModRoute {
-    enum class SourceKind { kEnv, kLfo };
+    enum class SourceKind { kEnv, kLfo, kCvNode };
     enum class Op { kSet, kAdd, kMul };
 
     SourceKind source_kind = SourceKind::kEnv;
@@ -721,8 +840,32 @@ struct PatchProgram {
     double max = 1.0;
     double scale = 1.0;
     double offset = 0.0;
+    bool invert = false;
+    double bias = 0.0;
+    std::string curve = "linear";
   };
   std::vector<ModRoute> mod_routes;
+
+  struct CvInputRoute {
+    std::string source_node_id;
+    std::string to_port;
+  };
+
+  struct CvNode {
+    std::string node_id;
+    std::string type;
+    double scale = 1.0;
+    double offset = 0.0;
+    double a = 1.0;
+    double b = 1.0;
+    double bias = 0.0;
+    double rise_seconds = 0.01;
+    double fall_seconds = 0.01;
+    double min = 0.0;
+    double max = 1.0;
+    std::vector<CvInputRoute> inputs;
+  };
+  std::vector<CvNode> cv_nodes;
 
   double gain_db = -6.0;
   std::optional<aurora::lang::SendDefinition> send;
@@ -763,7 +906,15 @@ double ParseDetuneSemitones(const aurora::lang::ParamValue& value) {
   return 0.0;
 }
 
-bool NodeIsControlSource(const std::string& node_type) { return node_type == "env_adsr" || node_type == "lfo"; }
+bool IsCvNodeType(const std::string& node_type) {
+  return node_type == "cv_scale" || node_type == "cv_offset" || node_type == "cv_mix" || node_type == "cv_slew" ||
+         node_type == "cv_clip";
+}
+
+bool NodeIsControlSource(const std::string& node_type) {
+  return node_type == "env_adsr" || node_type == "env_ad" || node_type == "env_ar" || node_type == "lfo" ||
+         IsCvNodeType(node_type);
+}
 
 PatchProgram::ModRoute::Op ParseModOp(const std::map<std::string, aurora::lang::ParamValue>& map_obj,
                                       const std::string& target_port) {
@@ -799,7 +950,33 @@ double LfoWave(const std::string& shape, double phase, double pw) {
 }
 
 PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
+  enum class PortKind { kUnknown, kAudioIn, kControlIn, kAudioOut, kControlOut };
+  const auto classify_port = [](const std::string& node_type, const std::string& port_name, bool is_source) -> PortKind {
+    if (is_source) {
+      if (port_name.empty() || port_name == "out") {
+        if (NodeIsControlSource(node_type)) {
+          return PortKind::kControlOut;
+        }
+        return PortKind::kAudioOut;
+      }
+      return NodeIsControlSource(node_type) ? PortKind::kControlOut : PortKind::kAudioOut;
+    }
+    if (StartsWith(port_name, "in")) {
+      if (IsCvNodeType(node_type)) {
+        return PortKind::kControlIn;
+      }
+      return PortKind::kAudioIn;
+    }
+    if (port_name == "gate" || port_name == "trigger" || port_name == "cv") {
+      return PortKind::kControlIn;
+    }
+    return PortKind::kControlIn;
+  };
+
   PatchProgram program;
+  program.mono = patch.mono;
+  program.legato = patch.legato;
+  program.retrig = patch.retrig;
   program.send = patch.send;
   program.binaural.enabled = patch.binaural.enabled;
   program.binaural.shift_hz = patch.binaural.shift_hz;
@@ -839,18 +1016,28 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
       program.noise_white = true;
     } else if (node.type == "sample_player" || node.type == "sample_slice") {
       program.sample_player = true;
-    } else if (node.type == "env_adsr") {
+    } else if (node.type == "env_adsr" || node.type == "env_ad" || node.type == "env_ar") {
       program.env.enabled = true;
       program.env_node_id = node.id;
+      if (node.type == "env_ad") {
+        program.env.mode = PatchProgram::Env::Mode::kAd;
+      } else if (node.type == "env_ar") {
+        program.env.mode = PatchProgram::Env::Mode::kAr;
+      } else {
+        program.env.mode = PatchProgram::Env::Mode::kAdsr;
+      }
       if (const auto it = node.params.find("a"); it != node.params.end()) {
-        program.env.a = ValueToUnit(it->second).value;
+        program.env.a = UnitLiteralToSeconds(ValueToUnit(it->second));
       }
       if (const auto it = node.params.find("d"); it != node.params.end()) {
-        program.env.d = ValueToUnit(it->second).value;
+        program.env.d = UnitLiteralToSeconds(ValueToUnit(it->second));
       }
       program.env.s = NodeParamNumber(node.params, "s", 0.8);
       if (const auto it = node.params.find("r"); it != node.params.end()) {
-        program.env.r = ValueToUnit(it->second).value;
+        program.env.r = UnitLiteralToSeconds(ValueToUnit(it->second));
+      }
+      if (program.env.mode == PatchProgram::Env::Mode::kAd) {
+        program.env.s = 0.0;
       }
     } else if (node.type == "svf" || node.type == "biquad") {
       program.filter.enabled = true;
@@ -896,6 +1083,24 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
         lfo.unipolar = it->second.bool_value;
       }
       program.lfos.push_back(std::move(lfo));
+    } else if (IsCvNodeType(node.type)) {
+      PatchProgram::CvNode cv;
+      cv.node_id = node.id;
+      cv.type = node.type;
+      cv.scale = NodeParamNumber(node.params, "scale", cv.scale);
+      cv.offset = NodeParamNumber(node.params, "offset", cv.offset);
+      cv.a = NodeParamNumber(node.params, "a", cv.a);
+      cv.b = NodeParamNumber(node.params, "b", cv.b);
+      cv.bias = NodeParamNumber(node.params, "bias", cv.bias);
+      if (const auto it = node.params.find("rise"); it != node.params.end()) {
+        cv.rise_seconds = std::max(0.0001, UnitLiteralToSeconds(ValueToUnit(it->second)));
+      }
+      if (const auto it = node.params.find("fall"); it != node.params.end()) {
+        cv.fall_seconds = std::max(0.0001, UnitLiteralToSeconds(ValueToUnit(it->second)));
+      }
+      cv.min = NodeParamNumber(node.params, "min", cv.min);
+      cv.max = NodeParamNumber(node.params, "max", cv.max);
+      program.cv_nodes.push_back(std::move(cv));
     } else if (node.type == "vca") {
       program.vca.enabled = true;
       program.vca.node_id = node.id;
@@ -925,21 +1130,41 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
       continue;
     }
     const auto src_type_it = node_types.find(src_node);
+    const auto dst_type_it = node_types.find(dst_node);
     if (src_type_it == node_types.end()) {
       continue;
     }
-    const bool control_rate = conn.rate == "control";
-    const bool source_is_control = NodeIsControlSource(src_type_it->second);
-    if (!control_rate && !source_is_control) {
+    if (dst_type_it == node_types.end()) {
       continue;
     }
-    if (StartsWith(dst_port, "in")) {
+    const PortKind dst_kind = classify_port(dst_type_it->second, dst_port, false);
+
+    if (IsCvNodeType(dst_type_it->second) && (dst_kind == PortKind::kControlIn)) {
+      for (auto& cv : program.cv_nodes) {
+        if (cv.node_id == dst_node) {
+          cv.inputs.push_back(PatchProgram::CvInputRoute{src_node, dst_port});
+          break;
+        }
+      }
+      continue;
+    }
+
+    const bool source_is_control = NodeIsControlSource(src_type_it->second);
+    if (!source_is_control && dst_kind == PortKind::kControlIn) {
+      continue;
+    }
+    if (dst_kind == PortKind::kAudioIn) {
       continue;
     }
     PatchProgram::ModRoute route;
     route.source_node_id = src_node;
-    route.source_kind =
-        (src_type_it->second == "lfo") ? PatchProgram::ModRoute::SourceKind::kLfo : PatchProgram::ModRoute::SourceKind::kEnv;
+    if (src_type_it->second == "lfo") {
+      route.source_kind = PatchProgram::ModRoute::SourceKind::kLfo;
+    } else if (src_type_it->second == "env_adsr" || src_type_it->second == "env_ad" || src_type_it->second == "env_ar") {
+      route.source_kind = PatchProgram::ModRoute::SourceKind::kEnv;
+    } else {
+      route.source_kind = PatchProgram::ModRoute::SourceKind::kCvNode;
+    }
     route.target_key = dst_node + "." + dst_port;
     route.op = ParseModOp(conn.map, dst_port);
     if (const auto min_it = conn.map.find("min"); min_it != conn.map.end()) {
@@ -956,6 +1181,19 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
     if (const auto offset_it = conn.map.find("offset"); offset_it != conn.map.end()) {
       route.offset = ValueToNumber(offset_it->second, route.offset);
     }
+    if (const auto invert_it = conn.map.find("invert"); invert_it != conn.map.end()) {
+      if (invert_it->second.kind == aurora::lang::ParamValue::Kind::kBool) {
+        route.invert = invert_it->second.bool_value;
+      } else {
+        route.invert = ValueToNumber(invert_it->second, 0.0) != 0.0;
+      }
+    }
+    if (const auto bias_it = conn.map.find("bias"); bias_it != conn.map.end()) {
+      route.bias = ValueToNumber(bias_it->second, route.bias);
+    }
+    if (const auto curve_it = conn.map.find("curve"); curve_it != conn.map.end()) {
+      route.curve = ValueToText(curve_it->second);
+    }
     program.mod_routes.push_back(std::move(route));
   }
   if (program.oscillators.empty() && !program.noise_white && !program.sample_player) {
@@ -966,7 +1204,7 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
   return program;
 }
 
-double EnvelopeValue(const PatchProgram::Env& env, double t, double note_dur) {
+double EnvelopeValue(const PatchProgram::Env& env, double t, double note_dur, bool no_attack) {
   if (!env.enabled) {
     return 1.0;
   }
@@ -974,15 +1212,38 @@ double EnvelopeValue(const PatchProgram::Env& env, double t, double note_dur) {
   const double decay = std::max(0.0001, env.d);
   const double release = std::max(0.0001, env.r);
 
-  if (t < attack) {
+  if (env.mode == PatchProgram::Env::Mode::kAd) {
+    if (!no_attack && t < attack) {
+      return Clamp(t / attack, 0.0, 1.0);
+    }
+    const double td = t - (no_attack ? 0.0 : attack);
+    if (td < decay) {
+      const double d = Clamp(td / decay, 0.0, 1.0);
+      return 1.0 - d;
+    }
+    return 0.0;
+  }
+
+  if (env.mode == PatchProgram::Env::Mode::kAr) {
+    if (!no_attack && t < attack) {
+      return Clamp(t / attack, 0.0, 1.0);
+    }
+    if (t < note_dur) {
+      return 1.0;
+    }
+    const double rt = (t - note_dur) / release;
+    return 1.0 - Clamp(rt, 0.0, 1.0);
+  }
+
+  if (!no_attack && t < attack) {
     return Clamp(t / attack, 0.0, 1.0);
   }
-  if (t < attack + decay) {
+  if (!no_attack && t < attack + decay) {
     const double dt = (t - attack) / decay;
     return 1.0 + (env.s - 1.0) * dt;
   }
   if (t < note_dur) {
-    return env.s;
+    return no_attack ? env.s : env.s;
   }
   if (t < note_dur + release) {
     const double rt = (t - note_dur) / release;
@@ -1045,7 +1306,7 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
 
   const auto resolve_seconds = [&](const ValueRoute& route, double fallback, uint64_t sample) {
     if (route.param != nullptr) {
-      return std::max(0.0001, ValueToUnit(*route.param).value);
+      return std::max(0.0001, UnitLiteralToSeconds(ValueToUnit(*route.param)));
     }
     if (route.lane != nullptr) {
       return std::max(0.0001, EvaluateLane(*route.lane, sample));
@@ -1077,6 +1338,10 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   for (const auto& lfo : program.lfos) {
     lfo_by_id[lfo.node_id] = &lfo;
   }
+  std::map<std::string, const PatchProgram::CvNode*> cv_by_id;
+  for (const auto& cv : program.cv_nodes) {
+    cv_by_id[cv.node_id] = &cv;
+  }
   const auto lfo_value = [&](const PatchProgram::Lfo& lfo, double t_seconds) {
     const double phase = lfo.phase + t_seconds * lfo.rate_hz;
     double out = LfoWave(lfo.shape, phase, lfo.pw);
@@ -1085,22 +1350,92 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
     }
     return out * lfo.depth;
   };
+  std::map<std::string, double> cv_state;
+  const auto slew_toward = [&](double current, double target, double seconds, double dt) {
+    const double tau = std::max(0.0001, seconds);
+    const double alpha = 1.0 - std::exp(-dt / tau);
+    return current + (target - current) * Clamp(alpha, 0.0, 1.0);
+  };
+  const auto apply_curve = [&](double x, const std::string& curve) {
+    const double c = Clamp(x, 0.0, 1.0);
+    if (curve == "step") {
+      return c >= 0.5 ? 1.0 : 0.0;
+    }
+    if (curve == "smooth") {
+      return c * c * (3.0 - 2.0 * c);
+    }
+    if (curve == "exp") {
+      return c * c;
+    }
+    return c;
+  };
+  std::map<std::string, double> control_eval_cache;
+  std::set<std::string> control_eval_stack;
+  std::function<double(const std::string&, double, double)> eval_control_source =
+      [&](const std::string& source_node_id, double env_value, double t_seconds) -> double {
+    if (source_node_id == program.env_node_id) {
+      return env_value;
+    }
+    if (const auto lfo_it = lfo_by_id.find(source_node_id); lfo_it != lfo_by_id.end()) {
+      return lfo_value(*lfo_it->second, t_seconds);
+    }
+    if (const auto cached_it = control_eval_cache.find(source_node_id); cached_it != control_eval_cache.end()) {
+      return cached_it->second;
+    }
+    if (control_eval_stack.contains(source_node_id)) {
+      return 0.0;
+    }
+    const auto cv_it = cv_by_id.find(source_node_id);
+    if (cv_it == cv_by_id.end()) {
+      return 0.0;
+    }
+    control_eval_stack.insert(source_node_id);
+    const PatchProgram::CvNode& cv = *cv_it->second;
+    double in1 = 0.0;
+    double in2 = 0.0;
+    for (const auto& input : cv.inputs) {
+      const double v = eval_control_source(input.source_node_id, env_value, t_seconds);
+      if (input.to_port == "in2" || input.to_port == "b") {
+        in2 += v;
+      } else {
+        in1 += v;
+      }
+    }
+    double out = in1;
+    if (cv.type == "cv_scale") {
+      out = in1 * cv.scale + cv.bias;
+    } else if (cv.type == "cv_offset") {
+      out = in1 + cv.offset;
+    } else if (cv.type == "cv_mix") {
+      out = in1 * cv.a + in2 * cv.b + cv.bias;
+    } else if (cv.type == "cv_clip") {
+      const double lo = std::min(cv.min, cv.max);
+      const double hi = std::max(cv.min, cv.max);
+      out = Clamp(in1 + cv.bias, lo, hi);
+    } else if (cv.type == "cv_slew") {
+      const double target = in1 + cv.bias;
+      const double prev = cv_state.contains(cv.node_id) ? cv_state[cv.node_id] : target;
+      const double dt = 1.0 / static_cast<double>(sample_rate);
+      const double time = (target >= prev) ? cv.rise_seconds : cv.fall_seconds;
+      out = slew_toward(prev, target, time, dt);
+      cv_state[cv.node_id] = out;
+    }
+    control_eval_stack.erase(source_node_id);
+    control_eval_cache[source_node_id] = out;
+    return out;
+  };
   const auto apply_mod = [&](const std::string& target_key, double base_value, double env_value, double t_seconds) {
     double out = base_value;
     for (const auto& route : program.mod_routes) {
       if (route.target_key != target_key) {
         continue;
       }
-      double source_value = 0.0;
-      if (route.source_kind == PatchProgram::ModRoute::SourceKind::kEnv) {
-        source_value = env_value;
-      } else {
-        const auto lfo_it = lfo_by_id.find(route.source_node_id);
-        if (lfo_it == lfo_by_id.end()) {
-          continue;
-        }
-        source_value = lfo_value(*lfo_it->second, t_seconds);
+      double source_value = eval_control_source(route.source_node_id, env_value, t_seconds);
+      if (route.invert) {
+        source_value = 1.0 - source_value;
       }
+      source_value += route.bias;
+      source_value = apply_curve(source_value, route.curve);
       double mapped = source_value;
       if (route.use_range) {
         mapped = route.min + Clamp(source_value, 0.0, 1.0) * (route.max - route.min);
@@ -1153,6 +1488,9 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   const ValueRoute gain_db_route = make_route(program.gain_node_id + ".gain");
   const ValueRoute vca_cv_route = make_route(program.vca.node_id + ".cv");
   const ValueRoute vca_gain_route = make_route(program.vca.node_id + ".gain");
+  const auto no_attack_it = play.params.find("__env_no_attack");
+  const bool no_attack = (no_attack_it != play.params.end() && no_attack_it->second.kind == aurora::lang::ParamValue::Kind::kBool &&
+                          no_attack_it->second.bool_value);
 
   for (size_t pitch_index = 0; pitch_index < play.pitches.size(); ++pitch_index) {
     const ResolvedPitch& pitch = play.pitches[pitch_index];
@@ -1166,13 +1504,27 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
                                     std::to_string(static_cast<int>(pitch_index))));
 
     const uint64_t fade_samples = static_cast<uint64_t>(std::llround(sample_rate * 0.005));
-    for (uint64_t i = 0; i < play.dur_samples; ++i) {
+    uint64_t render_samples = play.dur_samples;
+    if (program.env.enabled) {
+      if (program.env.mode == PatchProgram::Env::Mode::kAd) {
+        const uint64_t ad = static_cast<uint64_t>(std::llround((std::max(0.0001, program.env.a) + std::max(0.0001, program.env.d)) *
+                                                                static_cast<double>(sample_rate)));
+        render_samples = std::max(render_samples, ad);
+      } else {
+        const uint64_t rel =
+            static_cast<uint64_t>(std::llround(std::max(0.0001, program.env.r) * static_cast<double>(sample_rate)));
+        render_samples += rel;
+      }
+    }
+    for (uint64_t i = 0; i < render_samples; ++i) {
       const uint64_t abs_sample = play.start_sample + i;
       if (abs_sample >= stem_frames) {
         break;
       }
       const double t = static_cast<double>(i) / sample_rate;
       const double note_dur = static_cast<double>(play.dur_samples) / sample_rate;
+      control_eval_cache.clear();
+      control_eval_stack.clear();
       PatchProgram::Env env_state = program.env;
       if (program.env.enabled && !program.env_node_id.empty()) {
         env_state.a = std::max(0.0001, apply_mod(program.env_node_id + ".a",
@@ -1184,12 +1536,12 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         env_state.r = std::max(0.0001, apply_mod(program.env_node_id + ".r",
                                                   resolve_seconds(env_r, program.env.r, abs_sample), 0.0, t));
       }
-      double env = EnvelopeValue(env_state, t, note_dur);
+      double env = EnvelopeValue(env_state, t, note_dur, no_attack);
 
       if (i < fade_samples && fade_samples > 0) {
         env *= static_cast<double>(i) / static_cast<double>(fade_samples);
       }
-      if (play.dur_samples > fade_samples && i > play.dur_samples - fade_samples && fade_samples > 0) {
+      if (i < play.dur_samples && play.dur_samples > fade_samples && i > play.dur_samples - fade_samples && fade_samples > 0) {
         const uint64_t rem = play.dur_samples - i;
         env *= static_cast<double>(rem) / static_cast<double>(fade_samples);
       }
@@ -1366,15 +1718,15 @@ BusProgram BuildBusProgram(const aurora::lang::BusDefinition& bus) {
       program.has_reverb = true;
       program.mix = Clamp(NodeParamNumber(node.params, "mix", program.mix), 0.0, 1.0);
       if (const auto it = node.params.find("decay"); it != node.params.end()) {
-        program.decay = std::max(0.1, ValueToUnit(it->second).value);
+        program.decay = std::max(0.1, UnitLiteralToSeconds(ValueToUnit(it->second)));
       }
       if (const auto it = node.params.find("predelay"); it != node.params.end()) {
-        program.predelay_seconds = std::max(0.0, ValueToUnit(it->second).value);
+        program.predelay_seconds = std::max(0.0, UnitLiteralToSeconds(ValueToUnit(it->second)));
       }
     } else if (node.type == "delay") {
       program.has_reverb = true;
       if (const auto it = node.params.find("time"); it != node.params.end()) {
-        program.predelay_seconds = std::max(0.001, ValueToUnit(it->second).value);
+        program.predelay_seconds = std::max(0.001, UnitLiteralToSeconds(ValueToUnit(it->second)));
       }
       program.mix = Clamp(NodeParamNumber(node.params, "mix", 0.35), 0.0, 1.0);
       program.decay = std::max(0.1, NodeParamNumber(node.params, "fb", 0.5) * 8.0);
@@ -1432,19 +1784,48 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
 
   const TempoMap tempo_map = BuildTempoMap(file.globals);
   ExpansionResult expanded = ExpandScore(file, tempo_map, result.metadata.sample_rate, options.seed);
+  ApplyMonoPolicies(file, &expanded.plays);
+
+  std::map<std::string, PatchProgram> patch_programs;
+  for (const auto& patch : file.patches) {
+    patch_programs[patch.name] = BuildPatchProgram(patch);
+  }
+
+  uint64_t timeline_with_env_tails = expanded.timeline_end;
+  for (const auto& play : expanded.plays) {
+    const auto p_it = patch_programs.find(play.patch);
+    if (p_it == patch_programs.end()) {
+      continue;
+    }
+    const auto& env = p_it->second.env;
+    uint64_t extra = 0;
+    if (env.enabled) {
+      if (env.mode == PatchProgram::Env::Mode::kAd) {
+        const uint64_t ad =
+            static_cast<uint64_t>(std::llround((std::max(0.0001, env.a) + std::max(0.0001, env.d)) * result.metadata.sample_rate));
+        const uint64_t note = play.dur_samples;
+        extra = (ad > note) ? (ad - note) : 0;
+      } else {
+        extra = static_cast<uint64_t>(std::llround(std::max(0.0001, env.r) * result.metadata.sample_rate));
+      }
+    }
+    timeline_with_env_tails = std::max<uint64_t>(timeline_with_env_tails, play.start_sample + play.dur_samples + extra);
+  }
 
   const uint64_t tail_samples = static_cast<uint64_t>(
       std::llround(file.globals.tail_policy.fixed_seconds * static_cast<double>(result.metadata.sample_rate)));
   const uint64_t total_samples =
-      RoundUpToBlock(std::max<uint64_t>(expanded.timeline_end, 1) + tail_samples, result.metadata.block_size);
+      RoundUpToBlock(std::max<uint64_t>(timeline_with_env_tails, 1) + tail_samples, result.metadata.block_size);
   result.metadata.total_samples = total_samples;
   result.metadata.duration_seconds = static_cast<double>(total_samples) / static_cast<double>(result.metadata.sample_rate);
 
   std::map<std::string, AudioStem> patch_buffers;
-  std::map<std::string, PatchProgram> patch_programs;
   for (const auto& patch : file.patches) {
-    PatchProgram program = BuildPatchProgram(patch);
-    patch_programs[patch.name] = program;
+    const auto program_it = patch_programs.find(patch.name);
+    if (program_it == patch_programs.end()) {
+      continue;
+    }
+    const PatchProgram& program = program_it->second;
     AudioStem buffer;
     buffer.name = patch.name;
     buffer.channels = program.binaural.enabled ? 2 : 1;

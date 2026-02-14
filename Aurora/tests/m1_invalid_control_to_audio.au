@@ -1,0 +1,23 @@
+aurora { version: "1.0" }
+
+globals { sr: 48000, block: 256, tempo: 60 }
+
+patch BadControlToAudio {
+  out: stem("bad_control_to_audio"),
+  graph: {
+    nodes: [
+      { id: "env", type: env_adsr, params: { a: 10ms, d: 50ms, s: 0.7, r: 80ms } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "env.out", to: "amp.in", rate: control }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section A at 0s dur 1s {
+    play BadControlToAudio { at: 0s, dur: 500ms, pitch: C3 }
+  }
+}

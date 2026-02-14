@@ -1,6 +1,7 @@
 #include "aurora/lang/validation.hpp"
 
 #include <set>
+#include <map>
 #include <string>
 
 namespace aurora::lang {
@@ -13,6 +14,70 @@ bool HasMajorVersionOne(const std::string& version) {
   const size_t dot = version.find('.');
   const std::string major = dot == std::string::npos ? version : version.substr(0, dot);
   return major == "1";
+}
+
+bool IsCvNodeType(const std::string& node_type) {
+  return node_type == "cv_scale" || node_type == "cv_offset" || node_type == "cv_mix" || node_type == "cv_slew" ||
+         node_type == "cv_clip";
+}
+
+bool IsControlSourceType(const std::string& node_type) {
+  return node_type == "env_adsr" || node_type == "env_ad" || node_type == "env_ar" || node_type == "lfo" ||
+         IsCvNodeType(node_type);
+}
+
+std::pair<std::string, std::string> SplitNodePort(const std::string& endpoint) {
+  const size_t dot = endpoint.find('.');
+  if (dot == std::string::npos) {
+    return {endpoint, ""};
+  }
+  return {endpoint.substr(0, dot), endpoint.substr(dot + 1)};
+}
+
+enum class PortKind { kAudioIn, kControlIn, kAudioOut, kControlOut };
+
+PortKind ClassifyPort(const std::string& node_type, const std::string& port_name, bool is_source) {
+  if (is_source) {
+    if (IsControlSourceType(node_type)) {
+      return PortKind::kControlOut;
+    }
+    return PortKind::kAudioOut;
+  }
+  if (port_name.rfind("in", 0) == 0) {
+    return IsCvNodeType(node_type) ? PortKind::kControlIn : PortKind::kAudioIn;
+  }
+  return PortKind::kControlIn;
+}
+
+void ValidateGraphConnections(const std::string& owner_label, const GraphDefinition& graph, ValidationResult* out) {
+  std::map<std::string, std::string> node_type_by_id;
+  for (const auto& node : graph.nodes) {
+    node_type_by_id[node.id] = node.type;
+  }
+  for (const auto& conn : graph.connections) {
+    const auto [src_node, src_port] = SplitNodePort(conn.from);
+    const auto [dst_node, dst_port] = SplitNodePort(conn.to);
+    const auto src_it = node_type_by_id.find(src_node);
+    const auto dst_it = node_type_by_id.find(dst_node);
+    if (src_it == node_type_by_id.end()) {
+      out->errors.push_back(owner_label + " connection references unknown source node '" + src_node + "'.");
+      continue;
+    }
+    if (dst_it == node_type_by_id.end()) {
+      out->errors.push_back(owner_label + " connection references unknown destination node '" + dst_node + "'.");
+      continue;
+    }
+    const PortKind src_kind = ClassifyPort(src_it->second, src_port, true);
+    const PortKind dst_kind = ClassifyPort(dst_it->second, dst_port, false);
+    if (src_kind == PortKind::kAudioOut && dst_kind == PortKind::kControlIn) {
+      out->errors.push_back(owner_label + " connection '" + conn.from + "' -> '" + conn.to +
+                            "' is invalid: audio source cannot drive control input.");
+    }
+    if (src_kind == PortKind::kControlOut && dst_kind == PortKind::kAudioIn) {
+      out->errors.push_back(owner_label + " connection '" + conn.from + "' -> '" + conn.to +
+                            "' is invalid: control source cannot drive audio input.");
+    }
+  }
 }
 
 }  // namespace
@@ -53,6 +118,10 @@ ValidationResult Validate(const AuroraFile& file) {
     if (patch.graph.out.empty()) {
       out.errors.push_back("Patch '" + patch.name + "' graph io.out is required.");
     }
+    if (!patch.retrig.empty() && patch.retrig != "always" && patch.retrig != "legato" && patch.retrig != "never") {
+      out.warnings.push_back("Patch '" + patch.name + "' retrig should be 'always', 'legato', or 'never'.");
+    }
+    ValidateGraphConnections("Patch '" + patch.name + "' graph", patch.graph, &out);
     if (patch.binaural.enabled) {
       if (patch.binaural.mix < 0.0 || patch.binaural.mix > 1.0) {
         out.warnings.push_back("Patch '" + patch.name + "' binaural.mix is outside [0,1]; renderer will clamp.");
@@ -86,6 +155,7 @@ ValidationResult Validate(const AuroraFile& file) {
     if (bus.graph.out.empty()) {
       out.errors.push_back("Bus '" + bus.name + "' graph io.out is required.");
     }
+    ValidateGraphConnections("Bus '" + bus.name + "' graph", bus.graph, &out);
   }
 
   for (const auto& patch : file.patches) {

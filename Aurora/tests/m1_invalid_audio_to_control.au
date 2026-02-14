@@ -1,0 +1,23 @@
+aurora { version: "1.0" }
+
+globals { sr: 48000, block: 256, tempo: 60 }
+
+patch BadAudioToControl {
+  out: stem("bad_audio_to_control"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 110Hz } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.5 } }
+    ],
+    connect: [
+      { from: "osc.out", to: "vca.cv", rate: audio }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+score {
+  section A at 0s dur 1s {
+    play BadAudioToControl { at: 0s, dur: 500ms, pitch: C3 }
+  }
+}

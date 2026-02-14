@@ -79,6 +79,8 @@ struct PatchDefinition {
   int poly = 8;
   std::string voice_steal = "oldest";
   bool mono = false;
+  bool legato = false;
+  std::string retrig = "always";
   BinauralDefinition binaural;
   std::string out_stem;
   std::optional<SendDefinition> send;

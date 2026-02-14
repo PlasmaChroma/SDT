@@ -1,0 +1,36 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 60,
+  tail_policy: fixed(200ms)
+}
+
+patch Pulsar {
+  out: stem("pulsar"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 110Hz } },
+      { id: "env", type: env_adsr, params: { a: 10ms, d: 80ms, s: 0.4, r: 120ms } },
+      { id: "lfo", type: lfo, params: { shape: sine, rate: 2Hz, depth: 1.0 } },
+      { id: "amp", type: gain, params: { gain: -12dB } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.0 } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "amp", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: control },
+      { from: "lfo.out", to: "osc.freq", rate: control, map: { type: add, scale: 5 } },
+      { from: "env.out", to: "amp.gain", rate: control, map: { type: db, min: -24, max: 0 } }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+score {
+  section A at 0s dur 2s {
+    play Pulsar { at: 0.1s, dur: 0.6s, pitch: C3, vel: 0.9 }
+    play Pulsar { at: 1.0s, dur: 0.7s, pitch: G2, vel: 0.85 }
+  }
+}

@@ -1,0 +1,41 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 60,
+  tail_policy: fixed(250ms)
+}
+
+patch Tone {
+  out: stem("tone"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 220Hz } },
+      { id: "amp", type: gain, params: { gain: -14dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  pattern Cell {
+    section Phrase at 0s dur 1s {
+      play Tone { at: 0s, dur: 450ms, vel: 0.8, pitch: C3 }
+      play Tone { at: 500ms, dur: 450ms, vel: 0.75, pitch: G3 }
+    }
+  }
+
+  repeat 2 {
+    play Cell x 2
+  }
+
+  loop for 3s {
+    section Tick at 0s dur 1s {
+      seq Tone { at: 0s, dur: 1s, rate: 250ms, pattern: "x..x", vel: 0.55, pitch: [C4, E4], pick: "cycle", max: 24 }
+    }
+  }
+}

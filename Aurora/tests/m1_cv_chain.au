@@ -1,0 +1,36 @@
+aurora { version: "1.0" }
+
+globals { sr: 48000, block: 256, tempo: 60, tail_policy: fixed(120ms) }
+
+patch CVChain {
+  out: stem("m1_cv_chain"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_pulse_blep, params: { freq: 110Hz, pw: 0.4 } },
+      { id: "env", type: env_adsr, params: { a: 5ms, d: 180ms, s: 0.5, r: 100ms } },
+      { id: "lfo", type: lfo, params: { shape: triangle, rate: 2Hz, depth: 1.0, unipolar: true } },
+      { id: "m1", type: cv_offset, params: { offset: 0.12 } },
+      { id: "m2", type: cv_scale, params: { scale: 0.7, bias: 0.0 } },
+      { id: "m3", type: cv_mix, params: { a: 1.0, b: 0.5, bias: 0.0 } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 1000Hz, q: 0.8 } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "env.out", to: "m1.in", rate: control },
+      { from: "m1.out", to: "m2.in", rate: control },
+      { from: "m2.out", to: "m3.in1", rate: control },
+      { from: "lfo.out", to: "m3.in2", rate: control, map: { invert: true, bias: 0.1 } },
+      { from: "m3.out", to: "filt.cutoff", rate: control, map: { type: hz, min: 300, max: 2500 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section A at 0s dur 2s {
+    play CVChain { at: 0.1s, dur: 0.7s, pitch: C3, vel: 0.9 }
+    play CVChain { at: 1.0s, dur: 0.8s, pitch: A2, vel: 0.85 }
+  }
+}

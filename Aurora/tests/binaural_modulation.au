@@ -1,0 +1,44 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 60,
+  tail_policy: fixed(250ms)
+}
+
+patch BinauralTone {
+  out: stem("binaural_tone"),
+  binaural: { enabled: true, shift: 6Hz, mix: 1.0 },
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { detune: 0c } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section Sweep at 0s dur 3s {
+    // Modulate binaural spread like patching a modifier into oscillator control.
+    automate patch.BinauralTone.osc.binaural_shift smooth { 0s: 2, 1.5s: 10, 3s: 4 }
+    automate patch.BinauralTone.osc.binaural_mix linear { 0s: 0.2, 1.5s: 1.0, 3s: 0.6 }
+
+    play BinauralTone { at: 0s, dur: 3s, vel: 0.9, pitch: 220Hz }
+
+    // Per-event override of oscillator center frequency and shift.
+    play BinauralTone {
+      at: 1.2s,
+      dur: 0.9s,
+      vel: 0.7,
+      pitch: 220Hz,
+      params: {
+        osc: { freq: 330Hz, binaural_shift: 14Hz, binaural_mix: 1.0 }
+      }
+    }
+  }
+}

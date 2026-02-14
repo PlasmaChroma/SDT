@@ -1,0 +1,32 @@
+aurora { version: "1.0" }
+
+globals { sr: 48000, block: 256, tempo: 60, tail_policy: fixed(120ms) }
+
+patch MonoNever {
+  mono: true,
+  legato: true,
+  retrig: never,
+  out: stem("m2_retrig_never"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 120Hz } },
+      { id: "env", type: env_adsr, params: { a: 40ms, d: 120ms, s: 0.6, r: 150ms } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.0 } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "amp", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: control }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+score {
+  section A at 0s dur 1.8s {
+    play MonoNever { at: 0.10s, dur: 0.55s, pitch: C3, vel: 0.9 }
+    play MonoNever { at: 0.42s, dur: 0.55s, pitch: E3, vel: 0.85 }
+    play MonoNever { at: 1.05s, dur: 0.45s, pitch: G3, vel: 0.82 }
+  }
+}
