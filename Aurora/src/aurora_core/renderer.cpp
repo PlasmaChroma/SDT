@@ -645,6 +645,12 @@ struct PatchProgram {
     double res = 0.0;
   } filter;
 
+  struct Binaural {
+    bool enabled = false;
+    double shift_hz = 0.0;
+    double mix = 1.0;
+  } binaural;
+
   double gain_db = -6.0;
   std::optional<aurora::lang::SendDefinition> send;
 };
@@ -687,6 +693,9 @@ double ParseDetuneSemitones(const aurora::lang::ParamValue& value) {
 PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
   PatchProgram program;
   program.send = patch.send;
+  program.binaural.enabled = patch.binaural.enabled;
+  program.binaural.shift_hz = patch.binaural.shift_hz;
+  program.binaural.mix = Clamp(patch.binaural.mix, 0.0, 1.0);
   for (const auto& node : patch.graph.nodes) {
     if (StartsWith(node.type, "osc_")) {
       PatchProgram::Osc osc;
@@ -813,10 +822,13 @@ double OscSample(const std::string& osc_type, double phase, double pulse_width) 
   return std::sin(2.0 * kPi * norm);
 }
 
-void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, const PatchProgram& program,
+void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play, const PatchProgram& program,
                       const std::map<std::string, AutomationLane>& automation, int sample_rate, uint64_t seed) {
-  const size_t stem_samples = stem->size();
-  if (play.start_sample >= stem_samples) {
+  if (stem == nullptr || stem->channels < 1 || stem->samples.empty()) {
+    return;
+  }
+  const size_t stem_frames = stem->samples.size() / static_cast<size_t>(stem->channels);
+  if (play.start_sample >= stem_frames) {
     return;
   }
   const double base_gain = DbToLinear(program.gain_db) * play.velocity;
@@ -876,16 +888,19 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
 
   for (size_t pitch_index = 0; pitch_index < play.pitches.size(); ++pitch_index) {
     const ResolvedPitch& pitch = play.pitches[pitch_index];
-    std::vector<double> phases(program.oscillators.size(), 0.0);
-    double ic1eq = 0.0;
-    double ic2eq = 0.0;
+    std::vector<double> phases_left(program.oscillators.size(), 0.0);
+    std::vector<double> phases_right(program.oscillators.size(), 0.0);
+    double ic1eq_left = 0.0;
+    double ic2eq_left = 0.0;
+    double ic1eq_right = 0.0;
+    double ic2eq_right = 0.0;
     PCG32 noise_rng(Hash64FromParts(seed, "voice", play.patch, std::to_string(play.start_sample),
                                     std::to_string(static_cast<int>(pitch_index))));
 
     const uint64_t fade_samples = static_cast<uint64_t>(std::llround(sample_rate * 0.005));
     for (uint64_t i = 0; i < play.dur_samples; ++i) {
       const uint64_t abs_sample = play.start_sample + i;
-      if (abs_sample >= stem_samples) {
+      if (abs_sample >= stem_frames) {
         break;
       }
       const double t = static_cast<double>(i) / sample_rate;
@@ -908,7 +923,8 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
         env *= static_cast<double>(rem) / static_cast<double>(fade_samples);
       }
 
-      double sample = 0.0;
+      double sample_left = 0.0;
+      double sample_right = 0.0;
       for (size_t osc_idx = 0; osc_idx < program.oscillators.size(); ++osc_idx) {
         const auto& osc = program.oscillators[osc_idx];
         const std::string osc_prefix = osc.node_id + ".";
@@ -927,20 +943,41 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
           freq = std::max(1.0, ValueToUnit(freq_param_it->second).value);
         }
 
+        const bool binaural_active = program.binaural.enabled;
+        const double binaural_shift_hz =
+            resolve_number(osc_prefix + "binaural_shift", program.binaural.shift_hz, abs_sample);
+        const double binaural_mix = Clamp(resolve_number(osc_prefix + "binaural_mix", program.binaural.mix, abs_sample), 0.0, 1.0);
+        double freq_left = freq;
+        double freq_right = freq;
+        if (binaural_active) {
+          const double split_left = std::max(1.0, freq - 0.5 * binaural_shift_hz);
+          const double split_right = std::max(1.0, freq + 0.5 * binaural_shift_hz);
+          freq_left = freq * (1.0 - binaural_mix) + split_left * binaural_mix;
+          freq_right = freq * (1.0 - binaural_mix) + split_right * binaural_mix;
+        }
+
         const double pw = Clamp(resolve_number(osc_prefix + "pw", osc.pw, abs_sample), 0.01, 0.99);
-        phases[osc_idx] += freq / static_cast<double>(sample_rate);
-        sample += OscSample(osc.type, phases[osc_idx], pw);
+        phases_left[osc_idx] += freq_left / static_cast<double>(sample_rate);
+        sample_left += OscSample(osc.type, phases_left[osc_idx], pw);
+        phases_right[osc_idx] += freq_right / static_cast<double>(sample_rate);
+        sample_right += OscSample(osc.type, phases_right[osc_idx], pw);
       }
       if (program.noise_white) {
-        sample += noise_rng.Uniform(-1.0, 1.0) * 0.25;
+        const double n = noise_rng.Uniform(-1.0, 1.0) * 0.25;
+        sample_left += n;
+        sample_right += n;
       }
       if (program.sample_player) {
         const double decay = std::exp(-t * 20.0);
-        sample += noise_rng.Uniform(-1.0, 1.0) * decay * 0.6;
+        const double n = noise_rng.Uniform(-1.0, 1.0) * decay * 0.6;
+        sample_left += n;
+        sample_right += n;
       }
 
       if (!program.oscillators.empty()) {
-        sample /= static_cast<double>(program.oscillators.size());
+        const double inv = 1.0 / static_cast<double>(program.oscillators.size());
+        sample_left *= inv;
+        sample_right *= inv;
       }
 
       double cutoff = std::max(20.0, resolve_cutoff(program.filter.cutoff_hz, abs_sample));
@@ -959,26 +996,31 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
         const double a1 = 1.0 / (1.0 + g * (g + k));
         const double a2 = g * a1;
         const double a3 = g * a2;
-        const double v3 = sample - ic2eq;
-        const double v1 = a1 * ic1eq + a2 * v3;
-        const double v2 = ic2eq + a2 * ic1eq + a3 * v3;
-        ic1eq = 2.0 * v1 - ic1eq;
-        ic2eq = 2.0 * v2 - ic2eq;
+        const auto process_filter_sample = [&](double in, double* ic1eq, double* ic2eq) {
+          const double v3 = in - *ic2eq;
+          const double v1 = a1 * *ic1eq + a2 * v3;
+          const double v2 = *ic2eq + a2 * *ic1eq + a3 * v3;
+          *ic1eq = 2.0 * v1 - *ic1eq;
+          *ic2eq = 2.0 * v2 - *ic2eq;
+          const double lp = v2;
+          const double bp = v1;
+          const double hp = v3 - k * v1 - v2;
+          const double notch = hp + lp;
+          const std::string& mode = program.filter.mode;
+          if (mode == "hp" || mode == "highpass") {
+            return hp;
+          }
+          if (mode == "bp" || mode == "bandpass") {
+            return bp;
+          }
+          if (mode == "notch" || mode == "bandstop") {
+            return notch;
+          }
+          return lp;
+        };
 
-        const double lp = v2;
-        const double bp = v1;
-        const double hp = v3 - k * v1 - v2;
-        const double notch = hp + lp;
-        const std::string& mode = program.filter.mode;
-        if (mode == "hp" || mode == "highpass") {
-          sample = hp;
-        } else if (mode == "bp" || mode == "bandpass") {
-          sample = bp;
-        } else if (mode == "notch" || mode == "bandstop") {
-          sample = notch;
-        } else {
-          sample = lp;
-        }
+        sample_left = process_filter_sample(sample_left, &ic1eq_left, &ic2eq_left);
+        sample_right = process_filter_sample(sample_right, &ic1eq_right, &ic2eq_right);
       }
 
       double gain = base_gain;
@@ -986,7 +1028,18 @@ void RenderPlayToStem(std::vector<float>* stem, const PlayOccurrence& play, cons
         const double gain_db = resolve_number(program.gain_node_id + ".gain", program.gain_db, abs_sample);
         gain = DbToLinear(gain_db) * play.velocity;
       }
-      (*stem)[abs_sample] += static_cast<float>(sample * env * gain);
+      const float out_left = static_cast<float>(sample_left * env * gain);
+      const float out_right = static_cast<float>(sample_right * env * gain);
+      const size_t frame_index = static_cast<size_t>(abs_sample);
+      if (stem->channels == 1) {
+        stem->samples[frame_index] += 0.5f * (out_left + out_right);
+      } else {
+        const size_t base = frame_index * 2U;
+        if (base + 1U < stem->samples.size()) {
+          stem->samples[base] += out_left;
+          stem->samples[base + 1U] += out_right;
+        }
+      }
     }
   }
 }
@@ -1079,11 +1132,16 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
   result.metadata.total_samples = total_samples;
   result.metadata.duration_seconds = static_cast<double>(total_samples) / static_cast<double>(result.metadata.sample_rate);
 
-  std::map<std::string, std::vector<float>> patch_buffers;
+  std::map<std::string, AudioStem> patch_buffers;
   std::map<std::string, PatchProgram> patch_programs;
   for (const auto& patch : file.patches) {
-    patch_buffers[patch.name] = std::vector<float>(static_cast<size_t>(total_samples), 0.0f);
-    patch_programs[patch.name] = BuildPatchProgram(patch);
+    PatchProgram program = BuildPatchProgram(patch);
+    patch_programs[patch.name] = program;
+    AudioStem buffer;
+    buffer.name = patch.name;
+    buffer.channels = program.binaural.enabled ? 2 : 1;
+    buffer.samples.assign(static_cast<size_t>(total_samples) * static_cast<size_t>(buffer.channels), 0.0f);
+    patch_buffers[patch.name] = std::move(buffer);
   }
 
   for (const auto& play : expanded.plays) {
@@ -1121,8 +1179,16 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
       continue;
     }
     const float send_gain = static_cast<float>(DbToLinear(program.send->amount_db));
-    for (size_t i = 0; i < source_it->second.size(); ++i) {
-      bus_it->second[i] += source_it->second[i] * send_gain;
+    const int src_channels = source_it->second.channels;
+    for (size_t frame = 0; frame < static_cast<size_t>(total_samples); ++frame) {
+      float mono = 0.0f;
+      if (src_channels == 1) {
+        mono = source_it->second.samples[frame];
+      } else {
+        const size_t base = frame * 2U;
+        mono = 0.5f * (source_it->second.samples[base] + source_it->second.samples[base + 1U]);
+      }
+      bus_it->second[frame] += mono * send_gain;
     }
   }
 
@@ -1136,9 +1202,9 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
   result.patch_stems.reserve(file.patches.size());
   for (const auto& patch : file.patches) {
     AudioStem stem;
-    stem.channels = 1;
+    stem.channels = patch_buffers[patch.name].channels;
     stem.name = patch.out_stem.empty() ? patch.name : patch.out_stem;
-    stem.samples = patch_buffers[patch.name];
+    stem.samples = patch_buffers[patch.name].samples;
     result.patch_stems.push_back(std::move(stem));
   }
 
@@ -1152,17 +1218,59 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
   }
 
   result.master.name = "master";
-  result.master.channels = 1;
-  result.master.samples.assign(static_cast<size_t>(total_samples), 0.0f);
+  bool any_stereo = false;
   for (const auto& stem : result.patch_stems) {
-    for (size_t i = 0; i < stem.samples.size(); ++i) {
-      result.master.samples[i] += stem.samples[i];
+    if (stem.channels == 2) {
+      any_stereo = true;
+      break;
     }
   }
-  for (const auto& stem : result.bus_stems) {
-    for (size_t i = 0; i < stem.samples.size(); ++i) {
-      result.master.samples[i] += stem.samples[i];
+  if (!any_stereo) {
+    for (const auto& stem : result.bus_stems) {
+      if (stem.channels == 2) {
+        any_stereo = true;
+        break;
+      }
     }
+  }
+  result.master.channels = any_stereo ? 2 : 1;
+  result.master.samples.assign(static_cast<size_t>(total_samples) * static_cast<size_t>(result.master.channels), 0.0f);
+
+  const auto mix_stem_into_master = [&](const AudioStem& stem) {
+    if (stem.channels == 1 && result.master.channels == 1) {
+      for (size_t i = 0; i < static_cast<size_t>(total_samples); ++i) {
+        result.master.samples[i] += stem.samples[i];
+      }
+      return;
+    }
+    if (stem.channels == 2 && result.master.channels == 2) {
+      for (size_t i = 0; i < static_cast<size_t>(total_samples) * 2U; ++i) {
+        result.master.samples[i] += stem.samples[i];
+      }
+      return;
+    }
+    if (stem.channels == 1 && result.master.channels == 2) {
+      for (size_t frame = 0; frame < static_cast<size_t>(total_samples); ++frame) {
+        const float s = stem.samples[frame];
+        const size_t base = frame * 2U;
+        result.master.samples[base] += s;
+        result.master.samples[base + 1U] += s;
+      }
+      return;
+    }
+    if (stem.channels == 2 && result.master.channels == 1) {
+      for (size_t frame = 0; frame < static_cast<size_t>(total_samples); ++frame) {
+        const size_t base = frame * 2U;
+        result.master.samples[frame] += 0.5f * (stem.samples[base] + stem.samples[base + 1U]);
+      }
+    }
+  };
+
+  for (const auto& stem : result.patch_stems) {
+    mix_stem_into_master(stem);
+  }
+  for (const auto& stem : result.bus_stems) {
+    mix_stem_into_master(stem);
   }
   for (float& sample : result.master.samples) {
     sample = static_cast<float>(std::tanh(sample));

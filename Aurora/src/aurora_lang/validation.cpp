@@ -53,6 +53,21 @@ ValidationResult Validate(const AuroraFile& file) {
     if (patch.graph.out.empty()) {
       out.errors.push_back("Patch '" + patch.name + "' graph io.out is required.");
     }
+    if (patch.binaural.enabled) {
+      if (patch.binaural.mix < 0.0 || patch.binaural.mix > 1.0) {
+        out.warnings.push_back("Patch '" + patch.name + "' binaural.mix is outside [0,1]; renderer will clamp.");
+      }
+      bool has_oscillator = false;
+      for (const auto& node : patch.graph.nodes) {
+        if (node.type.rfind("osc_", 0) == 0) {
+          has_oscillator = true;
+          break;
+        }
+      }
+      if (!has_oscillator) {
+        out.warnings.push_back("Patch '" + patch.name + "' has binaural enabled but no oscillator nodes.");
+      }
+    }
   }
 
   std::set<std::string> bus_names;
@@ -88,4 +103,3 @@ ValidationResult Validate(const AuroraFile& file) {
 }
 
 }  // namespace aurora::lang
-

@@ -285,9 +285,15 @@ Rules:
 Minimal keys:
 
 - `poly`, `voice_steal`, `mono`
+- optional `binaural: { enabled, shift|shift_hz, mix }`
 - `graph: { nodes: [...], connect: [...], io: { out: "nodeId" } }`
 - `out: stem("name")`
 - optional `send: { bus: "BusName", amount: -18dB }`
+
+`binaural` semantics (renderer):
+- `enabled: true` makes the patch stem stereo (L/R).
+- `shift` (or `shift_hz`) defines base interaural frequency split in Hz.
+- `mix` blends centered pitch vs split binaural pitch (`0..1`).
 
 #### 6.7.2 Bus
 
@@ -417,6 +423,7 @@ Key table:
 - Oscillator:
   - `<osc>.freq`: static `params.freq`; if unresolved, falls back to pitch path.
   - `<osc>.detune`, `<osc>.transpose`, `<osc>.pw`
+  - `<osc>.binaural_shift`, `<osc>.binaural_mix`
 - Envelope:
   - `<env>.a`, `<env>.d`, `<env>.s`, `<env>.r`
 - Filter:
@@ -445,6 +452,9 @@ Current implementation note (renderer):
 - `detune` accepts cents by default (`-7`), or explicit `c`/`st` units (`-7c`, `+12st`).
 - `transpose` accepts semitones by default (`+12`), or explicit `st`/`c`.
 - `pw` is routable for pulse oscillators via automation/event params.
+- Binaural controls are routable per oscillator when patch binaural is enabled:
+  - `<osc>.binaural_shift` (Hz split between L/R frequencies)
+  - `<osc>.binaural_mix` (`0..1` blend between centered and split)
 
 ### 9.3 External samples
 

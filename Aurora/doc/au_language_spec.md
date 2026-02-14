@@ -169,6 +169,10 @@ Body keys:
 - `poly` (number, default `8`)
 - `voice_steal` (text, default `oldest`)
 - `mono` (bool, default `false`)
+- `binaural` object (optional):
+  - `enabled` (bool, default `false`)
+  - `shift` or `shift_hz` (number or `Hz`, default `0`)
+  - `mix` (number, default `1.0`)
 - `out` (usually `stem("name")`; if omitted defaults to patch name)
 - `send` object:
   - `bus` (text)
@@ -227,6 +231,9 @@ Implemented oscillator parameter behavior (`osc_*` nodes):
   - `<number>st` = semitones
   - `<number>c` = cents
 - `pw` is used by `osc_pulse_blep`.
+- Binaural stereo controls (when patch `binaural.enabled` is `true`):
+  - `<osc>.binaural_shift` controls L/R frequency split in Hz.
+  - `<osc>.binaural_mix` blends center vs split (`0..1`).
 
 Implemented filter behavior (`svf` / `biquad` nodes):
 - Filter node type may be `svf` or `biquad`; both use the same renderer filter core.
@@ -305,7 +312,7 @@ Target handling:
 - Must have at least 4 dot-separated parts and begin with `patch.` to take effect.
 - Effective automation key is `<node>.<param>` inside the named patch.
 - Routed automation targets currently used by renderer:
-  - oscillator: `<osc_node>.freq`, `<osc_node>.detune`, `<osc_node>.transpose`, `<osc_node>.pw`
+  - oscillator: `<osc_node>.freq`, `<osc_node>.detune`, `<osc_node>.transpose`, `<osc_node>.pw`, `<osc_node>.binaural_shift`, `<osc_node>.binaural_mix`
   - envelope: `<env_node>.a`, `<env_node>.d`, `<env_node>.s`, `<env_node>.r`
   - filter: `<filter_node>.cutoff`, `<filter_node>.freq` (cutoff alias when `.cutoff` is absent), `<filter_node>.q`, `<filter_node>.res`
   - gain: `<gain_node>.gain`
@@ -378,6 +385,8 @@ Warnings:
 - Routed render params currently include oscillator/filter/envelope/gain keys listed above.
 - `play.params` and `seq.params` override automation and static node values for the same key.
 - `osc.freq` is now an active/static parameter and participates in precedence.
+- Patch stems are stereo (`channels=2`) when `patch.binaural.enabled` is `true`; otherwise mono.
+- Master becomes stereo automatically when any contributing stem is stereo.
 - `play` velocities are clamped to `[0, 1.5]` in rendering.
 - `seq` velocities are clamped to `[0, 1.0]`.
 
@@ -394,6 +403,8 @@ All routed params follow:
 | Oscillator | `<osc>.detune` | oscillator node `params.detune` | Bare numeric automation/event values are treated as cents. |
 | Oscillator | `<osc>.transpose` | oscillator node `params.transpose` | Bare numeric automation/event values are semitones. |
 | Oscillator | `<osc>.pw` | oscillator node `params.pw` | Runtime clamped to `[0.01, 0.99]`. |
+| Oscillator | `<osc>.binaural_shift` | patch `binaural.shift` | Active when patch binaural is enabled; interpreted as Hz split between L/R channels. |
+| Oscillator | `<osc>.binaural_mix` | patch `binaural.mix` | Runtime clamped to `[0, 1]`; 0 = centered, 1 = full split. |
 | Envelope | `<env>.a`, `<env>.d`, `<env>.r` | env node params `a/d/r` | Event values may be unit times (for example `10ms`, `0.2s`). |
 | Envelope | `<env>.s` | env node param `s` | Runtime clamped to `[0, 1]`. |
 | Filter | `<filter>.cutoff` | filter `cutoff` (or static `freq` alias) | Runtime clamped to `[20Hz, 0.99*Nyquist]`. |

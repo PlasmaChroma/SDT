@@ -68,10 +68,17 @@ struct SendDefinition {
 };
 
 struct PatchDefinition {
+  struct BinauralDefinition {
+    bool enabled = false;
+    double shift_hz = 0.0;
+    double mix = 1.0;
+  };
+
   std::string name;
   int poly = 8;
   std::string voice_steal = "oldest";
   bool mono = false;
+  BinauralDefinition binaural;
   std::string out_stem;
   std::optional<SendDefinition> send;
   GraphDefinition graph;
@@ -124,4 +131,3 @@ struct AuroraFile {
 };
 
 }  // namespace aurora::lang
-

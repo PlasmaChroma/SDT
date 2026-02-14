@@ -598,6 +598,29 @@ class Parser {
     if (const auto it = body.find("mono"); it != body.end() && it->second.kind == ParamValue::Kind::kBool) {
       patch.mono = it->second.bool_value;
     }
+    if (const auto it = body.find("binaural"); it != body.end() && it->second.kind == ParamValue::Kind::kObject) {
+      const auto binaural_obj = it->second.object_values;
+      if (const auto enabled_it = binaural_obj.find("enabled");
+          enabled_it != binaural_obj.end() && enabled_it->second.kind == ParamValue::Kind::kBool) {
+        patch.binaural.enabled = enabled_it->second.bool_value;
+      }
+      if (const auto shift_it = binaural_obj.find("shift"); shift_it != binaural_obj.end()) {
+        if (shift_it->second.kind == ParamValue::Kind::kUnitNumber && shift_it->second.unit_number_value.unit == "Hz") {
+          patch.binaural.shift_hz = shift_it->second.unit_number_value.value;
+        } else {
+          patch.binaural.shift_hz = ValueAsNumber(shift_it->second, patch.binaural.shift_hz);
+        }
+      } else if (const auto shift_hz_it = binaural_obj.find("shift_hz"); shift_hz_it != binaural_obj.end()) {
+        if (shift_hz_it->second.kind == ParamValue::Kind::kUnitNumber && shift_hz_it->second.unit_number_value.unit == "Hz") {
+          patch.binaural.shift_hz = shift_hz_it->second.unit_number_value.value;
+        } else {
+          patch.binaural.shift_hz = ValueAsNumber(shift_hz_it->second, patch.binaural.shift_hz);
+        }
+      }
+      if (const auto mix_it = binaural_obj.find("mix"); mix_it != binaural_obj.end()) {
+        patch.binaural.mix = ValueAsNumber(mix_it->second, patch.binaural.mix);
+      }
+    }
     if (const auto it = body.find("out"); it != body.end()) {
       patch.out_stem = ParseStemValue(it->second);
     } else {
