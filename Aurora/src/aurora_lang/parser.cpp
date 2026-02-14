@@ -569,6 +569,10 @@ class Parser {
         if (rate_it != conn_obj.end()) {
           conn.rate = ValueAsString(rate_it->second);
         }
+        const auto map_it = conn_obj.find("map");
+        if (map_it != conn_obj.end() && map_it->second.kind == ParamValue::Kind::kObject) {
+          conn.map = map_it->second.object_values;
+        }
         graph.connections.push_back(std::move(conn));
       }
     }

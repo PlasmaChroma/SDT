@@ -54,6 +54,7 @@ struct GraphConnection {
   std::string from;
   std::string to;
   std::string rate = "audio";
+  std::map<std::string, ParamValue> map;
 };
 
 struct GraphDefinition {

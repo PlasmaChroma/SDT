@@ -212,7 +212,7 @@ graph: {
     { id: "node_id", type: node_type, params: { ... } }
   ],
   connect: [
-    { from: "src", to: "dst", rate: control }
+    { from: "src", to: "dst", rate: control, map: { ... } }
   ],
   io: { out: "node_or_port" }
 }
@@ -223,6 +223,25 @@ Required:
 - each connection needs `from` and `to`
 
 `rate` defaults to `audio`.
+`map` is optional and used for control modulation mapping.
+
+Control modulation (`connect`) behavior implemented by renderer:
+- Connections that target non-audio inputs (`to: "<node>.<param>"`) and are `rate: control` are treated as modulation routes.
+- Source nodes currently supported as control sources:
+  - `env_adsr` (`<env>.out`)
+  - `lfo` (`<lfo>.out`)
+- Map fields:
+  - `type`: `set|add|mul|range|db|hz|lin` (`db/range/hz/lin` behave as `set`)
+  - `min`, `max`: optional range mapping (source clamped to `[0,1]` before scaling to range)
+  - `scale`, `offset`: optional final affine transform
+- If `map.type` is omitted:
+  - default op is `set` when destination port is `cv`
+  - otherwise default op is `add`
+
+Example:
+```au
+{ from: "env.out", to: "amp.gain", rate: control, map: { type: db, min: -60, max: 0 } }
+```
 
 Renderer behavior only interprets a subset of node types/params (others parse but may have no audible effect).
 
@@ -265,6 +284,18 @@ Implemented filter behavior (`svf` / `biquad` nodes):
   - `q` is used (default `0.707`, minimum `0.05`)
   - `res` is used (default `0.0`, clamped `[0,1]`) as an additional resonance boost factor on top of `q`
 - Filters are stateful per rendered voice (continuous state through each note event).
+
+Implemented VCA behavior (`vca` node):
+- Node params:
+  - `gain`: base linear multiplier (or `dB`, converted to linear)
+  - `cv`: base control value (`0..1`)
+- Runtime multiply stage:
+  - final output gain includes `vca_cv * vca_gain`
+  - `vca.cv` and `vca.gain` are routable via event params, automation, and modulation connections
+- Typical subtractive patching:
+```au
+{ from: "env.out", to: "vca.cv", rate: control }
+```
 
 ## 6. Score and Event Semantics
 
@@ -429,6 +460,9 @@ Warnings:
 - Times in `beats` are converted via tempo map.
 - Automation values are interpreted numerically (`ValueToNumber`); non-numeric values become `0`.
 - Routed render params currently include oscillator/filter/envelope/gain keys listed above.
+- Routed render params also include:
+  - `vca`: `<vca>.cv`, `<vca>.gain`
+- Modulation routes from graph `connect` are applied after event/automation/static resolution for each sample.
 - `play.params` and `seq.params` override automation and static node values for the same key.
 - `osc.freq` is now an active/static parameter and participates in precedence.
 - Patch stems are stereo (`channels=2`) when `patch.binaural.enabled` is `true`; otherwise mono.
@@ -458,6 +492,8 @@ All routed params follow:
 | Filter | `<filter>.q` | filter `q` | Runtime min `0.05`. |
 | Filter | `<filter>.res` | filter `res` | Runtime clamped to `[0, 1]`. |
 | Gain | `<gain>.gain` | gain node `params.gain` | Treated as dB in render path and converted to linear gain. |
+| VCA | `<vca>.cv` | vca node `params.cv` | Runtime clamped to `[0, 1]`; multiplied into final gain. |
+| VCA | `<vca>.gain` | vca node `params.gain` | Linear by default (`dB` accepted statically); multiplied into final gain. |
 
 ## 9. Authoring Checklist for LLMs
 

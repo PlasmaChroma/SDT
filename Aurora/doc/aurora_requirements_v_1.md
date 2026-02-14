@@ -404,6 +404,20 @@ Current implementation notes (parser):
 
 `{ from: "nodeId.port", to: "nodeId.port", rate: audio|control }`
 
+Control modulation mapping (implemented):
+- Optional `map` object on a control connection:
+  - `{ type, min, max, scale, offset }`
+- `type` supports: `set|add|mul|range|db|hz|lin`
+  - `db/range/hz/lin` are set-style mappings.
+- `min/max` map a normalized control value (`0..1`) into destination range.
+- `scale/offset` apply after range mapping.
+- Default op when `type` is omitted:
+  - `set` for `*.cv`
+  - `add` otherwise
+
+Example:
+- `{ from: "env.out", to: "amp.gain", rate: control, map: { type: db, min: -60, max: 0 } }`
+
 ### 8.4 Ports and channel rules (explicit 2-channel policy)
 
 - Default output port: `out`.
@@ -448,6 +462,9 @@ Key table:
   - `<filter>.freq` is a cutoff alias when `.cutoff` event/automation is absent
 - Gain:
   - `<gain>.gain`
+- VCA:
+  - `<vca>.cv`
+  - `<vca>.gain`
 
 ### 9.2 Oscillators
 
@@ -499,9 +516,15 @@ Current implementation note (renderer):
 ### 9.6 Mix + dynamics
 
 - `gain(gain)`
+- `vca(gain, cv)`
 - `pan(pan, law)`
 - `mix()`
 - `softclip(drive)`
+
+Current implementation notes:
+- `vca` is a real output multiply stage.
+- Final per-voice gain includes `vca.cv * vca.gain` in addition to gain/env stages.
+- `vca.cv` is intended for envelope/LFO control patching (`env.out -> vca.cv`).
 
 ### 9.7 FX
 

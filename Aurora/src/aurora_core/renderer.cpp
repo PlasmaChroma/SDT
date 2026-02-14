@@ -58,6 +58,14 @@ bool EndsWith(const std::string& value, const std::string& suffix) {
   return value.size() >= suffix.size() && value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
 
+std::pair<std::string, std::string> SplitNodePort(const std::string& endpoint) {
+  const size_t dot = endpoint.find('.');
+  if (dot == std::string::npos) {
+    return {endpoint, ""};
+  }
+  return {endpoint.substr(0, dot), endpoint.substr(dot + 1)};
+}
+
 std::vector<int> BuildEuclideanPattern(int pulses, int steps, int rotation) {
   std::vector<int> out;
   if (steps <= 0) {
@@ -682,6 +690,40 @@ struct PatchProgram {
     double mix = 1.0;
   } binaural;
 
+  struct Lfo {
+    std::string node_id;
+    std::string shape = "sine";
+    double rate_hz = 1.0;
+    double depth = 1.0;
+    double pw = 0.5;
+    double phase = 0.0;
+    bool unipolar = false;
+  };
+  std::vector<Lfo> lfos;
+
+  struct Vca {
+    bool enabled = false;
+    std::string node_id;
+    double gain = 1.0;
+    double cv = 1.0;
+  } vca;
+
+  struct ModRoute {
+    enum class SourceKind { kEnv, kLfo };
+    enum class Op { kSet, kAdd, kMul };
+
+    SourceKind source_kind = SourceKind::kEnv;
+    std::string source_node_id;
+    std::string target_key;
+    Op op = Op::kAdd;
+    bool use_range = false;
+    double min = 0.0;
+    double max = 1.0;
+    double scale = 1.0;
+    double offset = 0.0;
+  };
+  std::vector<ModRoute> mod_routes;
+
   double gain_db = -6.0;
   std::optional<aurora::lang::SendDefinition> send;
 };
@@ -721,13 +763,50 @@ double ParseDetuneSemitones(const aurora::lang::ParamValue& value) {
   return 0.0;
 }
 
+bool NodeIsControlSource(const std::string& node_type) { return node_type == "env_adsr" || node_type == "lfo"; }
+
+PatchProgram::ModRoute::Op ParseModOp(const std::map<std::string, aurora::lang::ParamValue>& map_obj,
+                                      const std::string& target_port) {
+  const auto type_it = map_obj.find("type");
+  if (type_it == map_obj.end()) {
+    if (target_port == "cv") {
+      return PatchProgram::ModRoute::Op::kSet;
+    }
+    return PatchProgram::ModRoute::Op::kAdd;
+  }
+  const std::string type = ValueToText(type_it->second);
+  if (type == "set" || type == "range" || type == "db" || type == "hz" || type == "lin") {
+    return PatchProgram::ModRoute::Op::kSet;
+  }
+  if (type == "mul") {
+    return PatchProgram::ModRoute::Op::kMul;
+  }
+  return PatchProgram::ModRoute::Op::kAdd;
+}
+
+double LfoWave(const std::string& shape, double phase, double pw) {
+  const double p = phase - std::floor(phase);
+  if (shape == "triangle" || shape == "tri") {
+    return 4.0 * std::fabs(p - 0.5) - 1.0;
+  }
+  if (shape == "saw") {
+    return 2.0 * p - 1.0;
+  }
+  if (shape == "square" || shape == "pulse") {
+    return (p < Clamp(pw, 0.01, 0.99)) ? 1.0 : -1.0;
+  }
+  return std::sin(2.0 * kPi * p);
+}
+
 PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
   PatchProgram program;
   program.send = patch.send;
   program.binaural.enabled = patch.binaural.enabled;
   program.binaural.shift_hz = patch.binaural.shift_hz;
   program.binaural.mix = Clamp(patch.binaural.mix, 0.0, 1.0);
+  std::map<std::string, std::string> node_types;
   for (const auto& node : patch.graph.nodes) {
+    node_types[node.id] = node.type;
     if (StartsWith(node.type, "osc_")) {
       PatchProgram::Osc osc;
       osc.node_id = node.id;
@@ -792,6 +871,42 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
       }
       program.filter.q = std::max(0.05, NodeParamNumber(node.params, "q", program.filter.q));
       program.filter.res = Clamp(NodeParamNumber(node.params, "res", program.filter.res), 0.0, 1.0);
+    } else if (node.type == "lfo") {
+      PatchProgram::Lfo lfo;
+      lfo.node_id = node.id;
+      lfo.shape = NodeParamText(node.params, "shape", "sine");
+      if (const auto it = node.params.find("rate"); it != node.params.end()) {
+        if (it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber && it->second.unit_number_value.unit == "Hz") {
+          lfo.rate_hz = std::max(0.0, it->second.unit_number_value.value);
+        } else {
+          lfo.rate_hz = std::max(0.0, ValueToNumber(it->second, lfo.rate_hz));
+        }
+      } else if (const auto fit = node.params.find("freq"); fit != node.params.end()) {
+        if (fit->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber && fit->second.unit_number_value.unit == "Hz") {
+          lfo.rate_hz = std::max(0.0, fit->second.unit_number_value.value);
+        } else {
+          lfo.rate_hz = std::max(0.0, ValueToNumber(fit->second, lfo.rate_hz));
+        }
+      }
+      lfo.depth = std::max(0.0, NodeParamNumber(node.params, "depth", 1.0));
+      lfo.pw = Clamp(NodeParamNumber(node.params, "pw", 0.5), 0.01, 0.99);
+      lfo.phase = NodeParamNumber(node.params, "phase", 0.0);
+      if (const auto it = node.params.find("unipolar"); it != node.params.end() &&
+                                                  it->second.kind == aurora::lang::ParamValue::Kind::kBool) {
+        lfo.unipolar = it->second.bool_value;
+      }
+      program.lfos.push_back(std::move(lfo));
+    } else if (node.type == "vca") {
+      program.vca.enabled = true;
+      program.vca.node_id = node.id;
+      if (const auto it = node.params.find("gain"); it != node.params.end()) {
+        if (it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber && it->second.unit_number_value.unit == "dB") {
+          program.vca.gain = DbToLinear(it->second.unit_number_value.value);
+        } else {
+          program.vca.gain = std::max(0.0, ValueToNumber(it->second, program.vca.gain));
+        }
+      }
+      program.vca.cv = Clamp(NodeParamNumber(node.params, "cv", 1.0), 0.0, 1.0);
     } else if (node.type == "gain") {
       program.gain_node_id = node.id;
       if (const auto it = node.params.find("gain"); it != node.params.end()) {
@@ -802,6 +917,46 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
         }
       }
     }
+  }
+  for (const auto& conn : patch.graph.connections) {
+    const auto [src_node, src_port] = SplitNodePort(conn.from);
+    const auto [dst_node, dst_port] = SplitNodePort(conn.to);
+    if (src_node.empty() || dst_node.empty() || dst_port.empty()) {
+      continue;
+    }
+    const auto src_type_it = node_types.find(src_node);
+    if (src_type_it == node_types.end()) {
+      continue;
+    }
+    const bool control_rate = conn.rate == "control";
+    const bool source_is_control = NodeIsControlSource(src_type_it->second);
+    if (!control_rate && !source_is_control) {
+      continue;
+    }
+    if (StartsWith(dst_port, "in")) {
+      continue;
+    }
+    PatchProgram::ModRoute route;
+    route.source_node_id = src_node;
+    route.source_kind =
+        (src_type_it->second == "lfo") ? PatchProgram::ModRoute::SourceKind::kLfo : PatchProgram::ModRoute::SourceKind::kEnv;
+    route.target_key = dst_node + "." + dst_port;
+    route.op = ParseModOp(conn.map, dst_port);
+    if (const auto min_it = conn.map.find("min"); min_it != conn.map.end()) {
+      route.min = ValueToNumber(min_it->second, route.min);
+      route.use_range = true;
+    }
+    if (const auto max_it = conn.map.find("max"); max_it != conn.map.end()) {
+      route.max = ValueToNumber(max_it->second, route.max);
+      route.use_range = true;
+    }
+    if (const auto scale_it = conn.map.find("scale"); scale_it != conn.map.end()) {
+      route.scale = ValueToNumber(scale_it->second, route.scale);
+    }
+    if (const auto offset_it = conn.map.find("offset"); offset_it != conn.map.end()) {
+      route.offset = ValueToNumber(offset_it->second, route.offset);
+    }
+    program.mod_routes.push_back(std::move(route));
   }
   if (program.oscillators.empty() && !program.noise_white && !program.sample_player) {
     PatchProgram::Osc fallback;
@@ -918,6 +1073,50 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
     return fallback;
   };
 
+  std::map<std::string, const PatchProgram::Lfo*> lfo_by_id;
+  for (const auto& lfo : program.lfos) {
+    lfo_by_id[lfo.node_id] = &lfo;
+  }
+  const auto lfo_value = [&](const PatchProgram::Lfo& lfo, double t_seconds) {
+    const double phase = lfo.phase + t_seconds * lfo.rate_hz;
+    double out = LfoWave(lfo.shape, phase, lfo.pw);
+    if (lfo.unipolar) {
+      out = 0.5 * (out + 1.0);
+    }
+    return out * lfo.depth;
+  };
+  const auto apply_mod = [&](const std::string& target_key, double base_value, double env_value, double t_seconds) {
+    double out = base_value;
+    for (const auto& route : program.mod_routes) {
+      if (route.target_key != target_key) {
+        continue;
+      }
+      double source_value = 0.0;
+      if (route.source_kind == PatchProgram::ModRoute::SourceKind::kEnv) {
+        source_value = env_value;
+      } else {
+        const auto lfo_it = lfo_by_id.find(route.source_node_id);
+        if (lfo_it == lfo_by_id.end()) {
+          continue;
+        }
+        source_value = lfo_value(*lfo_it->second, t_seconds);
+      }
+      double mapped = source_value;
+      if (route.use_range) {
+        mapped = route.min + Clamp(source_value, 0.0, 1.0) * (route.max - route.min);
+      }
+      mapped = mapped * route.scale + route.offset;
+      if (route.op == PatchProgram::ModRoute::Op::kSet) {
+        out = mapped;
+      } else if (route.op == PatchProgram::ModRoute::Op::kMul) {
+        out *= mapped;
+      } else {
+        out += mapped;
+      }
+    }
+    return out;
+  };
+
   struct OscRouting {
     const PatchProgram::Osc* osc = nullptr;
     ValueRoute freq;
@@ -952,6 +1151,8 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   const ValueRoute filt_q = make_route(program.filter_node_id + ".q");
   const ValueRoute filt_res = make_route(program.filter_node_id + ".res");
   const ValueRoute gain_db_route = make_route(program.gain_node_id + ".gain");
+  const ValueRoute vca_cv_route = make_route(program.vca.node_id + ".cv");
+  const ValueRoute vca_gain_route = make_route(program.vca.node_id + ".gain");
 
   for (size_t pitch_index = 0; pitch_index < play.pitches.size(); ++pitch_index) {
     const ResolvedPitch& pitch = play.pitches[pitch_index];
@@ -974,10 +1175,14 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
       const double note_dur = static_cast<double>(play.dur_samples) / sample_rate;
       PatchProgram::Env env_state = program.env;
       if (program.env.enabled && !program.env_node_id.empty()) {
-        env_state.a = resolve_seconds(env_a, program.env.a, abs_sample);
-        env_state.d = resolve_seconds(env_d, program.env.d, abs_sample);
-        env_state.s = Clamp(resolve_number(env_s, program.env.s, abs_sample), 0.0, 1.0);
-        env_state.r = resolve_seconds(env_r, program.env.r, abs_sample);
+        env_state.a = std::max(0.0001, apply_mod(program.env_node_id + ".a",
+                                                  resolve_seconds(env_a, program.env.a, abs_sample), 0.0, t));
+        env_state.d = std::max(0.0001, apply_mod(program.env_node_id + ".d",
+                                                  resolve_seconds(env_d, program.env.d, abs_sample), 0.0, t));
+        env_state.s =
+            Clamp(apply_mod(program.env_node_id + ".s", resolve_number(env_s, program.env.s, abs_sample), 0.0, t), 0.0, 1.0);
+        env_state.r = std::max(0.0001, apply_mod(program.env_node_id + ".r",
+                                                  resolve_seconds(env_r, program.env.r, abs_sample), 0.0, t));
       }
       double env = EnvelopeValue(env_state, t, note_dur);
 
@@ -1008,7 +1213,9 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         const auto& osc = *route.osc;
         const double detune = resolve_semitones(route.detune, osc.detune_semitones, true, abs_sample);
         const double transpose = resolve_semitones(route.transpose, 0.0, false, abs_sample);
-        const double pitch_freq = std::max(1.0, pitch.frequency * std::pow(2.0, (detune + transpose) / 12.0));
+        const double mod_detune = apply_mod(route.osc->node_id + ".detune", detune, env, t);
+        const double mod_transpose = apply_mod(route.osc->node_id + ".transpose", transpose, env, t);
+        const double pitch_freq = std::max(1.0, pitch.frequency * std::pow(2.0, (mod_detune + mod_transpose) / 12.0));
 
         double freq = pitch_freq;
         if (osc.freq_hz.has_value()) {
@@ -1019,10 +1226,16 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         } else if (route.freq.lane != nullptr) {
           freq = std::max(1.0, EvaluateLane(*route.freq.lane, abs_sample));
         }
+        freq = std::max(1.0, apply_mod(route.osc->node_id + ".freq", freq, env, t));
 
         const bool binaural_active = program.binaural.enabled;
-        const double binaural_shift_hz = resolve_number(route.binaural_shift, program.binaural.shift_hz, abs_sample);
-        const double binaural_mix = Clamp(resolve_number(route.binaural_mix, program.binaural.mix, abs_sample), 0.0, 1.0);
+        const double binaural_shift_hz =
+            apply_mod(route.osc->node_id + ".binaural_shift",
+                      resolve_number(route.binaural_shift, program.binaural.shift_hz, abs_sample), env, t);
+        const double binaural_mix = Clamp(apply_mod(route.osc->node_id + ".binaural_mix",
+                                                    resolve_number(route.binaural_mix, program.binaural.mix, abs_sample),
+                                                    env, t),
+                                          0.0, 1.0);
         double freq_left = freq;
         double freq_right = freq;
         if (binaural_active) {
@@ -1032,7 +1245,8 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
           freq_right = freq * (1.0 - binaural_mix) + split_right * binaural_mix;
         }
 
-        const double pw = Clamp(resolve_number(route.pw, osc.pw, abs_sample), 0.01, 0.99);
+        const double pw = Clamp(apply_mod(route.osc->node_id + ".pw", resolve_number(route.pw, osc.pw, abs_sample), env, t),
+                                0.01, 0.99);
         phases_left[osc_idx] += freq_left / static_cast<double>(sample_rate);
         sample_left += OscSample(osc.type, phases_left[osc_idx], pw);
         phases_right[osc_idx] += freq_right / static_cast<double>(sample_rate);
@@ -1060,14 +1274,18 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
       if (filt_cutoff.param == nullptr && filt_cutoff.lane == nullptr) {
         cutoff = resolve_number(filt_freq, cutoff, abs_sample);
       }
+      cutoff = apply_mod(program.filter_node_id + ".cutoff", cutoff, env, t);
       cutoff = std::max(20.0, cutoff);
 
       if (program.filter.enabled) {
         const double nyquist = static_cast<double>(sample_rate) * 0.5;
         cutoff = Clamp(cutoff, 20.0, nyquist * 0.99);
 
-        const double q = std::max(0.05, resolve_number(filt_q, program.filter.q, abs_sample));
-        const double res = Clamp(resolve_number(filt_res, program.filter.res, abs_sample), 0.0, 1.0);
+        const double q = std::max(0.05, apply_mod(program.filter_node_id + ".q",
+                                                  resolve_number(filt_q, program.filter.q, abs_sample), env, t));
+        const double res = Clamp(apply_mod(program.filter_node_id + ".res",
+                                           resolve_number(filt_res, program.filter.res, abs_sample), env, t),
+                                 0.0, 1.0);
 
         // Convert normalized resonance to an additional Q boost, while keeping explicit Q authoritative.
         const double effective_q = Clamp(q * (1.0 + res * 8.0), 0.05, 24.0);
@@ -1105,8 +1323,18 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
 
       double gain = base_gain;
       if (!program.gain_node_id.empty()) {
-        const double gain_db = resolve_number(gain_db_route, program.gain_db, abs_sample);
+        const double gain_db = apply_mod(program.gain_node_id + ".gain",
+                                         resolve_number(gain_db_route, program.gain_db, abs_sample), env, t);
         gain = DbToLinear(gain_db) * play.velocity;
+      }
+      if (program.vca.enabled && !program.vca.node_id.empty()) {
+        const double vca_cv = Clamp(apply_mod(program.vca.node_id + ".cv",
+                                              resolve_number(vca_cv_route, program.vca.cv, abs_sample), env, t),
+                                    0.0, 1.0);
+        const double vca_gain =
+            std::max(0.0, apply_mod(program.vca.node_id + ".gain",
+                                    resolve_number(vca_gain_route, program.vca.gain, abs_sample), env, t));
+        gain *= vca_cv * vca_gain;
       }
       const float out_left = static_cast<float>(sample_left * env * gain);
       const float out_right = static_cast<float>(sample_right * env * gain);
