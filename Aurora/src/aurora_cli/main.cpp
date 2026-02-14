@@ -1,9 +1,11 @@
 #include <filesystem>
 #include <fstream>
 #include <chrono>
+#include <future>
 #include <iostream>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "aurora/core/renderer.hpp"
 #include "aurora/core/timebase.hpp"
@@ -182,52 +184,66 @@ int main(int argc, char** argv) {
       options.out_root.has_value() ? options.out_root.value() / "meta"
                                    : ResolveOutputPath(parse.file.outputs.meta_dir, au_parent, std::nullopt);
 
-  log_step("Writing stems");
+  log_step("Writing outputs");
+  std::vector<std::future<std::optional<std::string>>> write_jobs;
+  write_jobs.reserve(rendered.patch_stems.size() + rendered.bus_stems.size() + 3U);
+
   for (const auto& stem : rendered.patch_stems) {
-    std::string error;
     const auto path = stems_dir / (stem.name + ".wav");
-    if (!aurora::io::WriteWavFloat32(path, stem, rendered.metadata.sample_rate, &error)) {
-      std::cerr << "I/O error: " << error << "\n";
-      return 6;
-    }
+    write_jobs.push_back(std::async(std::launch::async, [path, &stem, sr = rendered.metadata.sample_rate]() {
+      std::string error;
+      if (!aurora::io::WriteWavFloat32(path, stem, sr, &error)) {
+        return std::optional<std::string>(error);
+      }
+      return std::optional<std::string>{};
+    }));
   }
   for (const auto& stem : rendered.bus_stems) {
-    std::string error;
     const auto path = stems_dir / (stem.name + ".wav");
-    if (!aurora::io::WriteWavFloat32(path, stem, rendered.metadata.sample_rate, &error)) {
-      std::cerr << "I/O error: " << error << "\n";
-      return 6;
-    }
+    write_jobs.push_back(std::async(std::launch::async, [path, &stem, sr = rendered.metadata.sample_rate]() {
+      std::string error;
+      if (!aurora::io::WriteWavFloat32(path, stem, sr, &error)) {
+        return std::optional<std::string>(error);
+      }
+      return std::optional<std::string>{};
+    }));
   }
-
-  log_step("Writing master");
   {
-    std::string error;
     const auto master_path = mix_dir / parse.file.outputs.master;
-    if (!aurora::io::WriteWavFloat32(master_path, rendered.master, rendered.metadata.sample_rate, &error)) {
-      std::cerr << "I/O error: " << error << "\n";
-      return 6;
-    }
+    write_jobs.push_back(std::async(std::launch::async, [master_path, &rendered]() {
+      std::string error;
+      if (!aurora::io::WriteWavFloat32(master_path, rendered.master, rendered.metadata.sample_rate, &error)) {
+        return std::optional<std::string>(error);
+      }
+      return std::optional<std::string>{};
+    }));
   }
-
-  log_step("Writing MIDI");
   {
-    std::string error;
     const aurora::core::TempoMap tempo_map = aurora::core::BuildTempoMap(parse.file.globals);
     const auto midi_path = midi_dir / "arrangement.mid";
-    if (!aurora::io::WriteMidiFormat1(midi_path, rendered.midi_tracks, tempo_map, rendered.metadata.total_samples,
-                                      rendered.metadata.sample_rate, &error)) {
-      std::cerr << "I/O error: " << error << "\n";
-      return 6;
-    }
+    write_jobs.push_back(std::async(std::launch::async, [midi_path, &rendered, tempo_map]() {
+      std::string error;
+      if (!aurora::io::WriteMidiFormat1(midi_path, rendered.midi_tracks, tempo_map, rendered.metadata.total_samples,
+                                        rendered.metadata.sample_rate, &error)) {
+        return std::optional<std::string>(error);
+      }
+      return std::optional<std::string>{};
+    }));
   }
-
-  log_step("Writing metadata");
   {
-    std::string error;
     const auto meta_path = meta_dir / parse.file.outputs.render_json;
-    if (!aurora::io::WriteRenderJson(meta_path, rendered, &error)) {
-      std::cerr << "I/O error: " << error << "\n";
+    write_jobs.push_back(std::async(std::launch::async, [meta_path, &rendered]() {
+      std::string error;
+      if (!aurora::io::WriteRenderJson(meta_path, rendered, &error)) {
+        return std::optional<std::string>(error);
+      }
+      return std::optional<std::string>{};
+    }));
+  }
+  for (auto& job : write_jobs) {
+    const std::optional<std::string> maybe_error = job.get();
+    if (maybe_error.has_value()) {
+      std::cerr << "I/O error: " << *maybe_error << "\n";
       return 6;
     }
   }

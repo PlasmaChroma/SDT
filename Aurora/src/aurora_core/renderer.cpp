@@ -12,6 +12,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -1339,13 +1340,13 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
     return fallback;
   };
 
-  std::map<std::string, const PatchProgram::Lfo*> lfo_by_id;
-  for (const auto& lfo : program.lfos) {
-    lfo_by_id[lfo.node_id] = &lfo;
+  std::unordered_map<std::string, int> lfo_index_by_id;
+  for (int i = 0; i < static_cast<int>(program.lfos.size()); ++i) {
+    lfo_index_by_id[program.lfos[static_cast<size_t>(i)].node_id] = i;
   }
-  std::map<std::string, const PatchProgram::CvNode*> cv_by_id;
-  for (const auto& cv : program.cv_nodes) {
-    cv_by_id[cv.node_id] = &cv;
+  std::unordered_map<std::string, int> cv_index_by_id;
+  for (int i = 0; i < static_cast<int>(program.cv_nodes.size()); ++i) {
+    cv_index_by_id[program.cv_nodes[static_cast<size_t>(i)].node_id] = i;
   }
   std::map<std::string, std::vector<size_t>> routes_by_target;
   for (size_t i = 0; i < program.mod_routes.size(); ++i) {
@@ -1363,7 +1364,8 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
     }
     return out * lfo.depth;
   };
-  std::map<std::string, double> cv_state;
+  std::vector<double> cv_state(program.cv_nodes.size(), 0.0);
+  std::vector<bool> cv_state_valid(program.cv_nodes.size(), false);
   const auto slew_toward = [&](double current, double target, double seconds, double dt) {
     const double tau = std::max(0.0001, seconds);
     const double alpha = 1.0 - std::exp(-dt / tau);
@@ -1382,37 +1384,79 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
     }
     return c;
   };
-  std::map<std::string, double> control_eval_cache;
-  std::set<std::string> control_eval_stack;
+  struct SourceRef {
+    enum class Kind { kNone, kEnv, kLfo, kCv };
+    Kind kind = Kind::kNone;
+    int index = -1;
+  };
+  const auto resolve_source_ref = [&](const std::string& node_id) {
+    SourceRef ref;
+    if (!program.env_node_id.empty() && node_id == program.env_node_id) {
+      ref.kind = SourceRef::Kind::kEnv;
+      return ref;
+    }
+    if (const auto it = lfo_index_by_id.find(node_id); it != lfo_index_by_id.end()) {
+      ref.kind = SourceRef::Kind::kLfo;
+      ref.index = it->second;
+      return ref;
+    }
+    if (const auto it = cv_index_by_id.find(node_id); it != cv_index_by_id.end()) {
+      ref.kind = SourceRef::Kind::kCv;
+      ref.index = it->second;
+      return ref;
+    }
+    return ref;
+  };
+  struct CvInputRef {
+    SourceRef source;
+    bool in2 = false;
+  };
+  std::vector<std::vector<CvInputRef>> cv_inputs(program.cv_nodes.size());
+  for (size_t i = 0; i < program.cv_nodes.size(); ++i) {
+    for (const auto& input : program.cv_nodes[i].inputs) {
+      cv_inputs[i].push_back(CvInputRef{resolve_source_ref(input.source_node_id), input.to_port == "in2" || input.to_port == "b"});
+    }
+  }
+  std::vector<SourceRef> route_source_refs(program.mod_routes.size());
+  for (size_t i = 0; i < program.mod_routes.size(); ++i) {
+    route_source_refs[i] = resolve_source_ref(program.mod_routes[i].source_node_id);
+  }
+  std::vector<double> control_eval_cache(program.cv_nodes.size(), 0.0);
+  std::vector<uint64_t> control_eval_cache_sample(program.cv_nodes.size(), std::numeric_limits<uint64_t>::max());
+  std::vector<bool> control_eval_visiting(program.cv_nodes.size(), false);
   std::vector<double> route_last_value(program.mod_routes.size(), 0.0);
   std::vector<bool> route_last_value_valid(program.mod_routes.size(), false);
-  uint64_t eval_cache_sample = std::numeric_limits<uint64_t>::max();
-  std::function<double(const std::string&, double, double)> eval_control_source =
-      [&](const std::string& source_node_id, double env_value, double t_seconds) -> double {
-    if (source_node_id == program.env_node_id) {
+  std::function<double(const SourceRef&, double, double, uint64_t)> eval_control_source =
+      [&](const SourceRef& source, double env_value, double t_seconds, uint64_t abs_sample) -> double {
+    if (source.kind == SourceRef::Kind::kEnv) {
       return env_value;
     }
-    if (const auto lfo_it = lfo_by_id.find(source_node_id); lfo_it != lfo_by_id.end()) {
-      return lfo_value(*lfo_it->second, t_seconds);
+    if (source.kind == SourceRef::Kind::kLfo) {
+      if (source.index < 0 || source.index >= static_cast<int>(program.lfos.size())) {
+        return 0.0;
+      }
+      return lfo_value(program.lfos[static_cast<size_t>(source.index)], t_seconds);
     }
-    if (const auto cached_it = control_eval_cache.find(source_node_id); cached_it != control_eval_cache.end()) {
-      return cached_it->second;
-    }
-    if (control_eval_stack.contains(source_node_id)) {
-      const auto delayed_it = cv_state.find(source_node_id);
-      return delayed_it != cv_state.end() ? delayed_it->second : 0.0;
-    }
-    const auto cv_it = cv_by_id.find(source_node_id);
-    if (cv_it == cv_by_id.end()) {
+    if (source.kind != SourceRef::Kind::kCv) {
       return 0.0;
     }
-    control_eval_stack.insert(source_node_id);
-    const PatchProgram::CvNode& cv = *cv_it->second;
+    if (source.index < 0 || source.index >= static_cast<int>(program.cv_nodes.size())) {
+      return 0.0;
+    }
+    const size_t cv_index = static_cast<size_t>(source.index);
+    if (control_eval_cache_sample[cv_index] == abs_sample) {
+      return control_eval_cache[cv_index];
+    }
+    if (control_eval_visiting[cv_index]) {
+      return cv_state_valid[cv_index] ? cv_state[cv_index] : 0.0;
+    }
+    control_eval_visiting[cv_index] = true;
+    const PatchProgram::CvNode& cv = program.cv_nodes[cv_index];
     double in1 = 0.0;
     double in2 = 0.0;
-    for (const auto& input : cv.inputs) {
-      const double v = eval_control_source(input.source_node_id, env_value, t_seconds);
-      if (input.to_port == "in2" || input.to_port == "b") {
+    for (const auto& input : cv_inputs[cv_index]) {
+      const double v = eval_control_source(input.source, env_value, t_seconds, abs_sample);
+      if (input.in2) {
         in2 += v;
       } else {
         in1 += v;
@@ -1431,15 +1475,16 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
       out = Clamp(in1 + cv.bias, lo, hi);
     } else if (cv.type == "cv_slew") {
       const double target = in1 + cv.bias;
-      const double prev = cv_state.contains(cv.node_id) ? cv_state[cv.node_id] : target;
+      const double prev = cv_state_valid[cv_index] ? cv_state[cv_index] : target;
       const double dt = 1.0 / static_cast<double>(sample_rate);
       const double time = (target >= prev) ? cv.rise_seconds : cv.fall_seconds;
       out = slew_toward(prev, target, time, dt);
-      cv_state[cv.node_id] = out;
     }
-    control_eval_stack.erase(source_node_id);
-    control_eval_cache[source_node_id] = out;
-    cv_state[source_node_id] = out;
+    control_eval_visiting[cv_index] = false;
+    control_eval_cache[cv_index] = out;
+    control_eval_cache_sample[cv_index] = abs_sample;
+    cv_state[cv_index] = out;
+    cv_state_valid[cv_index] = true;
     return out;
   };
   const auto apply_mod = [&](const std::vector<size_t>* route_indices, double base_value, double env_value,
@@ -1455,12 +1500,7 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
       const bool should_update =
           audio_rate || !route_last_value_valid[route_index] || ((abs_sample % block) == 0ULL);
       if (should_update) {
-        if (eval_cache_sample != abs_sample) {
-          control_eval_cache.clear();
-          control_eval_stack.clear();
-          eval_cache_sample = abs_sample;
-        }
-        double source_value = eval_control_source(route.source_node_id, env_value, t_seconds);
+        double source_value = eval_control_source(route_source_refs[route_index], env_value, t_seconds, abs_sample);
         if (route.invert) {
           source_value = 1.0 - source_value;
         }
@@ -1997,11 +2037,27 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
     }
   }
 
-  for (auto& [bus_name, buffer] : bus_buffers) {
-    const auto program_it = bus_programs.find(bus_name);
-    if (program_it != bus_programs.end()) {
-      ProcessBusStem(&buffer, program_it->second, result.metadata.sample_rate);
+  struct BusFuture {
+    std::string bus_name;
+    std::future<void> future;
+  };
+  std::vector<BusFuture> bus_futures;
+  for (const auto& bus : file.buses) {
+    const std::string bus_name = bus.name;
+    auto buffer_it = bus_buffers.find(bus_name);
+    auto program_it = bus_programs.find(bus_name);
+    if (buffer_it == bus_buffers.end() || program_it == bus_programs.end()) {
+      continue;
     }
+    std::vector<float>* buffer_ptr = &buffer_it->second;
+    const BusProgram* program_ptr = &program_it->second;
+    bus_futures.push_back(BusFuture{
+        bus_name, std::async(std::launch::async, [buffer_ptr, program_ptr, sample_rate = result.metadata.sample_rate]() {
+          ProcessBusStem(buffer_ptr, *program_ptr, sample_rate);
+        })});
+  }
+  for (auto& task : bus_futures) {
+    task.future.get();
     ++progress_done_units;
     report_progress(false);
   }
