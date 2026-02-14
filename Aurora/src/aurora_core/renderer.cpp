@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <future>
 #include <limits>
 #include <map>
 #include <optional>
@@ -1908,6 +1909,7 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
   };
   report_progress(true);
 
+  std::map<std::string, std::vector<const PlayOccurrence*>> plays_by_patch;
   for (const auto& play : expanded.plays) {
     const auto patch_it = patch_programs.find(play.patch);
     const auto stem_it = patch_buffers.find(play.patch);
@@ -1915,12 +1917,48 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
       result.warnings.push_back("Event references unknown patch '" + play.patch + "'.");
       continue;
     }
-    const auto auto_it = expanded.automation.find(play.patch);
-    const std::map<std::string, AutomationLane> empty_auto;
-    const auto& automation = (auto_it != expanded.automation.end()) ? auto_it->second : empty_auto;
-    RenderPlayToStem(&stem_it->second, play, patch_it->second, automation, result.metadata.sample_rate,
-                     result.metadata.block_size, options.seed);
-    ++progress_done_units;
+    plays_by_patch[play.patch].push_back(&play);
+  }
+
+  struct PatchFuture {
+    std::string patch_name;
+    std::future<size_t> future;
+  };
+  std::vector<PatchFuture> patch_futures;
+  for (const auto& patch : file.patches) {
+    const auto plays_it = plays_by_patch.find(patch.name);
+    if (plays_it == plays_by_patch.end() || plays_it->second.empty()) {
+      continue;
+    }
+    const std::vector<const PlayOccurrence*> play_list = plays_it->second;
+    const int sample_rate = result.metadata.sample_rate;
+    const int block_size = result.metadata.block_size;
+    patch_futures.push_back(PatchFuture{
+        patch.name,
+        std::async(std::launch::async, [&patch_programs, &patch_buffers, &expanded, play_list, &patch, &options, sample_rate,
+                                        block_size]() {
+          size_t rendered_count = 0;
+          const auto patch_it = patch_programs.find(patch.name);
+          const auto stem_it = patch_buffers.find(patch.name);
+          if (patch_it == patch_programs.end() || stem_it == patch_buffers.end()) {
+            return rendered_count;
+          }
+          const auto auto_it = expanded.automation.find(patch.name);
+          const std::map<std::string, AutomationLane> empty_auto;
+          const auto& automation = (auto_it != expanded.automation.end()) ? auto_it->second : empty_auto;
+          for (const PlayOccurrence* play_ptr : play_list) {
+            if (play_ptr == nullptr) {
+              continue;
+            }
+            RenderPlayToStem(&stem_it->second, *play_ptr, patch_it->second, automation, sample_rate, block_size,
+                             options.seed);
+            ++rendered_count;
+          }
+          return rendered_count;
+        })});
+  }
+  for (auto& task : patch_futures) {
+    progress_done_units += static_cast<uint64_t>(task.future.get());
     report_progress(false);
   }
 
