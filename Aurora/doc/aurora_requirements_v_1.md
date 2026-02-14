@@ -425,6 +425,9 @@ Control modulation mapping (implemented):
 - Default op when `type` is omitted:
   - `set` for `*.cv`
   - `add` otherwise
+- Route rate semantics:
+  - `rate: audio` => per-sample modulation evaluation.
+  - `rate: control` => block-rate evaluation with held value between block boundaries.
 
 Example:
 - `{ from: "env.out", to: "amp.gain", rate: control, map: { type: db, min: -60, max: 0 } }`
@@ -544,6 +547,9 @@ Current implementation notes:
 - `vca.cv` is intended for envelope/LFO control patching (`env.out -> vca.cv`).
 - CV utility nodes are valid modulation sources for downstream control routing.
 - Graph validation enforces port-type legality for known node classes.
+- Control feedback handling:
+  - validator warns on control feedback cycles
+  - renderer applies deterministic one-sample delayed fallback to break recursion
 - Envelope time params (`a/d/r`) support `ms|s|min|h` conversion to seconds.
 - Mono voice behavior:
   - overlapping notes are serialized when `mono: true`

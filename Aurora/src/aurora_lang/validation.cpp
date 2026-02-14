@@ -2,6 +2,7 @@
 
 #include <set>
 #include <map>
+#include <functional>
 #include <string>
 
 namespace aurora::lang {
@@ -80,6 +81,61 @@ void ValidateGraphConnections(const std::string& owner_label, const GraphDefinit
   }
 }
 
+void ValidateControlFeedbackCycles(const std::string& owner_label, const GraphDefinition& graph, ValidationResult* out) {
+  std::map<std::string, std::string> node_type_by_id;
+  for (const auto& node : graph.nodes) {
+    node_type_by_id[node.id] = node.type;
+  }
+  std::map<std::string, std::set<std::string>> adjacency;
+  for (const auto& conn : graph.connections) {
+    const auto [src_node, src_port] = SplitNodePort(conn.from);
+    const auto [dst_node, dst_port] = SplitNodePort(conn.to);
+    const auto src_it = node_type_by_id.find(src_node);
+    const auto dst_it = node_type_by_id.find(dst_node);
+    if (src_it == node_type_by_id.end() || dst_it == node_type_by_id.end()) {
+      continue;
+    }
+    const PortKind src_kind = ClassifyPort(src_it->second, src_port, true);
+    const PortKind dst_kind = ClassifyPort(dst_it->second, dst_port, false);
+    if (src_kind == PortKind::kControlOut && dst_kind == PortKind::kControlIn) {
+      adjacency[src_node].insert(dst_node);
+    }
+  }
+
+  std::set<std::string> visiting;
+  std::set<std::string> visited;
+  bool cycle_found = false;
+  std::function<void(const std::string&)> dfs = [&](const std::string& node) {
+    if (cycle_found) {
+      return;
+    }
+    visiting.insert(node);
+    for (const auto& next : adjacency[node]) {
+      if (visiting.contains(next)) {
+        cycle_found = true;
+        return;
+      }
+      if (!visited.contains(next)) {
+        dfs(next);
+      }
+    }
+    visiting.erase(node);
+    visited.insert(node);
+  };
+  for (const auto& [node, _] : adjacency) {
+    if (!visited.contains(node)) {
+      dfs(node);
+    }
+    if (cycle_found) {
+      break;
+    }
+  }
+  if (cycle_found) {
+    out->warnings.push_back(owner_label +
+                            " contains a control feedback cycle; renderer applies deterministic one-sample delay fallback.");
+  }
+}
+
 }  // namespace
 
 ValidationResult Validate(const AuroraFile& file) {
@@ -122,6 +178,7 @@ ValidationResult Validate(const AuroraFile& file) {
       out.warnings.push_back("Patch '" + patch.name + "' retrig should be 'always', 'legato', or 'never'.");
     }
     ValidateGraphConnections("Patch '" + patch.name + "' graph", patch.graph, &out);
+    ValidateControlFeedbackCycles("Patch '" + patch.name + "' graph", patch.graph, &out);
     if (patch.binaural.enabled) {
       if (patch.binaural.mix < 0.0 || patch.binaural.mix > 1.0) {
         out.warnings.push_back("Patch '" + patch.name + "' binaural.mix is outside [0,1]; renderer will clamp.");
@@ -156,6 +213,7 @@ ValidationResult Validate(const AuroraFile& file) {
       out.errors.push_back("Bus '" + bus.name + "' graph io.out is required.");
     }
     ValidateGraphConnections("Bus '" + bus.name + "' graph", bus.graph, &out);
+    ValidateControlFeedbackCycles("Bus '" + bus.name + "' graph", bus.graph, &out);
   }
 
   for (const auto& patch : file.patches) {

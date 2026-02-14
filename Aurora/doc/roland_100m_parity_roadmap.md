@@ -136,10 +136,28 @@ Done criteria:
 ## M3: Audio/Control Rate Unification
 Target: credible deep modulation patching.
 
+Status: `complete`
+
 Deliverables:
 1. Per-route execution rate support (`audio` vs `control`) with predictable CPU policy.
 2. Audio-rate modulation for selected high-impact params (osc freq/PW, filter cutoff/Q, VCA CV).
 3. Feedback-safe routing strategy fully documented and enforced.
+
+Implementation progress:
+- Completed:
+1. Per-route modulation scheduling implemented:
+   - `rate: audio` per-sample evaluation
+   - `rate: control` block-rate sample-and-hold evaluation
+2. Audio-rate modulation path verified for high-impact targets:
+   - oscillator `freq` and `pw`
+   - filter `cutoff` and `q`
+   - `vca.cv`
+3. Control feedback cycle strategy implemented:
+   - validation warning on detected control cycles
+   - deterministic one-sample delayed fallback in renderer
+4. M3 phase-gate harness added: `tests/run_m3_tests.sh` (M3 coverage + M2 regression + determinism).
+- Remaining for M3:
+1. None.
 
 Done criteria:
 1. Cross-mod and FM-like patches are stable and reproducible.

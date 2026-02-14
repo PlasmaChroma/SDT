@@ -229,6 +229,9 @@ Required:
 
 Control modulation (`connect`) behavior implemented by renderer:
 - Connections that target non-audio inputs (`to: "<node>.<param>"`) and are `rate: control` are treated as modulation routes.
+- Per-route execution rate:
+  - `rate: audio` evaluates modulation per-sample.
+  - `rate: control` evaluates at render-block boundaries and holds between updates (sample-and-hold behavior).
 - Source nodes currently supported as control sources:
   - `env_adsr` / `env_ad` / `env_ar` (`<env>.out`)
   - `lfo` (`<lfo>.out`)
@@ -497,6 +500,9 @@ Warnings:
 - Graph validation enforces simple port-type rules for known node classes:
   - audio sources cannot connect to control destinations
   - control sources cannot connect to audio inputs
+- Control feedback cycles are permitted with deterministic fallback:
+  - validator emits a warning when a control cycle is detected
+  - renderer resolves cycles with one-sample delayed control fallback
 - Mono voice policy:
   - when `patch.mono` is `true`, overlapping notes for that patch are serialized (single active voice)
   - overlap priority in mono mode is based on `voice_steal`:
