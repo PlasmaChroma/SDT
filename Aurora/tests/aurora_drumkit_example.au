@@ -1,0 +1,147 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 128,
+  tail_policy: fixed(2s)
+}
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir: "./renders/midi/",
+  mix_dir: "./renders/mix/",
+  meta_dir: "./renders/meta/",
+  master: "master.wav",
+  render_json: "render.json"
+}
+
+bus DrumRoom {
+  channels: 2,
+  out: stem("fx_drum_room"),
+  graph: {
+    nodes: [
+      { id: "bus_in", type: mix },
+      { id: "rev", type: reverb_algo, params: { size: 0.72, decay: 2.8s, predelay: 8ms, mix: 0.35, width: 0.85, hicut: 6800Hz, locut: 180Hz } }
+    ],
+    connect: [
+      { from: "bus_in", to: "rev.in" }
+    ],
+    io: { out: "rev" }
+  }
+}
+
+patch Kick {
+  out: stem("kick"),
+  send: { bus: "DrumRoom", amount: -20dB },
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 52Hz } },
+      { id: "body_env", type: env_ad, params: { a: 1ms, d: 220ms } },
+      { id: "pitch_env", type: env_ad, params: { a: 1ms, d: 70ms } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 1200Hz, q: 0.8, drive: 2.0, slope: 24, env_amt: 1200Hz } },
+      { id: "clip", type: softclip, params: { drive: 2.4, mix: 0.45 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 1.0, curve: exp, curve_amt: 2.3 } },
+      { id: "amp", type: gain, params: { gain: -7dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "body_env.out", to: "vca.cv", rate: control, map: { type: set, min: 0.0, max: 1.0 } },
+      { from: "pitch_env.out", to: "osc.freq", rate: control, map: { type: set, min: 52, max: 150 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch Snare {
+  out: stem("snare"),
+  send: { bus: "DrumRoom", amount: -12dB },
+  graph: {
+    nodes: [
+      { id: "tone", type: osc_tri_blep, params: { freq: 188Hz } },
+      { id: "noise", type: noise_white },
+      { id: "tone_env", type: env_ad, params: { a: 1ms, d: 160ms } },
+      { id: "noise_env", type: env_ad, params: { a: 1ms, d: 130ms } },
+      { id: "ring", type: ring_mod_diode, params: { shape: tri, freq: 190Hz, depth: 0.9, mix: 0.3 } },
+      { id: "filt", type: biquad, params: { type: bp, freq: 2000Hz, q: 0.9, drive: 2.2, slope: 12 } },
+      { id: "mx", type: audio_mix, params: { gain: 1.15, mix: 0.8 } },
+      { id: "clip", type: softclip, params: { drive: 3.0, mix: 0.42 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 1.0, curve: linear } },
+      { id: "amp", type: gain, params: { gain: -11dB } }
+    ],
+    connect: [
+      { from: "tone", to: "filt.in" },
+      { from: "noise", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "tone_env.out", to: "ring.mix", rate: control, map: { type: set, min: 0.1, max: 0.5 } },
+      { from: "noise_env.out", to: "mx.mix", rate: control, map: { type: set, min: 0.45, max: 1.0 } },
+      { from: "noise_env.out", to: "vca.cv", rate: control, map: { type: set, min: 0.0, max: 1.0 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch HatClosed {
+  out: stem("hat_closed"),
+  send: { bus: "DrumRoom", amount: -16dB },
+  graph: {
+    nodes: [
+      { id: "noise", type: noise_white },
+      { id: "env", type: env_ad, params: { a: 1ms, d: 55ms } },
+      { id: "filt", type: biquad, params: { type: hp, freq: 5400Hz, q: 0.7, drive: 2.8, slope: 24 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 1.0, curve: exp, curve_amt: 1.9 } },
+      { id: "amp", type: gain, params: { gain: -17dB } }
+    ],
+    connect: [
+      { from: "noise", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "env.out", to: "vca.cv", rate: control, map: { type: set, min: 0.0, max: 1.0 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch HatOpen {
+  out: stem("hat_open"),
+  send: { bus: "DrumRoom", amount: -10dB },
+  graph: {
+    nodes: [
+      { id: "noise", type: noise_white },
+      { id: "env", type: env_ad, params: { a: 1ms, d: 300ms } },
+      { id: "filt", type: biquad, params: { type: hp, freq: 6200Hz, q: 0.68, drive: 2.6, slope: 24 } },
+      { id: "rm", type: ring_mod, params: { mode: balanced, shape: square, freq: 380Hz, depth: 0.7, mix: 0.24, pw: 0.42 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 1.0, curve: log, curve_amount: 2.4 } },
+      { id: "amp", type: gain, params: { gain: -18dB } }
+    ],
+    connect: [
+      { from: "noise", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "env.out", to: "vca.cv", rate: control, map: { type: set, min: 0.0, max: 1.0 } },
+      { from: "env.out", to: "rm.mix", rate: control, map: { type: set, min: 0.08, max: 0.35 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section Groove at 0s dur 8s | xfade=80ms {
+    // Kick: 4-on-the-floor with occasional doubles.
+    seq Kick { at: 0s, dur: 8s, rate: 1beats, pattern: "x...x...x...x...", prob: 1.0, pick: cycle, pitch: [C2], max: 300 }
+    seq Kick { at: 0s, dur: 8s, rate: 0.5beats, pattern: "...x........x...", prob: 0.85, pick: cycle, pitch: [C2], max: 140 }
+
+    // Snare on 2 and 4 with slight movement.
+    seq Snare { at: 0s, dur: 8s, rate: 0.5beats, pattern: "....x.......x...", prob: 1.0, pick: cycle, pitch: [D3], jitter: 4ms, max: 160 }
+
+    // Closed hats 1/16 grid.
+    seq HatClosed { at: 0s, dur: 8s, rate: 0.25beats, pattern: "x.x.xx.x.x.x.xx.", prob: 0.95, pick: cycle, pitch: [F#5], swing: 0.57, jitter: 6ms, max: 900 }
+
+    // Open hats as off-beat accents.
+    seq HatOpen { at: 0s, dur: 8s, rate: 0.5beats, pattern: "..x.....x.....x.", prob: 0.8, pick: cycle, pitch: [A5], swing: 0.57, jitter: 8ms, max: 220 }
+
+    automate patch.Kick.filt.cutoff smooth { 0s: 1000Hz, 4s: 1450Hz, 8s: 1100Hz }
+    automate patch.Snare.clip.drive linear { 0s: 2.2, 4s: 3.6, 8s: 2.6 }
+    automate patch.HatClosed.filt.drive linear { 0s: 2.2, 4s: 3.1, 8s: 2.6 }
+    automate patch.HatOpen.rm.freq smooth { 0s: 260Hz, 4s: 480Hz, 8s: 320Hz }
+  }
+}

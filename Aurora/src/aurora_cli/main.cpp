@@ -3,6 +3,7 @@
 #include <chrono>
 #include <future>
 #include <iostream>
+#include <exception>
 #include <optional>
 #include <string>
 #include <vector>
@@ -41,7 +42,13 @@ bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, CliOpti
         *error = "Expected value after --seed";
         return false;
       }
-      options->seed = static_cast<uint64_t>(std::stoull(argv[++i]));
+      const std::string value = argv[++i];
+      try {
+        options->seed = static_cast<uint64_t>(std::stoull(value));
+      } catch (const std::exception&) {
+        *error = "Invalid --seed value: " + value;
+        return false;
+      }
       continue;
     }
     if (arg == "--sr") {
@@ -49,7 +56,17 @@ bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, CliOpti
         *error = "Expected value after --sr";
         return false;
       }
-      options->sample_rate = std::stoi(argv[++i]);
+      const std::string value = argv[++i];
+      try {
+        options->sample_rate = std::stoi(value);
+      } catch (const std::exception&) {
+        *error = "Invalid --sr value: " + value;
+        return false;
+      }
+      if (options->sample_rate != 44100 && options->sample_rate != 48000 && options->sample_rate != 96000) {
+        *error = "Unsupported --sr value: " + value + " (expected 44100, 48000, or 96000)";
+        return false;
+      }
       continue;
     }
     if (arg == "--out") {
@@ -66,12 +83,22 @@ bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, CliOpti
   return true;
 }
 
-std::string ReadFile(const std::filesystem::path& path) {
+bool ReadFile(const std::filesystem::path& path, std::string* contents, std::string* error) {
   std::ifstream in(path, std::ios::binary);
   if (!in.is_open()) {
-    return {};
+    if (error != nullptr) {
+      *error = "Failed to open .au file: " + path.string();
+    }
+    return false;
   }
-  return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  *contents = std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  if (!in.good() && !in.eof()) {
+    if (error != nullptr) {
+      *error = "Failed while reading .au file: " + path.string();
+    }
+    return false;
+  }
+  return true;
 }
 
 std::filesystem::path ResolveOutputPath(const std::string& configured_path, const std::filesystem::path& au_parent,
@@ -122,9 +149,10 @@ int main(int argc, char** argv) {
   }
 
   log_step("Reading source: " + au_file.string());
-  const std::string source = ReadFile(au_file);
-  if (source.empty()) {
-    std::cerr << "Failed to read .au file: " << au_file << "\n";
+  std::string source;
+  std::string read_error;
+  if (!ReadFile(au_file, &source, &read_error)) {
+    std::cerr << read_error << "\n";
     return 3;
   }
 
@@ -189,20 +217,22 @@ int main(int argc, char** argv) {
   write_jobs.reserve(rendered.patch_stems.size() + rendered.bus_stems.size() + 3U);
 
   for (const auto& stem : rendered.patch_stems) {
+    const auto* stem_ptr = &stem;
     const auto path = stems_dir / (stem.name + ".wav");
-    write_jobs.push_back(std::async(std::launch::async, [path, &stem, sr = rendered.metadata.sample_rate]() {
+    write_jobs.push_back(std::async(std::launch::async, [path, stem_ptr, sr = rendered.metadata.sample_rate]() {
       std::string error;
-      if (!aurora::io::WriteWavFloat32(path, stem, sr, &error)) {
+      if (!aurora::io::WriteWavFloat32(path, *stem_ptr, sr, &error)) {
         return std::optional<std::string>(error);
       }
       return std::optional<std::string>{};
     }));
   }
   for (const auto& stem : rendered.bus_stems) {
+    const auto* stem_ptr = &stem;
     const auto path = stems_dir / (stem.name + ".wav");
-    write_jobs.push_back(std::async(std::launch::async, [path, &stem, sr = rendered.metadata.sample_rate]() {
+    write_jobs.push_back(std::async(std::launch::async, [path, stem_ptr, sr = rendered.metadata.sample_rate]() {
       std::string error;
-      if (!aurora::io::WriteWavFloat32(path, stem, sr, &error)) {
+      if (!aurora::io::WriteWavFloat32(path, *stem_ptr, sr, &error)) {
         return std::optional<std::string>(error);
       }
       return std::optional<std::string>{};

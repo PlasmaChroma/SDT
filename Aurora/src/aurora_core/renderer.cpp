@@ -1875,10 +1875,8 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         const double mod_transpose = apply_mod(route.transpose_mod_routes, transpose, env, t, abs_sample);
         const double pitch_freq = std::max(1.0, pitch.frequency * std::pow(2.0, (mod_detune + mod_transpose) / 12.0));
 
-        double freq = pitch_freq;
-        if (osc.freq_hz.has_value()) {
-          freq = *osc.freq_hz;
-        }
+        // Event pitch is authoritative when present; static osc.freq is fallback only.
+        double freq = (play.pitches.empty() && osc.freq_hz.has_value()) ? *osc.freq_hz : pitch_freq;
         if (route.freq.param != nullptr) {
           freq = std::max(1.0, ValueToUnit(*route.freq.param).value);
         } else if (route.freq.lane != nullptr) {
@@ -2489,7 +2487,8 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
   };
   std::vector<PatchFuture> patch_futures;
   for (const auto& patch : file.patches) {
-    const auto plays_it = plays_by_patch.find(patch.name);
+    const std::string patch_name = patch.name;
+    const auto plays_it = plays_by_patch.find(patch_name);
     if (plays_it == plays_by_patch.end() || plays_it->second.empty()) {
       continue;
     }
@@ -2497,16 +2496,16 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
     const int sample_rate = result.metadata.sample_rate;
     const int block_size = result.metadata.block_size;
     patch_futures.push_back(PatchFuture{
-        patch.name,
-        std::async(std::launch::async, [&patch_programs, &patch_buffers, &expanded, play_list, &patch, &options, sample_rate,
+        patch_name,
+        std::async(std::launch::async, [&patch_programs, &patch_buffers, &expanded, play_list, patch_name, &options, sample_rate,
                                         block_size]() {
           size_t rendered_count = 0;
-          const auto patch_it = patch_programs.find(patch.name);
-          const auto stem_it = patch_buffers.find(patch.name);
+          const auto patch_it = patch_programs.find(patch_name);
+          const auto stem_it = patch_buffers.find(patch_name);
           if (patch_it == patch_programs.end() || stem_it == patch_buffers.end()) {
             return rendered_count;
           }
-          const auto auto_it = expanded.automation.find(patch.name);
+          const auto auto_it = expanded.automation.find(patch_name);
           const std::map<std::string, AutomationLane> empty_auto;
           const auto& automation = (auto_it != expanded.automation.end()) ? auto_it->second : empty_auto;
           for (const PlayOccurrence* play_ptr : play_list) {

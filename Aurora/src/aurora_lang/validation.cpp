@@ -157,6 +157,9 @@ ValidationResult Validate(const AuroraFile& file) {
   if (file.globals.block != 256) {
     out.errors.push_back("globals.block must be 256 in v1.0.");
   }
+  if (file.globals.sr <= 0) {
+    out.errors.push_back("globals.sr must be > 0.");
+  }
 
   std::set<std::string> patch_names;
   std::set<std::string> stem_names;

@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <limits>
+#include <string>
 #include <vector>
 
 namespace aurora::io {
@@ -56,9 +58,20 @@ double SecondsToTicks(double seconds, const aurora::core::TempoMap& tempo_map) {
   return ticks;
 }
 
-uint32_t SampleToTick(uint64_t sample, int sample_rate, const aurora::core::TempoMap& tempo_map) {
+bool TickDoubleToU32(double ticks, const char* context, uint32_t* out, std::string* error) {
+  if (!std::isfinite(ticks) || ticks < 0.0 || ticks > static_cast<double>(std::numeric_limits<uint32_t>::max())) {
+    if (error != nullptr) {
+      *error = std::string("MIDI tick overflow while encoding ") + context + ".";
+    }
+    return false;
+  }
+  *out = static_cast<uint32_t>(std::llround(ticks));
+  return true;
+}
+
+bool SampleToTick(uint64_t sample, int sample_rate, const aurora::core::TempoMap& tempo_map, uint32_t* out, std::string* error) {
   const double seconds = static_cast<double>(sample) / static_cast<double>(sample_rate);
-  return static_cast<uint32_t>(std::llround(SecondsToTicks(seconds, tempo_map)));
+  return TickDoubleToU32(SecondsToTicks(seconds, tempo_map), "note/cc event", out, error);
 }
 
 struct MidiEvent {
@@ -112,14 +125,21 @@ bool WriteMidiFormat1(const std::filesystem::path& path, const std::vector<auror
     return false;
   }
 
-  const uint32_t end_tick = static_cast<uint32_t>(std::ceil(
-      SecondsToTicks(static_cast<double>(total_samples) / static_cast<double>(sample_rate), tempo_map)));
+  uint32_t end_tick = 0;
+  if (!TickDoubleToU32(
+          std::ceil(SecondsToTicks(static_cast<double>(total_samples) / static_cast<double>(sample_rate), tempo_map)),
+          "track length", &end_tick, error)) {
+    return false;
+  }
 
   std::vector<std::vector<uint8_t>> encoded_tracks;
 
   std::vector<MidiEvent> tempo_events;
   for (const auto& point : tempo_map.points) {
-    const uint32_t tick = static_cast<uint32_t>(std::llround(SecondsToTicks(point.at_seconds, tempo_map)));
+    uint32_t tick = 0;
+    if (!TickDoubleToU32(SecondsToTicks(point.at_seconds, tempo_map), "tempo event", &tick, error)) {
+      return false;
+    }
     tempo_events.push_back(MakeTempoEvent(tick, point.bpm));
   }
   if (tempo_events.empty()) {
@@ -142,8 +162,14 @@ bool WriteMidiFormat1(const std::filesystem::path& path, const std::vector<auror
     }
 
     for (const auto& note : track.notes) {
-      const uint32_t on_tick = SampleToTick(note.start_sample, sample_rate, tempo_map);
-      const uint32_t off_tick = SampleToTick(note.end_sample, sample_rate, tempo_map);
+      uint32_t on_tick = 0;
+      uint32_t off_tick = 0;
+      if (!SampleToTick(note.start_sample, sample_rate, tempo_map, &on_tick, error)) {
+        return false;
+      }
+      if (!SampleToTick(note.end_sample, sample_rate, tempo_map, &off_tick, error)) {
+        return false;
+      }
       MidiEvent on;
       on.tick = on_tick;
       on.order = 2;
@@ -159,8 +185,12 @@ bool WriteMidiFormat1(const std::filesystem::path& path, const std::vector<auror
     }
 
     for (const auto& cc : track.ccs) {
+      uint32_t cc_tick = 0;
+      if (!SampleToTick(cc.sample, sample_rate, tempo_map, &cc_tick, error)) {
+        return false;
+      }
       MidiEvent cce;
-      cce.tick = SampleToTick(cc.sample, sample_rate, tempo_map);
+      cce.tick = cc_tick;
       cce.order = 3;
       cce.bytes = {static_cast<uint8_t>(0xB0 | (cc.channel & 0x0F)), static_cast<uint8_t>(cc.cc & 0x7F),
                    static_cast<uint8_t>(cc.value & 0x7F)};
@@ -192,4 +222,3 @@ bool WriteMidiFormat1(const std::filesystem::path& path, const std::vector<auror
 }
 
 }  // namespace aurora::io
-

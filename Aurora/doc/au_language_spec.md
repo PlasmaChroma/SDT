@@ -260,8 +260,8 @@ Implemented oscillator parameter behavior (`osc_*` nodes):
 - Oscillator frequency precedence:
   1. event-level `params.<oscNode>.freq`
   2. automation lane `patch.<Patch>.<oscNode>.freq`
-  3. static node `params.freq`
-  4. event `pitch` with detune/transpose
+  3. event `pitch` with detune/transpose
+  4. static node `params.freq` (fallback when event pitch is not present)
 - `detune` offsets oscillator pitch:
   - `<number>` = cents (e.g. `-7`)
   - `<number>c` = cents (e.g. `-7c`)

@@ -304,26 +304,27 @@ double ValueAsNumber(const ParamValue& value, double fallback = 0.0) {
   return fallback;
 }
 
-UnitNumber ValueAsUnitNumber(const ParamValue& value, const std::string& default_unit = "s") {
+UnitNumber ValueAsUnitNumber(const ParamValue& value, int line, int column, const std::string& context,
+                             const std::string& default_unit = "s") {
   if (value.kind == ParamValue::Kind::kUnitNumber) {
     return value.unit_number_value;
   }
   if (value.kind == ParamValue::Kind::kNumber) {
     return UnitNumber{value.number_value, default_unit};
   }
-  throw std::runtime_error("Expected numeric time literal, got " + value.DebugString());
+  throw ParseException(line, column, "Expected numeric time literal in " + context + ", got " + value.DebugString());
 }
 
-std::map<std::string, ParamValue> ValueAsObject(const ParamValue& value) {
+std::map<std::string, ParamValue> ValueAsObject(const ParamValue& value, int line, int column, const std::string& context) {
   if (value.kind != ParamValue::Kind::kObject) {
-    throw std::runtime_error("Expected object, got " + value.DebugString());
+    throw ParseException(line, column, "Expected object in " + context + ", got " + value.DebugString());
   }
   return value.object_values;
 }
 
-std::vector<ParamValue> ValueAsList(const ParamValue& value) {
+std::vector<ParamValue> ValueAsList(const ParamValue& value, int line, int column, const std::string& context) {
   if (value.kind != ParamValue::Kind::kList) {
-    throw std::runtime_error("Expected list, got " + value.DebugString());
+    throw ParseException(line, column, "Expected list in " + context + ", got " + value.DebugString());
   }
   return value.list_values;
 }
@@ -530,18 +531,19 @@ class Parser {
   }
 
   GraphDefinition ParseGraph(const ParamValue& graph_value) {
+    const Token& graph_token = Peek();
     GraphDefinition graph;
-    const auto graph_obj = ValueAsObject(graph_value);
+    const auto graph_obj = ValueAsObject(graph_value, graph_token.line, graph_token.column, "graph");
 
     const auto nodes_it = graph_obj.find("nodes");
     if (nodes_it != graph_obj.end()) {
-      for (const auto& node_value : ValueAsList(nodes_it->second)) {
-        const auto node_obj = ValueAsObject(node_value);
+      for (const auto& node_value : ValueAsList(nodes_it->second, graph_token.line, graph_token.column, "graph.nodes")) {
+        const auto node_obj = ValueAsObject(node_value, graph_token.line, graph_token.column, "graph.nodes[]");
         GraphNode node;
         const auto id_it = node_obj.find("id");
         const auto type_it = node_obj.find("type");
         if (id_it == node_obj.end() || type_it == node_obj.end()) {
-          throw std::runtime_error("graph node must contain id and type");
+          throw ParseException(graph_token.line, graph_token.column, "graph node must contain id and type");
         }
         node.id = ValueAsString(id_it->second);
         node.type = ValueAsString(type_it->second);
@@ -555,13 +557,13 @@ class Parser {
 
     const auto connect_it = graph_obj.find("connect");
     if (connect_it != graph_obj.end()) {
-      for (const auto& conn_value : ValueAsList(connect_it->second)) {
-        const auto conn_obj = ValueAsObject(conn_value);
+      for (const auto& conn_value : ValueAsList(connect_it->second, graph_token.line, graph_token.column, "graph.connect")) {
+        const auto conn_obj = ValueAsObject(conn_value, graph_token.line, graph_token.column, "graph.connect[]");
         GraphConnection conn;
         const auto from_it = conn_obj.find("from");
         const auto to_it = conn_obj.find("to");
         if (from_it == conn_obj.end() || to_it == conn_obj.end()) {
-          throw std::runtime_error("graph connection must contain from and to");
+          throw ParseException(graph_token.line, graph_token.column, "graph connection must contain from and to");
         }
         conn.from = ValueAsString(from_it->second);
         conn.to = ValueAsString(to_it->second);
@@ -579,7 +581,7 @@ class Parser {
 
     const auto io_it = graph_obj.find("io");
     if (io_it != graph_obj.end()) {
-      const auto io_obj = ValueAsObject(io_it->second);
+      const auto io_obj = ValueAsObject(io_it->second, graph_token.line, graph_token.column, "graph.io");
       const auto out_it = io_obj.find("out");
       if (out_it != io_obj.end()) {
         graph.out = ValueAsString(out_it->second);
@@ -679,14 +681,15 @@ class Parser {
   PlayEvent ParsePlayEvent() {
     PlayEvent event;
     event.patch = ExpectIdentifierLike("play patch name");
+    const Token& body_token = Peek();
     const ParamValue body_value = ParseValue();
-    const auto body = ValueAsObject(body_value);
+    const auto body = ValueAsObject(body_value, body_token.line, body_token.column, "play event");
 
     if (const auto it = body.find("at"); it != body.end()) {
-      event.at = ValueAsUnitNumber(it->second);
+      event.at = ValueAsUnitNumber(it->second, body_token.line, body_token.column, "play.at");
     }
     if (const auto it = body.find("dur"); it != body.end()) {
-      event.dur = ValueAsUnitNumber(it->second);
+      event.dur = ValueAsUnitNumber(it->second, body_token.line, body_token.column, "play.dur");
     }
     if (const auto it = body.find("vel"); it != body.end()) {
       event.vel = ValueAsNumber(it->second, 1.0);
@@ -707,14 +710,15 @@ class Parser {
   PlayEvent ParseGateLikeEvent(const std::string& context, const UnitNumber& default_dur) {
     PlayEvent event;
     event.patch = ExpectIdentifierLike(context + " patch name");
+    const Token& body_token = Peek();
     const ParamValue body_value = ParseValue();
-    const auto body = ValueAsObject(body_value);
+    const auto body = ValueAsObject(body_value, body_token.line, body_token.column, context + " event");
 
     if (const auto it = body.find("at"); it != body.end()) {
-      event.at = ValueAsUnitNumber(it->second);
+      event.at = ValueAsUnitNumber(it->second, body_token.line, body_token.column, context + ".at");
     }
     if (const auto it = body.find("dur"); it != body.end()) {
-      event.dur = ValueAsUnitNumber(it->second);
+      event.dur = ValueAsUnitNumber(it->second, body_token.line, body_token.column, context + ".dur");
     } else {
       event.dur = default_dur;
     }
@@ -767,8 +771,9 @@ class Parser {
   SeqEvent ParseSeqEvent() {
     SeqEvent event;
     event.patch = ExpectIdentifierLike("seq patch name");
+    const Token& body_token = Peek();
     const ParamValue body_value = ParseValue();
-    event.fields = ValueAsObject(body_value);
+    event.fields = ValueAsObject(body_value, body_token.line, body_token.column, "seq event");
     return event;
   }
 
@@ -779,13 +784,15 @@ class Parser {
       const Token& t = Peek();
       throw ParseException(t.line, t.column, "Expected 'at' in section header");
     }
-    section.at = ValueAsUnitNumber(ParseValue());
+    const Token& at_token = Peek();
+    section.at = ValueAsUnitNumber(ParseValue(), at_token.line, at_token.column, "section.at");
 
     if (!MatchIdentifier("dur")) {
       const Token& t = Peek();
       throw ParseException(t.line, t.column, "Expected 'dur' in section header");
     }
-    section.dur = ValueAsUnitNumber(ParseValue());
+    const Token& dur_token = Peek();
+    section.dur = ValueAsUnitNumber(ParseValue(), dur_token.line, dur_token.column, "section.dur");
 
     if (MatchSymbol('|')) {
       while (true) {
@@ -840,7 +847,7 @@ class Parser {
     return static_cast<int>(rounded);
   }
 
-  UnitNumber AddUnits(const UnitNumber& lhs, const UnitNumber& rhs, const std::string& context) {
+  UnitNumber AddUnits(const UnitNumber& lhs, const UnitNumber& rhs, const std::string& context, int line, int column) {
     std::string unit = lhs.unit;
     if (unit.empty()) {
       unit = rhs.unit;
@@ -850,7 +857,7 @@ class Parser {
       rhs_unit = unit;
     }
     if (unit != rhs_unit) {
-      throw std::runtime_error("Mismatched time units in " + context + ": " + lhs.unit + " vs " + rhs.unit);
+      throw ParseException(line, column, "Mismatched time units in " + context + ": " + lhs.unit + " vs " + rhs.unit);
     }
     return UnitNumber{lhs.value + rhs.value, unit};
   }
@@ -859,14 +866,14 @@ class Parser {
     return UnitNumber{value.value * static_cast<double>(multiplier), value.unit};
   }
 
-  UnitNumber ComputeSpan(const std::vector<SectionDefinition>& sections, const std::string& context) {
+  UnitNumber ComputeSpan(const std::vector<SectionDefinition>& sections, const std::string& context, int line, int column) {
     if (sections.empty()) {
       return UnitNumber{0.0, "s"};
     }
     bool have_max = false;
     UnitNumber max_end{0.0, ""};
     for (const auto& section : sections) {
-      const UnitNumber end = AddUnits(section.at, section.dur, context);
+      const UnitNumber end = AddUnits(section.at, section.dur, context, line, column);
       if (!have_max) {
         max_end = end;
         have_max = true;
@@ -877,7 +884,7 @@ class Parser {
       }
       std::string end_unit = end.unit.empty() ? max_end.unit : end.unit;
       if (max_end.unit != end_unit) {
-        throw std::runtime_error("Mismatched time units in " + context + ": " + max_end.unit + " vs " + end.unit);
+        throw ParseException(line, column, "Mismatched time units in " + context + ": " + max_end.unit + " vs " + end.unit);
       }
       if (end.value > max_end.value) {
         max_end = UnitNumber{end.value, max_end.unit};
@@ -890,10 +897,10 @@ class Parser {
   }
 
   void AppendShiftedSections(const std::vector<SectionDefinition>& input, const UnitNumber& offset,
-                             std::vector<SectionDefinition>* out, const std::string& context) {
+                             std::vector<SectionDefinition>* out, const std::string& context, int line, int column) {
     for (const auto& section : input) {
       SectionDefinition shifted = section;
-      shifted.at = AddUnits(section.at, offset, context);
+      shifted.at = AddUnits(section.at, offset, context, line, column);
       out->push_back(std::move(shifted));
     }
   }
@@ -910,14 +917,15 @@ class Parser {
         const int repeat_count = ParsePositiveInteger("repeat count");
         ExpectSymbol('{', "repeat block");
         const auto repeated_items = ParseScoreItems(allow_pattern_declaration);
-        const UnitNumber span = ComputeSpan(repeated_items, "repeat body span");
+        const Token& repeat_token = Peek();
+        const UnitNumber span = ComputeSpan(repeated_items, "repeat body span", repeat_token.line, repeat_token.column);
         if (span.value <= 0.0) {
           const Token& t = Peek();
           throw ParseException(t.line, t.column, "Repeat body span must be > 0");
         }
         for (int i = 0; i < repeat_count; ++i) {
           const UnitNumber offset = MulUnit(span, i);
-          AppendShiftedSections(repeated_items, offset, &items, "repeat expansion");
+          AppendShiftedSections(repeated_items, offset, &items, "repeat expansion", repeat_token.line, repeat_token.column);
         }
         continue;
       }
@@ -927,19 +935,23 @@ class Parser {
           const Token& t = Peek();
           throw ParseException(t.line, t.column, "Expected 'for' in loop declaration");
         }
-        const UnitNumber loop_dur = ValueAsUnitNumber(ParseValue());
+        const Token& loop_dur_token = Peek();
+        const UnitNumber loop_dur =
+            ValueAsUnitNumber(ParseValue(), loop_dur_token.line, loop_dur_token.column, "loop duration");
         ExpectSymbol('{', "loop block");
         const auto loop_items = ParseScoreItems(false);
-        const UnitNumber span = ComputeSpan(loop_items, "loop body span");
+        const Token& loop_token = Peek();
+        const UnitNumber span = ComputeSpan(loop_items, "loop body span", loop_token.line, loop_token.column);
         if (span.value <= 0.0) {
           const Token& t = Peek();
           throw ParseException(t.line, t.column, "Loop body span must be > 0");
         }
-        const UnitNumber loop_dur_norm = AddUnits(UnitNumber{0.0, span.unit}, loop_dur, "loop duration");
+        const UnitNumber loop_dur_norm =
+            AddUnits(UnitNumber{0.0, span.unit}, loop_dur, "loop duration", loop_token.line, loop_token.column);
         const int count = static_cast<int>(std::floor(loop_dur_norm.value / span.value));
         for (int i = 0; i < count; ++i) {
           const UnitNumber offset = MulUnit(span, i);
-          AppendShiftedSections(loop_items, offset, &items, "loop expansion");
+          AppendShiftedSections(loop_items, offset, &items, "loop expansion", loop_token.line, loop_token.column);
         }
         continue;
       }
@@ -950,7 +962,8 @@ class Parser {
         const auto pattern_items = ParseScoreItems(false);
         ScorePattern pattern;
         pattern.sections = pattern_items;
-        pattern.span = ComputeSpan(pattern_items, "pattern span");
+        const Token& pattern_token = Peek();
+        pattern.span = ComputeSpan(pattern_items, "pattern span", pattern_token.line, pattern_token.column);
         score_patterns_[pattern_name] = std::move(pattern);
         continue;
       }
@@ -964,7 +977,9 @@ class Parser {
         const int count = ParsePositiveInteger("pattern repeat count");
         UnitNumber start_offset{0.0, "s"};
         if (MatchIdentifier("at")) {
-          start_offset = ValueAsUnitNumber(ParseValue());
+          const Token& start_offset_token = Peek();
+          start_offset =
+              ValueAsUnitNumber(ParseValue(), start_offset_token.line, start_offset_token.column, "pattern play offset");
         }
         const auto it = score_patterns_.find(pattern_name);
         if (it == score_patterns_.end()) {
@@ -976,10 +991,16 @@ class Parser {
           const Token& t = Peek();
           throw ParseException(t.line, t.column, "Pattern span must be > 0: " + pattern_name);
         }
-        const UnitNumber start = AddUnits(UnitNumber{0.0, pattern.span.unit}, start_offset, "pattern play offset");
+        const Token& pattern_play_token = Peek();
+        const UnitNumber start =
+            AddUnits(UnitNumber{0.0, pattern.span.unit}, start_offset, "pattern play offset", pattern_play_token.line,
+                     pattern_play_token.column);
         for (int i = 0; i < count; ++i) {
-          const UnitNumber offset = AddUnits(start, MulUnit(pattern.span, i), "pattern play expansion");
-          AppendShiftedSections(pattern.sections, offset, &items, "pattern play expansion");
+          const UnitNumber offset =
+              AddUnits(start, MulUnit(pattern.span, i), "pattern play expansion", pattern_play_token.line,
+                       pattern_play_token.column);
+          AppendShiftedSections(pattern.sections, offset, &items, "pattern play expansion", pattern_play_token.line,
+                                pattern_play_token.column);
         }
         continue;
       }
@@ -1054,7 +1075,9 @@ class Parser {
     if (const auto it = body.find("tail_policy"); it != body.end()) {
       const ParamValue& tail = it->second;
       if (tail.kind == ParamValue::Kind::kCall && tail.string_value == "fixed" && !tail.list_values.empty()) {
-        const UnitNumber t = ValueAsUnitNumber(tail.list_values.front());
+        const Token& tail_token = Peek();
+        const UnitNumber t =
+            ValueAsUnitNumber(tail.list_values.front(), tail_token.line, tail_token.column, "globals.tail_policy.fixed");
         double seconds = t.value;
         if (t.unit == "ms") {
           seconds /= 1000.0;
@@ -1068,10 +1091,12 @@ class Parser {
     }
     if (const auto it = body.find("tempo_map"); it != body.end() && it->second.kind == ParamValue::Kind::kList) {
       for (const ParamValue& point_value : it->second.list_values) {
-        const auto point_obj = ValueAsObject(point_value);
+        const Token& tempo_token = Peek();
+        const auto point_obj = ValueAsObject(point_value, tempo_token.line, tempo_token.column, "globals.tempo_map[]");
         TempoPoint point;
         if (const auto at_it = point_obj.find("at"); at_it != point_obj.end()) {
-          point.at = ValueAsUnitNumber(at_it->second);
+          point.at =
+              ValueAsUnitNumber(at_it->second, tempo_token.line, tempo_token.column, "globals.tempo_map[].at");
         }
         if (const auto bpm_it = point_obj.find("bpm"); bpm_it != point_obj.end()) {
           point.bpm = ValueAsNumber(bpm_it->second, 60.0);

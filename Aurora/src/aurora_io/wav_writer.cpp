@@ -35,6 +35,12 @@ bool WriteWavFloat32(const std::filesystem::path& path, const aurora::core::Audi
     }
     return false;
   }
+  if ((stem.samples.size() % static_cast<size_t>(stem.channels)) != 0U) {
+    if (error != nullptr) {
+      *error = "Stem samples are not aligned to channel count.";
+    }
+    return false;
+  }
 
   std::filesystem::create_directories(path.parent_path());
   std::ofstream out(path, std::ios::binary);
@@ -81,4 +87,3 @@ bool WriteWavFloat32(const std::filesystem::path& path, const aurora::core::Audi
 }
 
 }  // namespace aurora::io
-
