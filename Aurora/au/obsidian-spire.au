@@ -1,0 +1,268 @@
+// OBSIDIAN SPIRE / AURORA VORTEX (AURORA language v1.0)
+// Mood: dark ambient, slow ritual, faint bioluminescent “glyphs”, spiral sky binaural drift.
+
+aurora { version: "1.0" }
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir:  "./renders/midi/",
+  mix_dir:   "./renders/mix/",
+  meta_dir:  "./renders/meta/",
+  master:    "ObsidianSpire_Master.wav",
+  render_json:"ObsidianSpire_Render.json"
+}
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo_map: [
+    { at: 0s,    bpm: 56 },
+    { at: 6min,  bpm: 52 },
+    { at: 12min, bpm: 48 }
+  ]
+}
+
+// --- BUSES (space around the spire) ---
+
+bus DeepVerb {
+  graph: {
+    nodes: [
+      { id: "bus_in", type: mix, params: {} },
+      { id: "rvb", type: reverb_algo, params: { size: 0.88, decay: 0.78, predelay: 18ms, mix: 0.50, hicut: 7200Hz } },
+      { id: "eq",  type: eq_shelf, params: { low_gain: -2.5, low_freq: 170Hz, high_gain: -3.0, high_freq: 5200Hz } },
+      { id: "out", type: gain, params: { gain: -10dB } }
+    ],
+    connect: [
+      { from: "bus_in.out", to: "rvb.in", rate: audio },
+      { from: "rvb.out",   to: "eq.in",  rate: audio },
+      { from: "eq.out",    to: "out.in", rate: audio }
+    ],
+    io: { out: "out" }
+  }
+  out: stem("BUS_DeepVerb")
+}
+
+bus GlyphDelay {
+  graph: {
+    nodes: [
+      { id: "bus_in", type: mix, params: {} },
+      { id: "dly", type: delay, params: { time: 420ms, fb: 0.42, mix: 0.55, hicut: 5400Hz, locut: 220Hz } },
+      { id: "out", type: gain, params: { gain: -14dB } }
+    ],
+    connect: [
+      { from: "bus_in.out", to: "dly.in", rate: audio },
+      { from: "dly.out",    to: "out.in", rate: audio }
+    ],
+    io: { out: "out" }
+  }
+  out: stem("BUS_GlyphDelay")
+}
+
+// --- PATCHES (tower / sky / vines / subterranean pulse) ---
+
+patch SpireDrone {
+  poly: 4, voice_steal: "oldest", mono: false,
+  binaural: { enabled: true, shift: 0.9Hz, mix: 0.40 },
+
+  graph: {
+    nodes: [
+      { id: "oscA",  type: osc_saw_blep,   params: { freq: 55Hz } },      // A1
+      { id: "oscB",  type: osc_tri_blep,   params: { freq: 82.41Hz } },   // E2
+      { id: "noise", type: noise_pink,     params: { amp: 0.010 } },
+      { id: "filt",  type: svf,            params: { mode: "lp", cutoff: 260Hz, res: 0.20, drive: 0.20 } },
+      { id: "ampE",  type: env_adsr,       params: { a: 2.4s, d: 6.0s, s: 0.75, r: 9.0s, curve: "smooth" } },
+      { id: "amp",   type: gain,           params: { gain: -14dB } },
+      { id: "clip",  type: softclip,       params: { drive: 0.18 } }
+    ],
+    connect: [
+      { from: "oscA.out",  to: "filt.in", rate: audio },
+      { from: "oscB.out",  to: "filt.in", rate: audio },
+      { from: "noise.out", to: "filt.in", rate: audio },
+      { from: "filt.out",  to: "clip.in", rate: audio },
+      { from: "clip.out",  to: "amp.in",  rate: audio }
+    ],
+    io: { out: "amp" }
+  },
+
+  send: { bus: "DeepVerb", amount: -14dB },
+  out: stem("01_SpireDrone")
+}
+
+patch SkyVortex {
+  poly: 6, voice_steal: "oldest", mono: false,
+  binaural: { enabled: true, shift: 2.6Hz, mix: 0.75 },
+
+  graph: {
+    nodes: [
+      { id: "osc",  type: osc_pulse_blep, params: { freq: 110Hz, pw: 0.38 } },
+      { id: "lfo",  type: lfo,            params: { shape: "sine", rate: 0.042Hz, depth: 0.55, pw: 0.5 } },
+      { id: "filt", type: svf,            params: { mode: "bp", cutoff: 900Hz, res: 0.45, drive: 0.25 } },
+      { id: "ampE", type: env_adsr,       params: { a: 1.6s, d: 3.2s, s: 0.65, r: 6.0s, curve: "smooth" } },
+      { id: "amp",  type: gain,           params: { gain: -20dB } }
+    ],
+    connect: [
+      { from: "osc.out",   to: "filt.in",       rate: audio },
+      { from: "lfo.out",   to: "osc.pw",        rate: control },
+      { from: "lfo.out",   to: "filt.cutoff",   rate: control },
+      { from: "filt.out",  to: "amp.in",        rate: audio }
+    ],
+    io: { out: "amp" }
+  },
+
+  send: { bus: "DeepVerb", amount: -10dB },
+  out: stem("02_SkyVortex")
+}
+
+patch VineGlyphs {
+  poly: 10, voice_steal: "oldest", mono: true,
+
+  graph: {
+    nodes: [
+      { id: "osc",  type: osc_sine,     params: { freq: 440Hz } },
+      { id: "filt", type: svf,          params: { mode: "bp", cutoff: 1800Hz, res: 0.35, drive: 0.05 } },
+      { id: "env",  type: env_ad,       params: { a: 8ms, d: 1.6s, curve: "exp" } },
+      { id: "amp",  type: gain,         params: { gain: -18dB } }
+    ],
+    connect: [
+      { from: "osc.out",  to: "filt.in", rate: audio },
+      { from: "filt.out", to: "amp.in",  rate: audio }
+      // (env is implicit in voice shaping by renderer’s note gating; used mainly for future param routing)
+    ],
+    io: { out: "amp" }
+  },
+
+  send: { bus: "DeepVerb",  amount: -18dB },
+  send: { bus: "GlyphDelay", amount: -16dB },
+  out: stem("03_VineGlyphs")
+}
+
+patch UnderThump {
+  poly: 1, voice_steal: "oldest", mono: true,
+
+  graph: {
+    nodes: [
+      { id: "osc",  type: osc_sine,   params: { freq: 43.65Hz } }, // ~F1
+      { id: "filt", type: svf,        params: { mode: "lp", cutoff: 160Hz, res: 0.10, drive: 0.10 } },
+      { id: "ampE", type: env_ad,     params: { a: 4ms, d: 420ms, curve: "exp" } },
+      { id: "amp",  type: gain,       params: { gain: -12dB } },
+      { id: "clip", type: softclip,   params: { drive: 0.22 } }
+    ],
+    connect: [
+      { from: "osc.out",  to: "filt.in", rate: audio },
+      { from: "filt.out", to: "clip.in", rate: audio },
+      { from: "clip.out", to: "amp.in",  rate: audio }
+    ],
+    io: { out: "amp" }
+  },
+
+  send: { bus: "DeepVerb", amount: -26dB },
+  out: stem("04_UnderThump")
+}
+
+// --- SCORE (four phases: arrival → spiral → monolith → dissolve) ---
+
+score {
+
+  // 0:00–2:00 — “Gate Opens”
+  section GateOpens at 0s dur 2min | pressure=slow_rise, density=very_low, silence=long {
+    play SpireDrone { at: 0s,   dur: 2min, vel: 0.9, pitch: A1 }
+    play SkyVortex  { at: 20s,  dur: 100s, vel: 0.7, pitch: A2 }
+
+    // very rare glyphs (plants waking)
+    seq VineGlyphs {
+      at: 35s, dur: 85s, rate: 6.0s,
+      pattern: "x.....x...x.....",
+      prob: 0.35, vel: 0.65,
+      pitch: [ E5, B4, G#5, C#5 ],
+      pick: "weighted",
+      weights: [ 0.25, 0.35, 0.25, 0.15 ],
+      jitter: 220ms,
+      params: { "filt.cutoff": 1600Hz }
+    }
+
+    // subtle slow opening of spire cutoff
+    automate patch.SpireDrone.filt.cutoff smooth { 0: 220Hz, 120: 320Hz }
+    automate patch.SpireDrone.oscA.binaural_shift smooth { 0: 0.6Hz, 120: 1.0Hz }
+  }
+
+  // 2:00–6:00 — “Spiral Sky”
+  section SpiralSky at 2min dur 4min | pressure=stable, density=low, silence=medium {
+    play SpireDrone { at: 2min, dur: 4min, vel: 1.0, pitch: A1 }
+    play SkyVortex  { at: 2min, dur: 4min, vel: 0.9, pitch: A2 }
+
+    // sky swirl slowly widens binaural split, then settles
+    automate patch.SkyVortex.osc.binaural_shift smooth { 0: 2.2Hz, 120: 3.2Hz, 240: 2.6Hz }
+    automate patch.SkyVortex.filt.cutoff smooth { 0: 750Hz, 240: 1200Hz }
+
+    // glyphs become a little more frequent, still sparse
+    seq VineGlyphs {
+      at: 2min, dur: 4min, rate: 4.0s,
+      pattern: "x..x....x...x.....x.",
+      prob: 0.45, vel: 0.70,
+      pitch: [ E5, B4, C#5, G#5, F#5 ],
+      pick: "cycle",
+      jitter: 180ms,
+      params: { "filt.cutoff": 1900Hz }
+    }
+
+    // subterranean pulse: rare, like deep doors shifting
+    // deterministic anchor hit so the stem is never fully empty in this section
+    play UnderThump {
+      at: 2min, dur: 420ms, vel: 0.88,
+      pitch: F1
+    }
+
+    // additional sparse knocks remain probabilistic
+    seq UnderThump {
+      at: 2min, dur: 4min, rate: 12.0s,
+      pattern: "x...........x.......",
+      prob: 0.22, vel: 0.95,
+      pitch: F1,
+      jitter: 40ms
+    }
+  }
+
+  // 6:00–10:00 — “Obsidian Spire” (monolithic declaration)
+  section ObsidianSpire at 6min dur 4min | pressure=slow_rise, density=very_low, silence=long {
+    play SpireDrone { at: 6min, dur: 4min, vel: 1.15, pitch: A1 }
+    play SkyVortex  { at: 6min, dur: 4min, vel: 0.65, pitch: A2 }
+
+    // spire darkens: lower cutoff + more drive, very slowly
+    automate patch.SpireDrone.filt.cutoff smooth { 0: 340Hz, 240: 240Hz }
+    automate patch.SpireDrone.filt.drive  smooth { 0: 0.18, 240: 0.32 }
+    automate patch.SpireDrone.oscA.binaural_mix smooth { 0: 0.35, 240: 0.55 }
+
+    // glyphs almost stop — the tower “holds”
+    seq VineGlyphs {
+      at: 6min, dur: 4min, rate: 8.0s,
+      pattern: "x...............x....",
+      prob: 0.22, vel: 0.60,
+      pitch: [ B4, E5, C#5 ],
+      pick: "weighted",
+      weights: [ 0.45, 0.35, 0.20 ],
+      jitter: 260ms,
+      params: { "filt.cutoff": 1500Hz }
+    }
+  }
+
+  // 10:00–12:00 — “Vine Lumen” (soft release without closure)
+  section VineLumen at 10min dur 2min | pressure=fall, density=very_low, silence=long {
+    play SpireDrone { at: 10min, dur: 2min, vel: 0.9, pitch: A1 }
+    play SkyVortex  { at: 10min, dur: 2min, vel: 0.55, pitch: A2 }
+
+    // glyphs: a last constellation, then fade
+    seq VineGlyphs {
+      at: 10min, dur: 2min, rate: 5.5s,
+      pattern: "x...x.....x....x....",
+      prob: 0.32, vel: 0.62,
+      pitch: [ E5, G#5, B4, C#5 ],
+      pick: "uniform",
+      jitter: 220ms,
+      params: { "filt.cutoff": 2100Hz }
+    }
+
+    // final dimming
+    automate patch.SpireDrone.filt.cutoff smooth { 0: 240Hz, 120: 160Hz }
+    automate patch.SkyVortex.filt.cutoff smooth  { 0: 900Hz, 120: 600Hz }
+  }
+}
