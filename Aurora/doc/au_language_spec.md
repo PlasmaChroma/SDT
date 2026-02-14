@@ -100,8 +100,17 @@ globals_block   = "globals" object ;
 bus_block       = "bus" ident_like object ;
 patch_block     = "patch" ident_like object ;
 
-score_block     = "score" "{" { section_block } "}" ;
+score_block     = "score" "{" { score_item } "}" ;
+score_item      = section_block
+                | repeat_block
+                | loop_block
+                | pattern_decl
+                | pattern_play ;
 section_block   = "section" ident_like "at" value "dur" value [ "|" directives ] "{" { section_event } "}" ;
+repeat_block    = "repeat" positive_int "{" { score_item } "}" ;
+loop_block      = "loop" "for" value "{" { score_item } "}" ;
+pattern_decl    = "pattern" ident_like "{" { score_item } "}" ;
+pattern_play    = "play" ident_like "x" positive_int [ "at" value ] ;
 directives      = ident_like "=" value { "," ident_like "=" value } ;
 
 section_event   = play_event | automate_event | seq_event ;
@@ -120,6 +129,7 @@ object_key      = identifier | string | number_token ;
 
 list            = "[" [ value { "," value } ] "]" ;
 call            = identifier "(" [ value { "," value } ] ")" ;
+positive_int    = unitless_number_token ;
 ```
 
 Notes:
@@ -258,6 +268,29 @@ Implemented filter behavior (`svf` / `biquad` nodes):
 
 ## 6. Score and Event Semantics
 
+## 6.0 Score Structural Operators (Compile-Time Expansion)
+
+Score blocks support deterministic structural composition operators:
+
+- `repeat N { ... }`
+  - `N` must be a positive unitless integer literal.
+  - Expansion is sequential (each iteration offset by body span).
+- `loop for <duration> { ... }`
+  - Body repeats sequentially until duration is filled by whole iterations.
+  - Iteration count = `floor(loop_duration / body_span)`.
+- `pattern Name { ... }`
+  - Declares a reusable score structure.
+- `play Name x N [at <time>]`
+  - Places a declared pattern `N` times sequentially.
+  - Optional `at` adds a start offset before the first pattern iteration.
+
+Determinism constraints and limitations:
+- These operators are expanded at parse time.
+- Body span must be strictly positive (`> 0`), otherwise parse error.
+- Time-unit arithmetic inside these operators requires compatible units.
+- Pattern placement requires prior declaration in score order.
+- This system intentionally excludes unbounded `while`/stateful loops.
+
 ## 6.1 Section Header
 Format:
 ```au
@@ -379,6 +412,7 @@ Warnings:
 
 - Unknown top-level keywords/events are parse errors.
 - Unknown keys in known objects usually parse and are ignored unless renderer/validator uses them.
+- Score structural operators (`repeat`, `loop for`, `pattern`, score-level `play ... x ...`) are parse-time expansions.
 - `out: stem("name")` is just syntactic sugar for output name extraction; plain string also works.
 - Times in `beats` are converted via tempo map.
 - Automation values are interpreted numerically (`ValueToNumber`); non-numeric values become `0`.

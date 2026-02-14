@@ -326,6 +326,16 @@ Current implementation note (renderer):
 
 - `score { section ... }`
 - `section <Name> at <time> dur <time> | directives { events... }`
+- Structural operators (deterministic compile-time expansion):
+  - `repeat N { ... }` where `N` is a positive unitless integer.
+  - `loop for <duration> { ... }` (whole-iteration fill, bounded by duration).
+  - `pattern Name { ... }` and score-level `play Name x N [at <time>]`.
+
+Current implementation notes (parser):
+- `repeat` and `loop` expand sequentially by body span (no overlap-by-default).
+- `loop for` iteration count is `floor(duration / body_span)`.
+- Pattern play requires pattern declaration earlier in score order.
+- Structural bodies must have positive span and unit-compatible timing.
 
 ---
 

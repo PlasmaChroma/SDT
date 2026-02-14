@@ -1,6 +1,7 @@
 #include "aurora/lang/parser.hpp"
 
 #include <cctype>
+#include <cmath>
 #include <regex>
 #include <stdexcept>
 #include <utility>
@@ -770,15 +771,182 @@ class Parser {
     return section;
   }
 
+  struct ScorePattern {
+    std::vector<SectionDefinition> sections;
+    UnitNumber span;
+  };
+
+  int ParsePositiveInteger(const std::string& context) {
+    const Token& t = Peek();
+    if (t.kind != TokenKind::kNumber) {
+      throw ParseException(t.line, t.column, "Expected positive integer in " + context);
+    }
+    Consume();
+    const NumberUnitParse parsed = ParseNumberUnitToken(t.text);
+    if (!parsed.ok || !parsed.unit.empty()) {
+      throw ParseException(t.line, t.column, "Expected unitless integer in " + context);
+    }
+    const double rounded = std::round(parsed.value);
+    if (std::fabs(parsed.value - rounded) > 1e-9 || rounded <= 0.0) {
+      throw ParseException(t.line, t.column, "Expected positive integer in " + context);
+    }
+    return static_cast<int>(rounded);
+  }
+
+  UnitNumber AddUnits(const UnitNumber& lhs, const UnitNumber& rhs, const std::string& context) {
+    std::string unit = lhs.unit;
+    if (unit.empty()) {
+      unit = rhs.unit;
+    }
+    std::string rhs_unit = rhs.unit;
+    if (rhs_unit.empty()) {
+      rhs_unit = unit;
+    }
+    if (unit != rhs_unit) {
+      throw std::runtime_error("Mismatched time units in " + context + ": " + lhs.unit + " vs " + rhs.unit);
+    }
+    return UnitNumber{lhs.value + rhs.value, unit};
+  }
+
+  UnitNumber MulUnit(const UnitNumber& value, int multiplier) {
+    return UnitNumber{value.value * static_cast<double>(multiplier), value.unit};
+  }
+
+  UnitNumber ComputeSpan(const std::vector<SectionDefinition>& sections, const std::string& context) {
+    if (sections.empty()) {
+      return UnitNumber{0.0, "s"};
+    }
+    bool have_max = false;
+    UnitNumber max_end{0.0, ""};
+    for (const auto& section : sections) {
+      const UnitNumber end = AddUnits(section.at, section.dur, context);
+      if (!have_max) {
+        max_end = end;
+        have_max = true;
+        continue;
+      }
+      if (max_end.unit.empty()) {
+        max_end.unit = end.unit;
+      }
+      std::string end_unit = end.unit.empty() ? max_end.unit : end.unit;
+      if (max_end.unit != end_unit) {
+        throw std::runtime_error("Mismatched time units in " + context + ": " + max_end.unit + " vs " + end.unit);
+      }
+      if (end.value > max_end.value) {
+        max_end = UnitNumber{end.value, max_end.unit};
+      }
+    }
+    if (max_end.unit.empty()) {
+      max_end.unit = "s";
+    }
+    return max_end;
+  }
+
+  void AppendShiftedSections(const std::vector<SectionDefinition>& input, const UnitNumber& offset,
+                             std::vector<SectionDefinition>* out, const std::string& context) {
+    for (const auto& section : input) {
+      SectionDefinition shifted = section;
+      shifted.at = AddUnits(section.at, offset, context);
+      out->push_back(std::move(shifted));
+    }
+  }
+
+  std::vector<SectionDefinition> ParseScoreItems(bool allow_pattern_declaration) {
+    std::vector<SectionDefinition> items;
+    while (!MatchSymbol('}')) {
+      if (MatchIdentifier("section")) {
+        items.push_back(ParseSection());
+        continue;
+      }
+
+      if (MatchIdentifier("repeat")) {
+        const int repeat_count = ParsePositiveInteger("repeat count");
+        ExpectSymbol('{', "repeat block");
+        const auto repeated_items = ParseScoreItems(allow_pattern_declaration);
+        const UnitNumber span = ComputeSpan(repeated_items, "repeat body span");
+        if (span.value <= 0.0) {
+          const Token& t = Peek();
+          throw ParseException(t.line, t.column, "Repeat body span must be > 0");
+        }
+        for (int i = 0; i < repeat_count; ++i) {
+          const UnitNumber offset = MulUnit(span, i);
+          AppendShiftedSections(repeated_items, offset, &items, "repeat expansion");
+        }
+        continue;
+      }
+
+      if (MatchIdentifier("loop")) {
+        if (!MatchIdentifier("for")) {
+          const Token& t = Peek();
+          throw ParseException(t.line, t.column, "Expected 'for' in loop declaration");
+        }
+        const UnitNumber loop_dur = ValueAsUnitNumber(ParseValue());
+        ExpectSymbol('{', "loop block");
+        const auto loop_items = ParseScoreItems(false);
+        const UnitNumber span = ComputeSpan(loop_items, "loop body span");
+        if (span.value <= 0.0) {
+          const Token& t = Peek();
+          throw ParseException(t.line, t.column, "Loop body span must be > 0");
+        }
+        const UnitNumber loop_dur_norm = AddUnits(UnitNumber{0.0, span.unit}, loop_dur, "loop duration");
+        const int count = static_cast<int>(std::floor(loop_dur_norm.value / span.value));
+        for (int i = 0; i < count; ++i) {
+          const UnitNumber offset = MulUnit(span, i);
+          AppendShiftedSections(loop_items, offset, &items, "loop expansion");
+        }
+        continue;
+      }
+
+      if (allow_pattern_declaration && MatchIdentifier("pattern")) {
+        const std::string pattern_name = ExpectIdentifierLike("pattern name");
+        ExpectSymbol('{', "pattern block");
+        const auto pattern_items = ParseScoreItems(false);
+        ScorePattern pattern;
+        pattern.sections = pattern_items;
+        pattern.span = ComputeSpan(pattern_items, "pattern span");
+        score_patterns_[pattern_name] = std::move(pattern);
+        continue;
+      }
+
+      if (MatchIdentifier("play")) {
+        const std::string pattern_name = ExpectIdentifierLike("pattern reference");
+        if (!MatchIdentifier("x")) {
+          const Token& t = Peek();
+          throw ParseException(t.line, t.column, "Expected 'x' in pattern play statement");
+        }
+        const int count = ParsePositiveInteger("pattern repeat count");
+        UnitNumber start_offset{0.0, "s"};
+        if (MatchIdentifier("at")) {
+          start_offset = ValueAsUnitNumber(ParseValue());
+        }
+        const auto it = score_patterns_.find(pattern_name);
+        if (it == score_patterns_.end()) {
+          const Token& t = Peek();
+          throw ParseException(t.line, t.column, "Unknown pattern: " + pattern_name);
+        }
+        const ScorePattern& pattern = it->second;
+        if (pattern.span.value <= 0.0) {
+          const Token& t = Peek();
+          throw ParseException(t.line, t.column, "Pattern span must be > 0: " + pattern_name);
+        }
+        const UnitNumber start = AddUnits(UnitNumber{0.0, pattern.span.unit}, start_offset, "pattern play offset");
+        for (int i = 0; i < count; ++i) {
+          const UnitNumber offset = AddUnits(start, MulUnit(pattern.span, i), "pattern play expansion");
+          AppendShiftedSections(pattern.sections, offset, &items, "pattern play expansion");
+        }
+        continue;
+      }
+
+      const Token& t = Peek();
+      throw ParseException(t.line, t.column, "Unknown score item: " + t.text);
+    }
+    return items;
+  }
+
   void ParseScore(AuroraFile& file) {
     ExpectSymbol('{', "score block");
-    while (!MatchSymbol('}')) {
-      if (!MatchIdentifier("section")) {
-        const Token& t = Peek();
-        throw ParseException(t.line, t.column, "Expected section in score");
-      }
-      file.sections.push_back(ParseSection());
-    }
+    const auto sections = ParseScoreItems(true);
+    file.sections.insert(file.sections.end(), sections.begin(), sections.end());
   }
 
   void ParseAuroraHeader(AuroraFile& file) {
@@ -868,6 +1036,7 @@ class Parser {
 
   std::vector<Token> tokens_;
   size_t position_ = 0;
+  std::map<std::string, ScorePattern> score_patterns_;
 };
 
 }  // namespace

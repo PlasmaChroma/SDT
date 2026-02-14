@@ -1187,7 +1187,7 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
   uint64_t progress_done_units = 0;
   double last_progress_reported = -1.0;
   auto last_progress_time = std::chrono::steady_clock::now();
-  const auto report_progress = [&](bool force) mutable {
+  auto report_progress = [&](bool force) {
     if (!options.progress_callback) {
       return;
     }
