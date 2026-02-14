@@ -1,6 +1,7 @@
 ﻿#include "aurora/core/renderer.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <deque>
@@ -832,59 +833,95 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
     return;
   }
   const double base_gain = DbToLinear(program.gain_db) * play.velocity;
-  const auto resolve_number = [&](const std::string& key, double fallback, uint64_t sample) {
-    double value = fallback;
+  struct ValueRoute {
+    const AutomationLane* lane = nullptr;
+    const aurora::lang::ParamValue* param = nullptr;
+  };
+  const auto make_route = [&](const std::string& key) {
+    ValueRoute route;
     if (const auto lane_it = automation.find(key); lane_it != automation.end()) {
-      value = EvaluateLane(lane_it->second, sample);
+      route.lane = &lane_it->second;
     }
     if (const auto param_it = play.params.find(key); param_it != play.params.end()) {
-      value = ValueToNumber(param_it->second, value);
+      route.param = &param_it->second;
     }
-    return value;
+    return route;
   };
 
-  const auto resolve_seconds = [&](const std::string& key, double fallback, uint64_t sample) {
-    double value = fallback;
-    if (const auto lane_it = automation.find(key); lane_it != automation.end()) {
-      value = EvaluateLane(lane_it->second, sample);
+  const auto resolve_number = [&](const ValueRoute& route, double fallback, uint64_t sample) {
+    if (route.param != nullptr) {
+      return ValueToNumber(*route.param, fallback);
     }
-    if (const auto param_it = play.params.find(key); param_it != play.params.end()) {
-      value = ValueToUnit(param_it->second).value;
+    if (route.lane != nullptr) {
+      return EvaluateLane(*route.lane, sample);
     }
-    return std::max(0.0001, value);
+    return fallback;
   };
 
-  const auto resolve_semitones = [&](const std::string& key, double fallback, bool numeric_is_cents, uint64_t sample) {
-    double value = fallback;
-    if (const auto lane_it = automation.find(key); lane_it != automation.end()) {
-      const double lane_value = EvaluateLane(lane_it->second, sample);
-      value = numeric_is_cents ? (lane_value / 100.0) : lane_value;
+  const auto resolve_seconds = [&](const ValueRoute& route, double fallback, uint64_t sample) {
+    if (route.param != nullptr) {
+      return std::max(0.0001, ValueToUnit(*route.param).value);
     }
-    if (const auto param_it = play.params.find(key); param_it != play.params.end()) {
+    if (route.lane != nullptr) {
+      return std::max(0.0001, EvaluateLane(*route.lane, sample));
+    }
+    return std::max(0.0001, fallback);
+  };
+
+  const auto resolve_semitones = [&](const ValueRoute& route, double fallback, bool numeric_is_cents, uint64_t sample) {
+    if (route.param != nullptr) {
       if (numeric_is_cents) {
-        value = ParseDetuneSemitones(param_it->second);
-      } else if (param_it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber) {
-        if (param_it->second.unit_number_value.unit == "c") {
-          value = param_it->second.unit_number_value.value / 100.0;
-        } else {
-          value = param_it->second.unit_number_value.value;
-        }
-      } else {
-        value = ValueToNumber(param_it->second, value);
+        return ParseDetuneSemitones(*route.param);
       }
+      if (route.param->kind == aurora::lang::ParamValue::Kind::kUnitNumber) {
+        if (route.param->unit_number_value.unit == "c") {
+          return route.param->unit_number_value.value / 100.0;
+        }
+        return route.param->unit_number_value.value;
+      }
+      return ValueToNumber(*route.param, fallback);
     }
-    return value;
+    if (route.lane != nullptr) {
+      const double v = EvaluateLane(*route.lane, sample);
+      return numeric_is_cents ? (v / 100.0) : v;
+    }
+    return fallback;
   };
 
-  const auto resolve_cutoff = [&](double fallback, uint64_t sample) {
-    double value = fallback;
-    value = resolve_number(program.filter_node_id + ".cutoff", value, sample);
-    if (play.params.find(program.filter_node_id + ".cutoff") == play.params.end() &&
-        automation.find(program.filter_node_id + ".cutoff") == automation.end()) {
-      value = resolve_number(program.filter_node_id + ".freq", value, sample);
-    }
-    return value;
+  struct OscRouting {
+    const PatchProgram::Osc* osc = nullptr;
+    ValueRoute freq;
+    ValueRoute detune;
+    ValueRoute transpose;
+    ValueRoute pw;
+    ValueRoute binaural_shift;
+    ValueRoute binaural_mix;
   };
+
+  std::vector<OscRouting> osc_routes;
+  osc_routes.reserve(program.oscillators.size());
+  for (const auto& osc : program.oscillators) {
+    const std::string prefix = osc.node_id + ".";
+    OscRouting route;
+    route.osc = &osc;
+    route.freq = make_route(prefix + "freq");
+    route.detune = make_route(prefix + "detune");
+    route.transpose = make_route(prefix + "transpose");
+    route.pw = make_route(prefix + "pw");
+    route.binaural_shift = make_route(prefix + "binaural_shift");
+    route.binaural_mix = make_route(prefix + "binaural_mix");
+    osc_routes.push_back(route);
+  }
+
+  const ValueRoute env_a = make_route(program.env_node_id + ".a");
+  const ValueRoute env_d = make_route(program.env_node_id + ".d");
+  const ValueRoute env_s = make_route(program.env_node_id + ".s");
+  const ValueRoute env_r = make_route(program.env_node_id + ".r");
+  const ValueRoute filt_cutoff = make_route(program.filter_node_id + ".cutoff");
+  const ValueRoute filt_freq = make_route(program.filter_node_id + ".freq");
+  const ValueRoute filt_q = make_route(program.filter_node_id + ".q");
+  const ValueRoute filt_res = make_route(program.filter_node_id + ".res");
+  const ValueRoute gain_db_route = make_route(program.gain_node_id + ".gain");
 
   for (size_t pitch_index = 0; pitch_index < play.pitches.size(); ++pitch_index) {
     const ResolvedPitch& pitch = play.pitches[pitch_index];
@@ -907,11 +944,10 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
       const double note_dur = static_cast<double>(play.dur_samples) / sample_rate;
       PatchProgram::Env env_state = program.env;
       if (program.env.enabled && !program.env_node_id.empty()) {
-        const std::string env_prefix = program.env_node_id + ".";
-        env_state.a = resolve_seconds(env_prefix + "a", program.env.a, abs_sample);
-        env_state.d = resolve_seconds(env_prefix + "d", program.env.d, abs_sample);
-        env_state.s = Clamp(resolve_number(env_prefix + "s", program.env.s, abs_sample), 0.0, 1.0);
-        env_state.r = resolve_seconds(env_prefix + "r", program.env.r, abs_sample);
+        env_state.a = resolve_seconds(env_a, program.env.a, abs_sample);
+        env_state.d = resolve_seconds(env_d, program.env.d, abs_sample);
+        env_state.s = Clamp(resolve_number(env_s, program.env.s, abs_sample), 0.0, 1.0);
+        env_state.r = resolve_seconds(env_r, program.env.r, abs_sample);
       }
       double env = EnvelopeValue(env_state, t, note_dur);
 
@@ -926,27 +962,25 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
       double sample_left = 0.0;
       double sample_right = 0.0;
       for (size_t osc_idx = 0; osc_idx < program.oscillators.size(); ++osc_idx) {
-        const auto& osc = program.oscillators[osc_idx];
-        const std::string osc_prefix = osc.node_id + ".";
-        const double detune = resolve_semitones(osc_prefix + "detune", osc.detune_semitones, true, abs_sample);
-        const double transpose = resolve_semitones(osc_prefix + "transpose", 0.0, false, abs_sample);
+        const auto& route = osc_routes[osc_idx];
+        const auto& osc = *route.osc;
+        const double detune = resolve_semitones(route.detune, osc.detune_semitones, true, abs_sample);
+        const double transpose = resolve_semitones(route.transpose, 0.0, false, abs_sample);
         const double pitch_freq = std::max(1.0, pitch.frequency * std::pow(2.0, (detune + transpose) / 12.0));
 
         double freq = pitch_freq;
         if (osc.freq_hz.has_value()) {
           freq = *osc.freq_hz;
         }
-        if (const auto freq_lane_it = automation.find(osc_prefix + "freq"); freq_lane_it != automation.end()) {
-          freq = std::max(1.0, EvaluateLane(freq_lane_it->second, abs_sample));
-        }
-        if (const auto freq_param_it = play.params.find(osc_prefix + "freq"); freq_param_it != play.params.end()) {
-          freq = std::max(1.0, ValueToUnit(freq_param_it->second).value);
+        if (route.freq.param != nullptr) {
+          freq = std::max(1.0, ValueToUnit(*route.freq.param).value);
+        } else if (route.freq.lane != nullptr) {
+          freq = std::max(1.0, EvaluateLane(*route.freq.lane, abs_sample));
         }
 
         const bool binaural_active = program.binaural.enabled;
-        const double binaural_shift_hz =
-            resolve_number(osc_prefix + "binaural_shift", program.binaural.shift_hz, abs_sample);
-        const double binaural_mix = Clamp(resolve_number(osc_prefix + "binaural_mix", program.binaural.mix, abs_sample), 0.0, 1.0);
+        const double binaural_shift_hz = resolve_number(route.binaural_shift, program.binaural.shift_hz, abs_sample);
+        const double binaural_mix = Clamp(resolve_number(route.binaural_mix, program.binaural.mix, abs_sample), 0.0, 1.0);
         double freq_left = freq;
         double freq_right = freq;
         if (binaural_active) {
@@ -956,7 +990,7 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
           freq_right = freq * (1.0 - binaural_mix) + split_right * binaural_mix;
         }
 
-        const double pw = Clamp(resolve_number(osc_prefix + "pw", osc.pw, abs_sample), 0.01, 0.99);
+        const double pw = Clamp(resolve_number(route.pw, osc.pw, abs_sample), 0.01, 0.99);
         phases_left[osc_idx] += freq_left / static_cast<double>(sample_rate);
         sample_left += OscSample(osc.type, phases_left[osc_idx], pw);
         phases_right[osc_idx] += freq_right / static_cast<double>(sample_rate);
@@ -980,14 +1014,18 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         sample_right *= inv;
       }
 
-      double cutoff = std::max(20.0, resolve_cutoff(program.filter.cutoff_hz, abs_sample));
+      double cutoff = resolve_number(filt_cutoff, program.filter.cutoff_hz, abs_sample);
+      if (filt_cutoff.param == nullptr && filt_cutoff.lane == nullptr) {
+        cutoff = resolve_number(filt_freq, cutoff, abs_sample);
+      }
+      cutoff = std::max(20.0, cutoff);
 
       if (program.filter.enabled) {
         const double nyquist = static_cast<double>(sample_rate) * 0.5;
         cutoff = Clamp(cutoff, 20.0, nyquist * 0.99);
 
-        const double q = std::max(0.05, resolve_number(program.filter_node_id + ".q", program.filter.q, abs_sample));
-        const double res = Clamp(resolve_number(program.filter_node_id + ".res", program.filter.res, abs_sample), 0.0, 1.0);
+        const double q = std::max(0.05, resolve_number(filt_q, program.filter.q, abs_sample));
+        const double res = Clamp(resolve_number(filt_res, program.filter.res, abs_sample), 0.0, 1.0);
 
         // Convert normalized resonance to an additional Q boost, while keeping explicit Q authoritative.
         const double effective_q = Clamp(q * (1.0 + res * 8.0), 0.05, 24.0);
@@ -1025,7 +1063,7 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
 
       double gain = base_gain;
       if (!program.gain_node_id.empty()) {
-        const double gain_db = resolve_number(program.gain_node_id + ".gain", program.gain_db, abs_sample);
+        const double gain_db = resolve_number(gain_db_route, program.gain_db, abs_sample);
         gain = DbToLinear(gain_db) * play.velocity;
       }
       const float out_left = static_cast<float>(sample_left * env * gain);
@@ -1144,6 +1182,28 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
     patch_buffers[patch.name] = std::move(buffer);
   }
 
+  const uint64_t progress_total_units =
+      std::max<uint64_t>(1, static_cast<uint64_t>(expanded.plays.size()) + static_cast<uint64_t>(file.buses.size()) + 1U);
+  uint64_t progress_done_units = 0;
+  double last_progress_reported = -1.0;
+  auto last_progress_time = std::chrono::steady_clock::now();
+  const auto report_progress = [&](bool force) mutable {
+    if (!options.progress_callback) {
+      return;
+    }
+    const double pct = 100.0 * static_cast<double>(progress_done_units) / static_cast<double>(progress_total_units);
+    const auto now = std::chrono::steady_clock::now();
+    const bool time_due = (now - last_progress_time) >= std::chrono::milliseconds(500);
+    const bool step_due = (pct - last_progress_reported) >= 0.5;
+    if (!force && !time_due && !step_due) {
+      return;
+    }
+    options.progress_callback(pct);
+    last_progress_reported = pct;
+    last_progress_time = now;
+  };
+  report_progress(true);
+
   for (const auto& play : expanded.plays) {
     const auto patch_it = patch_programs.find(play.patch);
     const auto stem_it = patch_buffers.find(play.patch);
@@ -1155,6 +1215,8 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
     const std::map<std::string, AutomationLane> empty_auto;
     const auto& automation = (auto_it != expanded.automation.end()) ? auto_it->second : empty_auto;
     RenderPlayToStem(&stem_it->second, play, patch_it->second, automation, result.metadata.sample_rate, options.seed);
+    ++progress_done_units;
+    report_progress(false);
   }
 
   std::map<std::string, std::vector<float>> bus_buffers;
@@ -1197,6 +1259,8 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
     if (program_it != bus_programs.end()) {
       ProcessBusStem(&buffer, program_it->second, result.metadata.sample_rate);
     }
+    ++progress_done_units;
+    report_progress(false);
   }
 
   result.patch_stems.reserve(file.patches.size());
@@ -1330,6 +1394,9 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
     });
     result.midi_tracks.push_back(std::move(track));
   }
+
+  progress_done_units = progress_total_units;
+  report_progress(true);
 
   return result;
 }

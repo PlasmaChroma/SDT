@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -11,6 +12,7 @@ namespace aurora::core {
 struct RenderOptions {
   uint64_t seed = 0;
   int sample_rate_override = 0;
+  std::function<void(double)> progress_callback;
 };
 
 struct AudioStem {
@@ -62,4 +64,3 @@ class Renderer {
 };
 
 }  // namespace aurora::core
-

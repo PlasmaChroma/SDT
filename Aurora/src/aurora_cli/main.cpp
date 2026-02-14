@@ -1,5 +1,6 @@
 #include <filesystem>
 #include <fstream>
+#include <chrono>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -83,9 +84,20 @@ std::filesystem::path ResolveOutputPath(const std::string& configured_path, cons
   return au_parent / path;
 }
 
+std::string FormatElapsed(const std::chrono::steady_clock::time_point& start) {
+  const auto now = std::chrono::steady_clock::now();
+  const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
+  return std::to_string(ms) + "ms";
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
+  const auto start_time = std::chrono::steady_clock::now();
+  auto log_step = [&](const std::string& msg) {
+    std::cerr << "[aurora +" << FormatElapsed(start_time) << "] " << msg << "\n";
+  };
+
   if (argc < 2) {
     PrintUsage();
     return 2;
@@ -107,12 +119,14 @@ int main(int argc, char** argv) {
     return 2;
   }
 
+  log_step("Reading source: " + au_file.string());
   const std::string source = ReadFile(au_file);
   if (source.empty()) {
     std::cerr << "Failed to read .au file: " << au_file << "\n";
     return 3;
   }
 
+  log_step("Parsing");
   const aurora::lang::ParseResult parse = aurora::lang::ParseAuroraSource(source);
   if (!parse.ok) {
     for (const auto& d : parse.diagnostics) {
@@ -121,6 +135,7 @@ int main(int argc, char** argv) {
     return 4;
   }
 
+  log_step("Validating");
   const aurora::lang::ValidationResult validation = aurora::lang::Validate(parse.file);
   for (const auto& warning : validation.warnings) {
     std::cerr << "warning: " << warning << "\n";
@@ -132,10 +147,24 @@ int main(int argc, char** argv) {
     return 5;
   }
 
+  log_step("Rendering audio/MIDI");
   aurora::core::Renderer renderer;
   aurora::core::RenderOptions render_options;
   render_options.seed = options.seed;
   render_options.sample_rate_override = options.sample_rate;
+  int last_render_pct = -5;
+  render_options.progress_callback = [&](double pct) {
+    int rounded = static_cast<int>(pct + 0.5);
+    if (rounded < 0) {
+      rounded = 0;
+    } else if (rounded > 100) {
+      rounded = 100;
+    }
+    if (rounded >= last_render_pct + 5 || rounded == 100) {
+      last_render_pct = rounded;
+      std::cerr << "[aurora +" << FormatElapsed(start_time) << "] Rendering " << rounded << "%\n";
+    }
+  };
   aurora::core::RenderResult rendered = renderer.Render(parse.file, render_options);
 
   const std::filesystem::path au_parent =
@@ -153,6 +182,7 @@ int main(int argc, char** argv) {
       options.out_root.has_value() ? options.out_root.value() / "meta"
                                    : ResolveOutputPath(parse.file.outputs.meta_dir, au_parent, std::nullopt);
 
+  log_step("Writing stems");
   for (const auto& stem : rendered.patch_stems) {
     std::string error;
     const auto path = stems_dir / (stem.name + ".wav");
@@ -170,6 +200,7 @@ int main(int argc, char** argv) {
     }
   }
 
+  log_step("Writing master");
   {
     std::string error;
     const auto master_path = mix_dir / parse.file.outputs.master;
@@ -179,6 +210,7 @@ int main(int argc, char** argv) {
     }
   }
 
+  log_step("Writing MIDI");
   {
     std::string error;
     const aurora::core::TempoMap tempo_map = aurora::core::BuildTempoMap(parse.file.globals);
@@ -190,6 +222,7 @@ int main(int argc, char** argv) {
     }
   }
 
+  log_step("Writing metadata");
   {
     std::string error;
     const auto meta_path = meta_dir / parse.file.outputs.render_json;
@@ -199,6 +232,7 @@ int main(int argc, char** argv) {
     }
   }
 
+  log_step("Done");
   std::cout << "Render complete\n";
   std::cout << "  sample_rate: " << rendered.metadata.sample_rate << "\n";
   std::cout << "  total_samples: " << rendered.metadata.total_samples << "\n";
