@@ -348,6 +348,8 @@ class Parser {
         file.buses.push_back(ParseBus());
       } else if (MatchIdentifier("patch")) {
         file.patches.push_back(ParsePatch());
+      } else if (MatchIdentifier("section")) {
+        ParseTopLevelSectionTemplate();
       } else if (MatchIdentifier("score")) {
         ParseScore(file);
       } else {
@@ -777,6 +779,63 @@ class Parser {
     return event;
   }
 
+  SetEvent ParseSetEvent() {
+    SetEvent event;
+    event.target = ParseDottedIdentifier("set target");
+    ExpectSymbol('=', "set event");
+    event.value = ParseValue();
+    return event;
+  }
+
+  std::vector<SectionEvent> ParseSectionEvents() {
+    std::vector<SectionEvent> events;
+    while (!MatchSymbol('}')) {
+      if (MatchIdentifier("repeat")) {
+        const int repeat_count = ParsePositiveInteger("section repeat count");
+        ExpectSymbol('{', "section repeat block");
+        const auto repeated_events = ParseSectionEvents();
+        const Token& repeat_token = Peek();
+        const UnitNumber span =
+            ComputeSectionEventSpan(repeated_events, "section repeat body span", repeat_token.line, repeat_token.column);
+        if (span.value <= 0.0) {
+          const Token& t = Peek();
+          throw ParseException(t.line, t.column, "Section repeat body span must be > 0");
+        }
+        for (int i = 0; i < repeat_count; ++i) {
+          const UnitNumber offset = MulUnit(span, i);
+          AppendShiftedSectionEvents(repeated_events, offset, &events, repeat_token.line, repeat_token.column,
+                                     "section repeat expansion");
+        }
+        continue;
+      }
+      if (MatchIdentifier("set")) {
+        events.push_back(ParseSetEvent());
+      } else if (MatchIdentifier("use")) {
+        const Token& use_token = Peek();
+        const ReusableCall call = ParseReusableCall("use", "Expected 'x' in use statement");
+        SectionDefinition expanded;
+        ExpandReusableIntoSection(call, &expanded, use_token.line, use_token.column, "use");
+        for (const auto& e : expanded.events) {
+          events.push_back(e);
+        }
+      } else if (MatchIdentifier("play")) {
+        events.push_back(ParsePlayEvent());
+      } else if (MatchIdentifier("trigger")) {
+        events.push_back(ParseGateLikeEvent("trigger", UnitNumber{0.01, "s"}));
+      } else if (MatchIdentifier("gate")) {
+        events.push_back(ParseGateLikeEvent("gate", UnitNumber{0.25, "s"}));
+      } else if (MatchIdentifier("automate")) {
+        events.push_back(ParseAutomateEvent());
+      } else if (MatchIdentifier("seq")) {
+        events.push_back(ParseSeqEvent());
+      } else {
+        const Token& t = Peek();
+        throw ParseException(t.line, t.column, "Unknown event in section: " + t.text);
+      }
+    }
+    return events;
+  }
+
   SectionDefinition ParseSection() {
     SectionDefinition section;
     section.name = ExpectIdentifierLike("section name");
@@ -806,22 +865,7 @@ class Parser {
     }
 
     ExpectSymbol('{', "section body");
-    while (!MatchSymbol('}')) {
-      if (MatchIdentifier("play")) {
-        section.events.push_back(ParsePlayEvent());
-      } else if (MatchIdentifier("trigger")) {
-        section.events.push_back(ParseGateLikeEvent("trigger", UnitNumber{0.01, "s"}));
-      } else if (MatchIdentifier("gate")) {
-        section.events.push_back(ParseGateLikeEvent("gate", UnitNumber{0.25, "s"}));
-      } else if (MatchIdentifier("automate")) {
-        section.events.push_back(ParseAutomateEvent());
-      } else if (MatchIdentifier("seq")) {
-        section.events.push_back(ParseSeqEvent());
-      } else {
-        const Token& t = Peek();
-        throw ParseException(t.line, t.column, "Unknown event in section: " + t.text);
-      }
-    }
+    section.events = ParseSectionEvents();
     return section;
   }
 
@@ -829,6 +873,27 @@ class Parser {
     std::vector<SectionDefinition> sections;
     UnitNumber span;
   };
+
+  struct ReusableCall {
+    std::string name;
+    int count = 1;
+    UnitNumber start_offset{0.0, "s"};
+  };
+
+  ReusableCall ParseReusableCall(const std::string& context, const std::string& x_error) {
+    ReusableCall call;
+    call.name = ExpectIdentifierLike(context + " name");
+    if (!MatchIdentifier("x")) {
+      const Token& t = Peek();
+      throw ParseException(t.line, t.column, x_error);
+    }
+    call.count = ParsePositiveInteger(context + " repeat count");
+    if (MatchIdentifier("at")) {
+      const Token& at_token = Peek();
+      call.start_offset = ValueAsUnitNumber(ParseValue(), at_token.line, at_token.column, context + " offset");
+    }
+    return call;
+  }
 
   int ParsePositiveInteger(const std::string& context) {
     const Token& t = Peek();
@@ -905,6 +970,148 @@ class Parser {
     }
   }
 
+  const ScorePattern& ResolveReusable(const ReusableCall& call, int line, int column, const std::string& context) {
+    const auto it = score_patterns_.find(call.name);
+    if (it == score_patterns_.end()) {
+      throw ParseException(line, column, "Unknown " + context + ": " + call.name);
+    }
+    if (it->second.span.value <= 0.0) {
+      throw ParseException(line, column, "Reusable " + context + " span must be > 0: " + call.name);
+    }
+    return it->second;
+  }
+
+  void ExpandReusableToScore(const ReusableCall& call, std::vector<SectionDefinition>* out, int line, int column,
+                             const std::string& context) {
+    const ScorePattern& pattern = ResolveReusable(call, line, column, context);
+    const UnitNumber start = AddUnits(UnitNumber{0.0, pattern.span.unit}, call.start_offset, context + " offset", line, column);
+    for (int i = 0; i < call.count; ++i) {
+      const UnitNumber offset = AddUnits(start, MulUnit(pattern.span, i), context + " expansion", line, column);
+      AppendShiftedSections(pattern.sections, offset, out, context + " expansion", line, column);
+    }
+  }
+
+  SectionEvent ShiftSectionEvent(const SectionEvent& event, const UnitNumber& offset, int line, int column,
+                                 const std::string& context) {
+    if (std::holds_alternative<PlayEvent>(event)) {
+      PlayEvent shifted = std::get<PlayEvent>(event);
+      shifted.at = AddUnits(shifted.at, offset, context + " play offset", line, column);
+      return shifted;
+    }
+    if (std::holds_alternative<AutomateEvent>(event)) {
+      AutomateEvent shifted = std::get<AutomateEvent>(event);
+      for (auto& point : shifted.points) {
+        point.first = AddUnits(point.first, offset, context + " automate offset", line, column);
+      }
+      return shifted;
+    }
+    if (std::holds_alternative<SetEvent>(event)) {
+      return std::get<SetEvent>(event);
+    }
+    SeqEvent shifted = std::get<SeqEvent>(event);
+    if (const auto it = shifted.fields.find("at"); it != shifted.fields.end()) {
+      UnitNumber seq_at = ValueAsUnitNumber(it->second, line, column, context + " seq.at");
+      seq_at = AddUnits(seq_at, offset, context + " seq.at offset", line, column);
+      shifted.fields["at"] = ParamValue::Unit(seq_at.value, seq_at.unit);
+    } else {
+      shifted.fields["at"] = ParamValue::Unit(offset.value, offset.unit);
+    }
+    return shifted;
+  }
+
+  UnitNumber ComputeSectionEventSpan(const std::vector<SectionEvent>& events, const std::string& context, int line, int column) {
+    bool have_max = false;
+    UnitNumber max_end{0.0, ""};
+    for (const auto& event : events) {
+      if (std::holds_alternative<SetEvent>(event)) {
+        continue;
+      }
+
+      UnitNumber start{0.0, "s"};
+      UnitNumber dur{0.0, "s"};
+      bool has_timed_extent = false;
+      if (std::holds_alternative<PlayEvent>(event)) {
+        const auto& play = std::get<PlayEvent>(event);
+        start = play.at;
+        dur = play.dur;
+        has_timed_extent = true;
+      } else if (std::holds_alternative<AutomateEvent>(event)) {
+        const auto& automate = std::get<AutomateEvent>(event);
+        if (automate.points.empty()) {
+          continue;
+        }
+        UnitNumber min_t = automate.points.front().first;
+        UnitNumber max_t = automate.points.front().first;
+        for (const auto& point : automate.points) {
+          const UnitNumber t = point.first;
+          AddUnits(min_t, UnitNumber{0.0, t.unit}, context + " automation unit check", line, column);
+          if (t.value < min_t.value) {
+            min_t = t;
+          }
+          if (t.value > max_t.value) {
+            max_t = t;
+          }
+        }
+        start = min_t;
+        dur = UnitNumber{max_t.value - min_t.value, max_t.unit};
+        has_timed_extent = true;
+      } else if (std::holds_alternative<SeqEvent>(event)) {
+        const auto& seq = std::get<SeqEvent>(event);
+        if (const auto it = seq.fields.find("at"); it != seq.fields.end()) {
+          start = ValueAsUnitNumber(it->second, line, column, context + " seq.at");
+          has_timed_extent = true;
+        }
+        if (const auto it = seq.fields.find("dur"); it != seq.fields.end()) {
+          dur = ValueAsUnitNumber(it->second, line, column, context + " seq.dur");
+          has_timed_extent = true;
+        }
+      }
+      if (!has_timed_extent) {
+        continue;
+      }
+      const UnitNumber end = AddUnits(start, dur, context + " section event span", line, column);
+      if (!have_max) {
+        max_end = end;
+        have_max = true;
+        continue;
+      }
+      AddUnits(max_end, UnitNumber{0.0, end.unit}, context + " section event span", line, column);
+      if (end.value > max_end.value) {
+        max_end = UnitNumber{end.value, max_end.unit.empty() ? end.unit : max_end.unit};
+      }
+    }
+    if (!have_max) {
+      return UnitNumber{0.0, "s"};
+    }
+    if (max_end.unit.empty()) {
+      max_end.unit = "s";
+    }
+    return max_end;
+  }
+
+  void AppendShiftedSectionEvents(const std::vector<SectionEvent>& input, const UnitNumber& offset,
+                                  std::vector<SectionEvent>* out, int line, int column, const std::string& context) {
+    for (const auto& event : input) {
+      out->push_back(ShiftSectionEvent(event, offset, line, column, context));
+    }
+  }
+
+  void ExpandReusableIntoSection(const ReusableCall& call, SectionDefinition* out_section, int line, int column,
+                                 const std::string& context) {
+    const ScorePattern& pattern = ResolveReusable(call, line, column, context);
+    const UnitNumber start = AddUnits(UnitNumber{0.0, pattern.span.unit}, call.start_offset, context + " offset", line, column);
+    for (int i = 0; i < call.count; ++i) {
+      const UnitNumber iter_offset = AddUnits(start, MulUnit(pattern.span, i), context + " expansion", line, column);
+      for (const auto& templ_section : pattern.sections) {
+        const UnitNumber section_offset =
+            AddUnits(iter_offset, templ_section.at, context + " section offset", line, column);
+        for (const auto& event : templ_section.events) {
+          out_section->events.push_back(ShiftSectionEvent(event, section_offset, line, column, context));
+        }
+      }
+    }
+  }
+
   std::vector<SectionDefinition> ParseScoreItems(bool allow_pattern_declaration) {
     std::vector<SectionDefinition> items;
     while (!MatchSymbol('}')) {
@@ -958,6 +1165,10 @@ class Parser {
 
       if (allow_pattern_declaration && MatchIdentifier("pattern")) {
         const std::string pattern_name = ExpectIdentifierLike("pattern name");
+        if (score_patterns_.contains(pattern_name)) {
+          const Token& t = Peek();
+          throw ParseException(t.line, t.column, "Duplicate reusable section/pattern name: " + pattern_name);
+        }
         ExpectSymbol('{', "pattern block");
         const auto pattern_items = ParseScoreItems(false);
         ScorePattern pattern;
@@ -968,40 +1179,17 @@ class Parser {
         continue;
       }
 
+      if (MatchIdentifier("use")) {
+        const Token& use_token = Peek();
+        const ReusableCall call = ParseReusableCall("use", "Expected 'x' in use statement");
+        ExpandReusableToScore(call, &items, use_token.line, use_token.column, "use");
+        continue;
+      }
+
       if (MatchIdentifier("play")) {
-        const std::string pattern_name = ExpectIdentifierLike("pattern reference");
-        if (!MatchIdentifier("x")) {
-          const Token& t = Peek();
-          throw ParseException(t.line, t.column, "Expected 'x' in pattern play statement");
-        }
-        const int count = ParsePositiveInteger("pattern repeat count");
-        UnitNumber start_offset{0.0, "s"};
-        if (MatchIdentifier("at")) {
-          const Token& start_offset_token = Peek();
-          start_offset =
-              ValueAsUnitNumber(ParseValue(), start_offset_token.line, start_offset_token.column, "pattern play offset");
-        }
-        const auto it = score_patterns_.find(pattern_name);
-        if (it == score_patterns_.end()) {
-          const Token& t = Peek();
-          throw ParseException(t.line, t.column, "Unknown pattern: " + pattern_name);
-        }
-        const ScorePattern& pattern = it->second;
-        if (pattern.span.value <= 0.0) {
-          const Token& t = Peek();
-          throw ParseException(t.line, t.column, "Pattern span must be > 0: " + pattern_name);
-        }
         const Token& pattern_play_token = Peek();
-        const UnitNumber start =
-            AddUnits(UnitNumber{0.0, pattern.span.unit}, start_offset, "pattern play offset", pattern_play_token.line,
-                     pattern_play_token.column);
-        for (int i = 0; i < count; ++i) {
-          const UnitNumber offset =
-              AddUnits(start, MulUnit(pattern.span, i), "pattern play expansion", pattern_play_token.line,
-                       pattern_play_token.column);
-          AppendShiftedSections(pattern.sections, offset, &items, "pattern play expansion", pattern_play_token.line,
-                                pattern_play_token.column);
-        }
+        const ReusableCall call = ParseReusableCall("pattern play", "Expected 'x' in pattern play statement");
+        ExpandReusableToScore(call, &items, pattern_play_token.line, pattern_play_token.column, "pattern");
         continue;
       }
 
@@ -1015,6 +1203,21 @@ class Parser {
     ExpectSymbol('{', "score block");
     const auto sections = ParseScoreItems(true);
     file.sections.insert(file.sections.end(), sections.begin(), sections.end());
+  }
+
+  void ParseTopLevelSectionTemplate() {
+    const SectionDefinition section = ParseSection();
+    if (score_patterns_.contains(section.name)) {
+      const Token& t = Peek();
+      throw ParseException(t.line, t.column, "Duplicate reusable section/pattern name: " + section.name);
+    }
+    ScorePattern pattern;
+    pattern.sections.push_back(section);
+    const Token& top_level_section_token = Peek();
+    pattern.span =
+        ComputeSpan(pattern.sections, "top-level section template span", top_level_section_token.line,
+                    top_level_section_token.column);
+    score_patterns_[section.name] = std::move(pattern);
   }
 
   void ParseAuroraHeader(AuroraFile& file) {

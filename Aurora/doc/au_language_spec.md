@@ -90,6 +90,7 @@ top_level       = aurora_header
                 | globals_block
                 | bus_block
                 | patch_block
+                | section_block
                 | score_block ;
 
 aurora_header   = "aurora" object ;
@@ -105,17 +106,24 @@ score_item      = section_block
                 | repeat_block
                 | loop_block
                 | pattern_decl
+                | use_reusable
                 | pattern_play ;
-section_block   = "section" ident_like "at" value "dur" value [ "|" directives ] "{" { section_event } "}" ;
+section_block   = "section" ident_like "at" value "dur" value [ "|" directives ] "{" { section_item } "}" ;
+section_item    = section_event | section_repeat_block ;
+section_repeat_block = "repeat" positive_int "{" { section_item } "}" ;
 repeat_block    = "repeat" positive_int "{" { score_item } "}" ;
 loop_block      = "loop" "for" value "{" { score_item } "}" ;
 pattern_decl    = "pattern" ident_like "{" { score_item } "}" ;
+use_reusable    = "use" ident_like "x" positive_int [ "at" value ] ;
 pattern_play    = "play" ident_like "x" positive_int [ "at" value ] ;
 directives      = ident_like "=" value { "," ident_like "=" value } ;
 
-section_event   = play_event | automate_event | seq_event ;
+section_event   = set_event | use_reusable | play_event | trigger_event | gate_event | automate_event | seq_event ;
 
+set_event       = "set" dotted_ident "=" value ;
 play_event      = "play" ident_like object ;
+trigger_event   = "trigger" ident_like object ;
+gate_event      = "gate" ident_like object ;
 automate_event  = "automate" dotted_ident ident_like "{" automation_point { [","] automation_point } "}" ;
 automation_point= number_token ":" value ;
 seq_event       = "seq" ident_like object ;
@@ -208,7 +216,14 @@ Validation rules:
 - graph must contain at least one node
 - graph `io.out` is required
 
-## 5.7 Graph schema (`patch.graph` / `bus.graph`)
+## 5.7 Top-Level `section <name>` Template
+- A `section` declared outside `score` is parsed as a reusable template.
+- It is not scheduled/rendered unless referenced from `score` using:
+  - `play <name> x <count> [at <time>]`
+- Template names share the same namespace as `pattern` names.
+  - Duplicate names across top-level section templates and `pattern` declarations are parse errors.
+
+## 5.8 Graph schema (`patch.graph` / `bus.graph`)
 
 ```au
 graph: {
@@ -338,10 +353,71 @@ Score blocks support deterministic structural composition operators:
 - `play Name x N [at <time>]`
   - Places a declared pattern `N` times sequentially.
   - Optional `at` adds a start offset before the first pattern iteration.
+- `use Name x N [at <time>]`
+  - Preferred reusable-call form.
+  - Works at score structural level and inside `section` bodies.
+  - `at` is local to the current context:
+    - in `score`: offset from the structural expansion origin
+    - in `section`: offset from current section start
+- Top-level `section Name ... { ... }` (outside `score`)
+  - Declares a reusable section template.
+  - It does not render by itself.
+  - It can be instantiated from `score` using `use Name x N [at <time>]` (preferred) or legacy `play Name x N [at <time>]`.
+  - Top-level section names and `pattern` names share one namespace (must be unique).
+
+Scope rule for structural operators:
+- `repeat`, `loop`, `pattern`, score-level `play ... x ...`, and score-level `use ... x ...` are `score_item` constructs.
+- They are valid inside `score { ... }` (and inside other structural blocks expanded as `score_item`).
+- `section { ... }` accepts `section_event` forms: `set`, `use ... x ...`, `play Patch { ... }`, `trigger`, `gate`, `automate`, `seq`.
+- `section { ... }` also supports section-local `repeat N { ... }`, expanded at parse time with relative event offsets.
+
+Section-level reusable call:
+- `use Name x N [at <time>]` is valid inside `section` and inlines referenced reusable content into the section timeline.
+- `play Name x N ...` is not valid inside `section`; `play` there is reserved for patch note events (`play Patch { ... }`).
+
+Important disambiguation (`play` in `score`):
+- At `score` structural level:
+  - `use ReusableName x 2 at 0s` (preferred), or
+  - legacy `play ReusableName x 2 at 0s`
+- Note events (`play PatchName { ... }`) are only valid as `section_event` entries inside a `section { ... }` body.
+- Therefore, this is invalid in current grammar:
+  - `pattern P { play PatchA { at: 0s, dur: 1s, pitch: C3 } }`
+  - Parser interprets `play PatchA` as pattern-play and then expects `x`.
+
+Correct form for note events:
+```au
+section A at 0s dur 4s {
+  play PatchA { at: 0s, dur: 1s, pitch: C3 }
+}
+```
+
+Correct way to repeat section content:
+```au
+score {
+  repeat 4 {
+    section A at 0beats dur 8beats {
+      play PatchA { at: 0beats, dur: 0.5beats, pitch: C3 }
+    }
+  }
+}
+```
+
+Top-level section template reuse:
+```au
+section ThemeA at 0beats dur 4beats {
+  play Lead { at: 0beats, dur: 0.5beats, pitch: C3 }
+}
+
+score {
+  play ThemeA x 1 at 0beats
+  play ThemeA x 1 at 8beats
+}
+```
 
 Determinism constraints and limitations:
 - These operators are expanded at parse time.
 - Body span must be strictly positive (`> 0`), otherwise parse error.
+- For section-local `repeat`, body span is derived from timed events in the block (`play`/`trigger`/`gate`/`automate` points/`seq` with explicit `at` or `dur`).
 - Time-unit arithmetic inside these operators requires compatible units.
 - Pattern placement requires prior declaration in score order.
 - This system intentionally excludes unbounded `while`/stateful loops.
@@ -378,9 +454,22 @@ Format:
 play PatchName { at: <time>, dur: <time>, vel: <num>, pitch: <pitch-or-list>, params: { ... } }
 ```
 
+Scope rule:
+- This object form is a `section_event` and is valid only inside `section { ... }`.
+- At `score` top level (or inside `pattern/repeat/loop` structural bodies), `play` refers to `pattern_play` syntax (`play Name x N [at <time>]`), not patch note events.
+
 Defaults:
 - `vel`: `1.0`
 - `pitch`: `C4` if omitted
+
+Timing rule (important):
+- `play.at` is interpreted as section-local time and is offset by the enclosing `section.at`.
+- Effective note start time is: `section.at + play.at`.
+- The same section-local timing rule applies to:
+  - `trigger.at` / `gate.at`
+  - `automate` point times inside a section
+  - `seq.at` when provided (default remains section start)
+- This makes structural expansion (`repeat`, `loop`, `pattern` playback) naturally shift contained event timing with section placement.
 
 Pitch forms accepted:
 - note text (`C2`, `F#3`, `Bb1`)
@@ -394,7 +483,23 @@ Pitch forms accepted:
   - nested: `params: { filt: { cutoff: 1200Hz }, amp: { gain: -9dB } }`
 - Nested objects are flattened to dotted keys (`filt.cutoff`).
 - Precedence for a routed key is:
-  - event param (`play/seq params`) > automation lane > static node/default value.
+  - event param (`play/seq params`) > section `set` > automation lane > static node/default value.
+
+## 6.2.0 `set` (Section-Scoped Param Override)
+Format:
+```au
+set patch.<PatchName>.<node>.<param> = <value>
+```
+
+Behavior:
+- Valid only inside `section { ... }`.
+- Applies from that point forward within the same section body.
+- Targets a specific patch by name and a routed key path (`<node>.<param>` or deeper dotted key).
+- Typical use is to set a reusable default for many following events (including events introduced via `use`).
+
+Precedence impact:
+- For matching patch events, effective precedence is:
+  - event param (`play/seq params`) > section `set` > automation lane > static node/default value
 
 ## 6.2.1 `trigger` and `gate`
 Format:
@@ -493,7 +598,7 @@ Warnings:
 
 - Unknown top-level keywords/events are parse errors.
 - Unknown keys in known objects usually parse and are ignored unless renderer/validator uses them.
-- Score structural operators (`repeat`, `loop for`, `pattern`, score-level `play ... x ...`) are parse-time expansions.
+- Score structural operators (`repeat`, `loop for`, `pattern`, score-level `play ... x ...`, score/section-level `use ... x ...`) are parse-time expansions.
 - `out: stem("name")` is just syntactic sugar for output name extraction; plain string also works.
 - Times in `beats` are converted via tempo map.
 - Automation values are interpreted numerically (`ValueToNumber`); non-numeric values become `0`.
@@ -563,6 +668,9 @@ Warnings:
 - Patch stems are stereo (`channels=2`) when `patch.binaural.enabled` is `true`; otherwise mono.
 - Bus stems follow `bus.channels` (`1` mono, `2` stereo).
 - Master becomes stereo automatically when any contributing stem is stereo.
+- Render metadata JSON includes diagnostic stem detail objects:
+  - `patch_stem_details[]`, `bus_stem_details[]`, and `master_stem`
+  - fields: `name`, `channels`, `frame_count`, `sample_count`, `peak`, `rms`
 - `play` velocities are clamped to `[0, 1.5]` in rendering.
 - `seq` velocities are clamped to `[0, 1.0]`.
 - Active bus FX params:
@@ -573,8 +681,9 @@ Warnings:
 
 All routed params follow:
 1. event param (`play/seq params`)
-2. automation lane
-3. static node/default value
+2. section `set` override (when present for matching patch/key)
+3. automation lane
+4. static node/default value
 
 | Domain | Key form | Static source | Notes |
 | --- | --- | --- | --- |

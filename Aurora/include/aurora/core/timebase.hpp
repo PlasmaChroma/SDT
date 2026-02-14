@@ -96,6 +96,39 @@ inline double BeatsToSeconds(double beats, const TempoMap& tempo_map) {
   return last.at_seconds + remaining * 60.0 / last.bpm;
 }
 
+inline double SecondsToBeats(double seconds, const TempoMap& tempo_map) {
+  if (seconds <= 0.0) {
+    return 0.0;
+  }
+  double beats = 0.0;
+  double remaining = seconds;
+  for (size_t i = 0; i < tempo_map.points.size(); ++i) {
+    const double bpm = tempo_map.points[i].bpm;
+    const double start = tempo_map.points[i].at_seconds;
+    const double end = (i + 1 < tempo_map.points.size()) ? tempo_map.points[i + 1].at_seconds
+                                                          : std::numeric_limits<double>::infinity();
+    if (remaining <= start) {
+      break;
+    }
+    const double seg_end = std::min(remaining, end);
+    const double seg_seconds = std::max(0.0, seg_end - start);
+    beats += seg_seconds * bpm / 60.0;
+    if (remaining <= end) {
+      break;
+    }
+  }
+  return beats;
+}
+
+inline double OffsetSecondsFrom(double anchor_seconds, const aurora::lang::UnitNumber& offset, const TempoMap& tempo_map) {
+  if (offset.unit == "beats") {
+    const double anchor_beats = SecondsToBeats(anchor_seconds, tempo_map);
+    const double end_seconds = BeatsToSeconds(anchor_beats + offset.value, tempo_map);
+    return end_seconds - anchor_seconds;
+  }
+  return SecondsFromUnit(offset, tempo_map.points.front().bpm);
+}
+
 inline double ToSeconds(const aurora::lang::UnitNumber& value, const TempoMap& tempo_map) {
   if (value.unit == "beats") {
     return BeatsToSeconds(value.value, tempo_map);
@@ -121,4 +154,3 @@ inline uint64_t RoundUpToBlock(uint64_t samples, int block_size) {
 }
 
 }  // namespace aurora::core
-

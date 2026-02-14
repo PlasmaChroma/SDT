@@ -114,7 +114,12 @@ struct SeqEvent {
   std::map<std::string, ParamValue> fields;
 };
 
-using SectionEvent = std::variant<PlayEvent, AutomateEvent, SeqEvent>;
+struct SetEvent {
+  std::string target;
+  ParamValue value;
+};
+
+using SectionEvent = std::variant<PlayEvent, AutomateEvent, SeqEvent, SetEvent>;
 
 struct SectionDefinition {
   std::string name;

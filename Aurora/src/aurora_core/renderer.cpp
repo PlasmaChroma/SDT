@@ -339,26 +339,17 @@ std::vector<aurora::lang::ParamValue> SeqPitchList(const std::map<std::string, a
   return {it->second};
 }
 
-double ParamAsSeconds(const aurora::lang::ParamValue& value, const TempoMap& tempo_map) {
-  return ToSeconds(ValueToUnit(value), tempo_map);
+double ParamAsSeconds(const aurora::lang::ParamValue& value, const TempoMap& tempo_map, double anchor_seconds = 0.0) {
+  return OffsetSecondsFrom(anchor_seconds, ValueToUnit(value), tempo_map);
 }
 
 double DirectiveSecondsOr(const std::map<std::string, aurora::lang::ParamValue>& directives, const std::string& key,
-                          double fallback_seconds, const TempoMap& tempo_map) {
+                          double fallback_seconds, const TempoMap& tempo_map, double anchor_seconds = 0.0) {
   const auto it = directives.find(key);
   if (it == directives.end()) {
     return fallback_seconds;
   }
-  return std::max(0.0, ParamAsSeconds(it->second, tempo_map));
-}
-
-double FieldSecondsOr(const std::map<std::string, aurora::lang::ParamValue>& fields, const std::string& key,
-                      double fallback_seconds, const TempoMap& tempo_map) {
-  const auto it = fields.find(key);
-  if (it == fields.end()) {
-    return fallback_seconds;
-  }
-  return ParamAsSeconds(it->second, tempo_map);
+  return std::max(0.0, ParamAsSeconds(it->second, tempo_map, anchor_seconds));
 }
 
 double FieldNumberOr(const std::map<std::string, aurora::lang::ParamValue>& fields, const std::string& key, double fallback) {
@@ -384,7 +375,8 @@ struct BurstConfig {
   double spread_seconds = 0.0;
 };
 
-BurstConfig ParseBurst(const std::map<std::string, aurora::lang::ParamValue>& fields, const TempoMap& tempo_map) {
+BurstConfig ParseBurst(const std::map<std::string, aurora::lang::ParamValue>& fields, const TempoMap& tempo_map,
+                       double anchor_seconds) {
   BurstConfig cfg;
   const auto it = fields.find("burst");
   if (it == fields.end() || it->second.kind != aurora::lang::ParamValue::Kind::kObject) {
@@ -398,7 +390,7 @@ BurstConfig ParseBurst(const std::map<std::string, aurora::lang::ParamValue>& fi
     cfg.count = static_cast<int>(std::round(ValueToNumber(c->second, 0.0)));
   }
   if (const auto s = obj.find("spread"); s != obj.end()) {
-    cfg.spread_seconds = ParamAsSeconds(s->second, tempo_map);
+    cfg.spread_seconds = ParamAsSeconds(s->second, tempo_map, anchor_seconds);
   }
   return cfg;
 }
@@ -512,25 +504,55 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
     const SeqDensity density = DensityFromPreset(constraints.density);
     const double silence_prob = SilenceProbability(constraints.silence);
 
-    const uint64_t section_start = ToSamples(section.at, tempo_map, sample_rate);
-    const uint64_t section_dur = ToSamples(section.dur, tempo_map, sample_rate);
+    const double section_start_s = ToSeconds(section.at, tempo_map);
+    const uint64_t section_start = static_cast<uint64_t>(std::llround(section_start_s * static_cast<double>(sample_rate)));
+    const double section_dur_s = OffsetSecondsFrom(section_start_s, section.dur, tempo_map);
+    const uint64_t section_dur = static_cast<uint64_t>(std::llround(section_dur_s * static_cast<double>(sample_rate)));
     const uint64_t section_end = section_start + section_dur;
-    const double xfade_both_s = DirectiveSecondsOr(section.directives, "xfade", 0.0, tempo_map);
-    const double xfade_in_s = DirectiveSecondsOr(section.directives, "xfade_in", xfade_both_s, tempo_map);
-    const double xfade_out_s = DirectiveSecondsOr(section.directives, "xfade_out", xfade_both_s, tempo_map);
+    const double xfade_both_s = DirectiveSecondsOr(section.directives, "xfade", 0.0, tempo_map, section_start_s);
+    const double xfade_in_s = DirectiveSecondsOr(section.directives, "xfade_in", xfade_both_s, tempo_map, section_start_s);
+    const double xfade_out_s = DirectiveSecondsOr(section.directives, "xfade_out", xfade_both_s, tempo_map, section_start_s);
     const uint64_t xfade_in_samples =
         static_cast<uint64_t>(std::llround(xfade_in_s * static_cast<double>(sample_rate)));
     const uint64_t xfade_out_samples =
         static_cast<uint64_t>(std::llround(xfade_out_s * static_cast<double>(sample_rate)));
     out.timeline_end = std::max(out.timeline_end, section_start + section_dur);
+    std::map<std::string, std::map<std::string, aurora::lang::ParamValue>> section_set_params_by_patch;
 
     for (const auto& event : section.events) {
+      if (std::holds_alternative<aurora::lang::SetEvent>(event)) {
+        const auto& set = std::get<aurora::lang::SetEvent>(event);
+        std::vector<std::string> parts;
+        size_t start = 0;
+        while (start < set.target.size()) {
+          const size_t dot = set.target.find('.', start);
+          if (dot == std::string::npos) {
+            parts.push_back(set.target.substr(start));
+            break;
+          }
+          parts.push_back(set.target.substr(start, dot - start));
+          start = dot + 1;
+        }
+        if (parts.size() >= 4 && parts[0] == "patch") {
+          const std::string patch_name = parts[1];
+          std::string key = parts[2];
+          for (size_t i = 3; i < parts.size(); ++i) {
+            key += "." + parts[i];
+          }
+          section_set_params_by_patch[patch_name][key] = set.value;
+        }
+        continue;
+      }
+
       if (std::holds_alternative<aurora::lang::PlayEvent>(event)) {
         const auto& play = std::get<aurora::lang::PlayEvent>(event);
         PlayOccurrence occurrence;
         occurrence.patch = play.patch;
-        occurrence.start_sample = ToSamples(play.at, tempo_map, sample_rate);
-        occurrence.dur_samples = std::max<uint64_t>(1, ToSamples(play.dur, tempo_map, sample_rate));
+        const double play_start_s = section_start_s + OffsetSecondsFrom(section_start_s, play.at, tempo_map);
+        occurrence.start_sample = static_cast<uint64_t>(std::llround(play_start_s * static_cast<double>(sample_rate)));
+        const double play_dur_s = OffsetSecondsFrom(play_start_s, play.dur, tempo_map);
+        occurrence.dur_samples =
+            std::max<uint64_t>(1, static_cast<uint64_t>(std::llround(play_dur_s * static_cast<double>(sample_rate))));
         occurrence.velocity = Clamp(play.vel, 0.0, 1.5);
         for (const auto& p : play.pitch_values) {
           occurrence.pitches.push_back(ResolvePitchValue(p));
@@ -538,7 +560,13 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
         if (occurrence.pitches.empty()) {
           occurrence.pitches.push_back(ResolvePitchValue(aurora::lang::ParamValue::Identifier("C4")));
         }
-        occurrence.params = FlattenEventParams(play.params);
+        if (const auto set_it = section_set_params_by_patch.find(play.patch); set_it != section_set_params_by_patch.end()) {
+          occurrence.params = set_it->second;
+        }
+        const auto play_params = FlattenEventParams(play.params);
+        for (const auto& [k, v] : play_params) {
+          occurrence.params[k] = v;
+        }
         occurrence.section_start_sample = section_start;
         occurrence.section_end_sample = section_end;
         occurrence.xfade_in_samples = xfade_in_samples;
@@ -570,7 +598,8 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
         AutomationLane lane;
         lane.curve = automate.curve;
         for (const auto& [time, value] : automate.points) {
-          const uint64_t sample = ToSamples(time, tempo_map, sample_rate);
+          const double point_s = section_start_s + OffsetSecondsFrom(section_start_s, time, tempo_map);
+          const uint64_t sample = static_cast<uint64_t>(std::llround(point_s * static_cast<double>(sample_rate)));
           lane.points.push_back({sample, ValueToNumber(value, 0.0)});
         }
         std::sort(lane.points.begin(), lane.points.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
@@ -581,20 +610,26 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
         const auto& seq = std::get<aurora::lang::SeqEvent>(event);
         const auto& fields = seq.fields;
 
-        double at_s = static_cast<double>(section_start) / static_cast<double>(sample_rate);
-        double dur_s = static_cast<double>(section_dur) / static_cast<double>(sample_rate);
+        double at_s = section_start_s;
+        double dur_s = section_dur_s;
         if (const auto it = fields.find("at"); it != fields.end()) {
-          at_s = ParamAsSeconds(it->second, tempo_map);
+          at_s = section_start_s + OffsetSecondsFrom(section_start_s, ValueToUnit(it->second), tempo_map);
         }
         if (const auto it = fields.find("dur"); it != fields.end()) {
-          dur_s = ParamAsSeconds(it->second, tempo_map);
+          dur_s = OffsetSecondsFrom(at_s, ValueToUnit(it->second), tempo_map);
         }
 
-        double rate_s = FieldSecondsOr(fields, "rate", 1.0, tempo_map);
+        double rate_s = 1.0;
+        if (const auto it = fields.find("rate"); it != fields.end()) {
+          rate_s = OffsetSecondsFrom(at_s, ValueToUnit(it->second), tempo_map);
+        }
         rate_s = std::max(0.001, rate_s * density.rate_multiplier);
         const double prob = Clamp(FieldNumberOr(fields, "prob", 1.0) * density.prob_multiplier, 0.0, 1.0);
         const double velocity = Clamp(FieldNumberOr(fields, "vel", 0.8), 0.0, 1.0);
-        const double jitter_s = std::max(0.0, FieldSecondsOr(fields, "jitter", 0.0, tempo_map));
+        double jitter_s = 0.0;
+        if (const auto it = fields.find("jitter"); it != fields.end()) {
+          jitter_s = std::max(0.0, OffsetSecondsFrom(at_s, ValueToUnit(it->second), tempo_map));
+        }
         const double swing = Clamp(FieldNumberOr(fields, "swing", 0.5), 0.0, 1.0);
         const int seq_max = static_cast<int>(std::round(FieldNumberOr(fields, "max", static_cast<double>(density.max_events_per_minute))));
         const int max_per_minute = std::min(seq_max, density.max_events_per_minute);
@@ -611,12 +646,18 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
         const aurora::lang::ParamValue* pattern = pattern_it != fields.end() ? &pattern_it->second : nullptr;
         std::vector<int> euclid_pattern;
         std::map<std::string, aurora::lang::ParamValue> seq_event_params;
+        if (const auto set_it = section_set_params_by_patch.find(seq.patch); set_it != section_set_params_by_patch.end()) {
+          seq_event_params = set_it->second;
+        }
         if (const auto params_it = fields.find("params");
             params_it != fields.end() && params_it->second.kind == aurora::lang::ParamValue::Kind::kObject) {
-          seq_event_params = FlattenEventParams(params_it->second.object_values);
+          const auto seq_params = FlattenEventParams(params_it->second.object_values);
+          for (const auto& [k, v] : seq_params) {
+            seq_event_params[k] = v;
+          }
         }
 
-        const BurstConfig burst = ParseBurst(fields, tempo_map);
+        const BurstConfig burst = ParseBurst(fields, tempo_map, at_s);
 
         PCG32 rng(Hash64FromParts(seed, "seq", section.name, seq.patch));
         std::deque<double> rolling_times;

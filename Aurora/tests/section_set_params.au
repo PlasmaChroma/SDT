@@ -1,0 +1,33 @@
+aurora { version: "1.0" }
+
+globals { sr: 48000, block: 256, tempo: 120 }
+
+patch Lead {
+  out: stem("lead"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { transpose: 0 } },
+      { id: "env", type: env_adsr, params: { a: 4ms, d: 90ms, s: 0.2, r: 80ms } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.0 } }
+    ],
+    connect: [
+      { from: "osc", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: control }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+section ThemeA at 0beats dur 2beats {
+  play Lead { at: 0beats, dur: 0.5beats, pitch: C3, vel: 0.9 }
+  play Lead { at: 1beats, dur: 0.5beats, pitch: G2, vel: 0.85 }
+}
+
+score {
+  section Main at 0beats dur 6beats {
+    set patch.Lead.osc.transpose = 12
+    use ThemeA x 1 at 0beats
+    use ThemeA x 1 at 2beats
+    play Lead { at: 4beats, dur: 1beats, pitch: C3, vel: 0.9, params: { "osc.transpose": 0 } }
+  }
+}
