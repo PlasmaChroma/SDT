@@ -1,0 +1,30 @@
+aurora { version: "1.0" }
+
+globals { sr: 48000, block: 256, tempo: 60, tail_policy: fixed(120ms) }
+
+patch ControlFeedback {
+  out: stem("m3_control_feedback"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 140Hz } },
+      { id: "cv1", type: cv_scale, params: { scale: 0.8, bias: 0.05 } },
+      { id: "cv2", type: cv_offset, params: { offset: 0.03 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.0 } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "amp", to: "vca.in" },
+      { from: "cv1.out", to: "cv2.in", rate: control },
+      { from: "cv2.out", to: "cv1.in", rate: control },
+      { from: "cv2.out", to: "vca.cv", rate: control, map: { type: set, min: 0.1, max: 0.9 } }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+score {
+  section A at 0s dur 1.4s {
+    play ControlFeedback { at: 0.10s, dur: 0.80s, pitch: C3, vel: 0.9 }
+  }
+}

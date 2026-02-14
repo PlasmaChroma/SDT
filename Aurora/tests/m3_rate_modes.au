@@ -1,0 +1,55 @@
+aurora { version: "1.0" }
+
+globals { sr: 48000, block: 256, tempo: 60, tail_policy: fixed(150ms) }
+
+patch RateControl {
+  out: stem("m3_rate_control"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 110Hz } },
+      { id: "lfo", type: lfo, params: { shape: sine, rate: 18Hz, depth: 1.0 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.5 } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "amp", to: "vca.in" },
+      { from: "lfo.out", to: "vca.cv", rate: control, map: { type: set, min: 0.1, max: 1.0 } }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+patch RateAudio {
+  out: stem("m3_rate_audio"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_pulse_blep, params: { freq: 110Hz, pw: 0.45 } },
+      { id: "lfo", type: lfo, params: { shape: triangle, rate: 30Hz, depth: 1.0 } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 1300Hz, q: 0.7 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 0.6 } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "amp", to: "vca.in" },
+      { from: "lfo.out", to: "osc.freq", rate: audio, map: { type: add, scale: 10 } },
+      { from: "lfo.out", to: "osc.pw", rate: audio, map: { type: set, min: 0.2, max: 0.8 } },
+      { from: "lfo.out", to: "filt.cutoff", rate: audio, map: { type: hz, min: 500, max: 4000 } },
+      { from: "lfo.out", to: "filt.q", rate: audio, map: { type: set, min: 0.5, max: 1.5 } },
+      { from: "lfo.out", to: "vca.cv", rate: audio, map: { type: set, min: 0.1, max: 1.0 } }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+score {
+  section A at 0s dur 2.2s {
+    play RateControl { at: 0.10s, dur: 0.95s, pitch: C3, vel: 0.9 }
+    play RateControl { at: 1.20s, dur: 0.85s, pitch: G2, vel: 0.85 }
+
+    play RateAudio { at: 0.20s, dur: 0.90s, pitch: C3, vel: 0.88 }
+    play RateAudio { at: 1.25s, dur: 0.75s, pitch: D3, vel: 0.84 }
+  }
+}
