@@ -19,7 +19,8 @@ bool HasMajorVersionOne(const std::string& version) {
 
 bool IsCvNodeType(const std::string& node_type) {
   return node_type == "cv_scale" || node_type == "cv_offset" || node_type == "cv_mix" || node_type == "cv_slew" ||
-         node_type == "cv_clip";
+         node_type == "cv_clip" || node_type == "cv_invert" || node_type == "cv_sample_hold" || node_type == "cv_cmp" ||
+         node_type == "cv_logic";
 }
 
 bool IsControlSourceType(const std::string& node_type) {

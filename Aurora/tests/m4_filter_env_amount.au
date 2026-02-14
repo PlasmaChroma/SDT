@@ -1,0 +1,58 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 86,
+  tail_policy: fixed(1s)
+}
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir: "./renders/midi/",
+  mix_dir: "./renders/mix/",
+  meta_dir: "./renders/meta/",
+  master: "master.wav",
+  render_json: "render.json"
+}
+
+patch EnvAmtOff {
+  out: stem("env_amt_off"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 105Hz } },
+      { id: "env", type: env_adsr, params: { a: 8ms, d: 220ms, s: 0.45, r: 450ms } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 320Hz, q: 0.82, env_amt: 0Hz } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch EnvAmtOn {
+  out: stem("env_amt_on"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 105Hz } },
+      { id: "env", type: env_adsr, params: { a: 8ms, d: 220ms, s: 0.45, r: 450ms } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 320Hz, q: 0.82, env_amount: 2400Hz } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section A at 0s dur 2.4s {
+    play EnvAmtOff { at: 0s, dur: 2.4s, vel: 0.9, pitch: A2 }
+    play EnvAmtOn { at: 0s, dur: 2.4s, vel: 0.9, pitch: A2 }
+  }
+}

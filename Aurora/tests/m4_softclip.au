@@ -1,0 +1,42 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 72,
+  tail_policy: fixed(1s)
+}
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir: "./renders/midi/",
+  mix_dir: "./renders/mix/",
+  meta_dir: "./renders/meta/",
+  master: "master.wav",
+  render_json: "render.json"
+}
+
+patch ClipVoice {
+  out: stem("clip_voice"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 90Hz } },
+      { id: "env", type: env_adsr, params: { a: 15ms, d: 180ms, s: 0.5, r: 450ms } },
+      { id: "clip", type: softclip, params: { drive: 4.5, mix: 0.75, bias: 0.05 } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "env.out", to: "clip.drive", rate: control, map: { type: set, min: 1.2, max: 8.0 } },
+      { from: "env.out", to: "clip.mix", rate: control, map: { type: set, min: 0.2, max: 1.0 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section A at 0s dur 3.5s {
+    play ClipVoice { at: 0s, dur: 3.5s, vel: 0.92, pitch: C2 }
+    automate patch.ClipVoice.clip.bias smooth { 0s: -0.04, 1.75s: 0.08, 3.5s: -0.02 }
+  }
+}

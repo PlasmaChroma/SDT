@@ -237,7 +237,7 @@ Control modulation (`connect`) behavior implemented by renderer:
 - Source nodes currently supported as control sources:
   - `env_adsr` / `env_ad` / `env_ar` (`<env>.out`)
   - `lfo` (`<lfo>.out`)
-  - `cv_scale`, `cv_offset`, `cv_mix`, `cv_slew`, `cv_clip`
+  - `cv_scale`, `cv_offset`, `cv_mix`, `cv_slew`, `cv_clip`, `cv_invert`, `cv_sample_hold`, `cv_cmp`, `cv_logic`
 - Map fields:
   - `type`: `set|add|mul|range|db|hz|lin` (`db/range/hz/lin` behave as `set`)
   - `curve`: `linear|step|smooth|exp` (applied on normalized source before range/map math)
@@ -294,6 +294,13 @@ Implemented filter behavior (`svf` / `biquad` nodes):
 - Resonance shaping:
   - `q` is used (default `0.707`, minimum `0.05`)
   - `res` is used (default `0.0`, clamped `[0,1]`) as an additional resonance boost factor on top of `q`
+- Filter slope:
+  - `slope: 12|24` (`24` runs a cascaded second filter pass for steeper response)
+- Filter key-tracking:
+  - `keytrack` scales cutoff by note pitch relative to MIDI 60 (`C4`)
+  - `0.0` disables key tracking; `1.0` applies one-octave cutoff scaling per played octave
+- Filter envelope amount:
+  - `env_amt` (`env_amount` alias) adds envelope-scaled Hz offset to cutoff each sample
 - Filters are stateful per rendered voice (continuous state through each note event).
 
 Implemented VCA behavior (`vca` node):
@@ -493,6 +500,11 @@ Warnings:
 - Routed render params currently include oscillator/filter/envelope/gain keys listed above.
 - Routed render params also include:
   - `vca`: `<vca>.cv`, `<vca>.gain`
+  - `vca`: `<vca>.curve_amt` (alias `<vca>.curve_amount`)
+  - `filter`: `<filter>.drive`
+  - `ring_mod`: `<ring>.freq`, `<ring>.mix`, `<ring>.depth`, `<ring>.bias`, `<ring>.pw`
+  - `softclip`: `<clip>.drive`, `<clip>.mix`, `<clip>.bias`
+  - `audio_mix`: `<mx>.gain`, `<mx>.mix`, `<mx>.bias`
 - Modulation routes from graph `connect` are applied after event/automation/static resolution for each sample.
 - CV utility nodes are evaluated as control sources:
   - `cv_scale`: `out = in * scale + bias`
@@ -500,6 +512,34 @@ Warnings:
   - `cv_mix`: `out = in1 * a + in2 * b + bias`
   - `cv_clip`: `out = clamp(in + bias, min, max)`
   - `cv_slew`: one-pole slew with independent `rise`/`fall` times
+  - `cv_invert`: `out = (bias - in) * scale + offset`
+  - `cv_sample_hold`: samples `in` on rising edge of `in2` trigger (threshold + optional hysteresis), holds between triggers
+  - `cv_cmp`: comparator with `threshold` and optional `hysteresis`; outputs `high`/`low`
+  - `cv_logic`: logic gate on thresholded `in`/`in2`; `op` supports `and|or|xor|nand|nor|xnor`, outputs `high`/`low`
+- `ring_mod` node is an active audio stage:
+  - stage equation per channel: `out = dry*(1-mix) + (dry * (carrier*depth + bias))*mix`
+  - carrier is generated from `shape` + `freq` (Hz) + optional `pw` (for pulse/square)
+  - `mode` variants:
+    - `balanced` (default): classic bipolar ring multiply
+    - `unbalanced`: includes carrier pass-through style AM component
+    - `diode`: rectified carrier response
+  - `ring_mod_diode` is accepted as an alias node type for `ring_mod` with `mode: diode`
+  - currently inserted as a per-voice stage before filter/gain/VCA output gain stages
+- `softclip` node is an active audio stage:
+  - stage equation per channel: `out = dry*(1-mix) + tanh((dry + bias)*drive)*mix`
+  - currently inserted as a per-voice stage before filter/gain/VCA output gain stages
+- `audio_mix` node is an active audio utility stage:
+  - stage equation per channel: `out = dry*(1-mix) + (dry*gain + bias)*mix`
+  - currently inserted as a per-voice stage before filter/gain/VCA output gain stages
+- filter `drive` is an active pre-filter input stage:
+  - input shaping uses normalized `tanh` waveshaping
+  - `drive_pos` / `drive_stage` selects placement: `pre` (default) or `post`
+  - `drive` is routable via event params, automation, and modulation
+- VCA `curve` currently supports:
+  - `linear` (default)
+  - `exp` / `exponential` (power-law CV shaping before gain multiply)
+  - `log` / `logarithmic` (inverse power-style CV shaping before gain multiply)
+  - `curve_amt` / `curve_amount` controls curve intensity (clamped runtime to `0.2..8.0`)
 - Graph validation enforces simple port-type rules for known node classes:
   - audio sources cannot connect to control destinations
   - control sources cannot connect to audio inputs
@@ -550,9 +590,14 @@ All routed params follow:
 | Filter | `<filter>.freq` | filter `cutoff` fallback path | Alias path for cutoff, used only when `<filter>.cutoff` event/automation is absent. |
 | Filter | `<filter>.q` | filter `q` | Runtime min `0.05`. |
 | Filter | `<filter>.res` | filter `res` | Runtime clamped to `[0, 1]`. |
+| Filter | `slope` (static) | filter `slope` | `12` default, `24` enables cascaded filter pass. |
+| Filter | `<filter>.drive` | filter `drive` | Runtime minimum `0`; drive placement is controlled by static `drive_pos`/`drive_stage` (`pre|post`). |
+| Filter | `<filter>.keytrack` | filter `keytrack` | Pitch-relative cutoff scaling around MIDI 60; `0` off, `1` full octave-follow. |
+| Filter | `<filter>.env_amt` (`<filter>.env_amount`) | filter `env_amt`/`env_amount` | Adds envelope-scaled Hz offset to cutoff each sample. |
 | Gain | `<gain>.gain` | gain node `params.gain` | Treated as dB in render path and converted to linear gain. |
 | VCA | `<vca>.cv` | vca node `params.cv` | Runtime clamped to `[0, 1]`; multiplied into final gain. |
 | VCA | `<vca>.gain` | vca node `params.gain` | Linear by default (`dB` accepted statically); multiplied into final gain. |
+| VCA | `<vca>.curve_amt` (`<vca>.curve_amount`) | vca node `params.curve_amt`/`curve_amount` | Runtime clamped to `[0.2, 8.0]`; used by `curve: exp|log`. |
 
 ## 9. Authoring Checklist for LLMs
 

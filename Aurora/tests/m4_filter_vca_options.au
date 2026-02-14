@@ -1,0 +1,85 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 74,
+  tail_policy: fixed(1s)
+}
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir: "./renders/midi/",
+  mix_dir: "./renders/mix/",
+  meta_dir: "./renders/meta/",
+  master: "master.wav",
+  render_json: "render.json"
+}
+
+patch FilterDriveLow {
+  out: stem("filter_drive_low"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 95Hz } },
+      { id: "env", type: env_adsr, params: { a: 14ms, d: 220ms, s: 0.6, r: 520ms } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 1200Hz, q: 0.85, drive: 1.0 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 1.0, curve: linear } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "env.out", to: "filt.drive", rate: control, map: { type: set, min: 0.9, max: 1.2 } },
+      { from: "env.out", to: "vca.cv", rate: control, map: { type: set, min: 0.0, max: 1.0 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch FilterDriveHigh {
+  out: stem("filter_drive_high"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 95Hz } },
+      { id: "env", type: env_adsr, params: { a: 14ms, d: 220ms, s: 0.6, r: 520ms } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 1200Hz, q: 0.85, drive: 4.0 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 1.0, curve: linear } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "env.out", to: "filt.drive", rate: control, map: { type: set, min: 3.5, max: 6.5 } },
+      { from: "env.out", to: "vca.cv", rate: control, map: { type: set, min: 0.0, max: 1.0 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch VcaExp {
+  out: stem("vca_exp"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 95Hz } },
+      { id: "env", type: env_adsr, params: { a: 14ms, d: 220ms, s: 0.6, r: 520ms } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 1200Hz, q: 0.85, drive: 1.0 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 1.0, curve: exp } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "env.out", to: "filt.drive", rate: control, map: { type: set, min: 0.9, max: 1.2 } },
+      { from: "env.out", to: "vca.cv", rate: control, map: { type: set, min: 0.0, max: 1.0 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section A at 0s dur 3s {
+    play FilterDriveLow { at: 0s, dur: 3s, vel: 0.9, pitch: C2 }
+    play FilterDriveHigh { at: 0s, dur: 3s, vel: 0.9, pitch: C2 }
+    play VcaExp { at: 0s, dur: 3s, vel: 0.9, pitch: C2 }
+  }
+}

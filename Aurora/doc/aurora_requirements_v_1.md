@@ -530,11 +530,15 @@ Current implementation note (renderer):
 - `cv_mix(a, b, bias)`        // `out = in1*a + in2*b + bias`
 - `cv_clip(min, max, bias)`   // `out = clamp(in + bias, min, max)`
 - `cv_slew(rise, fall)`       // smoothed control transition
+- `cv_invert(scale, offset, bias)`                 // `out = (bias - in) * scale + offset`
+- `cv_sample_hold(threshold, hysteresis)`          // sample `in` on rising trigger at `in2`, hold between triggers
+- `cv_cmp(threshold, hysteresis, high, low)`       // comparator output
+- `cv_logic(op, threshold, high, low)`             // thresholded logic on `in`/`in2`
 - `slew(rise, fall)`
 
 ### 9.5 Filters
 
-- `svf(mode, cutoff, res, drive)`
+- `svf(mode, cutoff, res, drive, slope, keytrack, env_amt|env_amount)`
 - `biquad(type, freq, q, gain)`
 
 Current implementation note (renderer):
@@ -542,20 +546,47 @@ Current implementation note (renderer):
 - Filter automation accepts both `<filterNode>.cutoff` and `<filterNode>.freq` (`.cutoff` takes precedence when both exist).
 - Runtime cutoff clamp is `20Hz..0.99 * Nyquist`.
 - `q` and `res` are routable through automation/event params.
+- Filter `drive` is active and routable (`<filter>.drive`) as a nonlinear stage.
+- Filter drive placement is selectable via static `drive_pos` / `drive_stage`: `pre` (default) or `post`.
+- Filter slope supports static `slope: 12|24` (`24` uses a cascaded filter pass for steeper response).
+- Filter key-tracking is active and routable (`<filter>.keytrack`) and scales cutoff relative to played pitch around MIDI 60.
+- Filter envelope amount is active and routable (`<filter>.env_amt`, alias `<filter>.env_amount`) and adds envelope-scaled Hz to cutoff.
 
 ### 9.6 Mix + dynamics
 
 - `gain(gain)`
 - `vca(gain, cv)`
+- `ring_mod(shape, mode, freq|rate, depth, mix, bias, pw)`
+- `ring_mod_diode(shape, freq|rate, depth, mix, bias, pw)`  // alias for `ring_mod` with diode mode
+- `softclip(drive, mix, bias)`
+- `audio_mix(gain, mix, bias)`
 - `pan(pan, law)`
 - `mix()`
-- `softclip(drive)`
 
 Current implementation notes:
 - `vca` is a real output multiply stage.
 - Final per-voice gain includes `vca.cv * vca.gain` in addition to gain/env stages.
 - `vca.cv` is intended for envelope/LFO control patching (`env.out -> vca.cv`).
+- VCA `curve` supports `linear` (default), `exp`/`exponential`, and `log`/`logarithmic`.
+- VCA curve intensity supports `curve_amt` / `curve_amount` (runtime clamp `0.2..8.0`).
+- VCA curve amount is routable (`<vca>.curve_amt`, alias `<vca>.curve_amount`).
+- `ring_mod` is active in renderer as a per-voice multiply stage before filter/gain/VCA output gain stages.
+- Ring-mod params are routable by event params, automation, and modulation:
+  - `<ring>.freq`, `<ring>.mix`, `<ring>.depth`, `<ring>.bias`, `<ring>.pw`
+- Ring-mod `mode` variants are active:
+  - `balanced` (default), `unbalanced`, `diode`
+- `softclip` is active in renderer as a per-voice shaping stage before filter/gain/VCA output gain stages.
+- Softclip params are routable by event params, automation, and modulation:
+  - `<clip>.drive`, `<clip>.mix`, `<clip>.bias`
+- `audio_mix` is active in renderer as a per-voice utility stage before filter/gain/VCA output gain stages.
+- Audio-mix params are routable by event params, automation, and modulation:
+  - `<mx>.gain`, `<mx>.mix`, `<mx>.bias`
 - CV utility nodes are valid modulation sources for downstream control routing.
+- Additional M4 CV utilities now active in renderer:
+  - `cv_invert`: bipolar inversion/attenuation utility
+  - `cv_sample_hold`: deterministic edge-triggered sample-and-hold
+  - `cv_cmp`: comparator with optional hysteresis
+  - `cv_logic`: thresholded boolean logic (`and|or|xor|nand|nor|xnor`)
 - Graph validation enforces port-type legality for known node classes.
 - Control feedback handling:
   - validator warns on control feedback cycles

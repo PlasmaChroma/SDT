@@ -1,0 +1,60 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 78,
+  tail_policy: fixed(1s)
+}
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir: "./renders/midi/",
+  mix_dir: "./renders/mix/",
+  meta_dir: "./renders/meta/",
+  master: "master.wav",
+  render_json: "render.json"
+}
+
+patch DrivePre {
+  out: stem("drive_pre"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 110Hz } },
+      { id: "env", type: env_adsr, params: { a: 10ms, d: 160ms, s: 0.55, r: 420ms } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 980Hz, q: 0.9, drive: 5.5, drive_pos: pre } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "env.out", to: "filt.drive", rate: control, map: { type: set, min: 3.0, max: 7.2 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch DrivePost {
+  out: stem("drive_post"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 110Hz } },
+      { id: "env", type: env_adsr, params: { a: 10ms, d: 160ms, s: 0.55, r: 420ms } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 980Hz, q: 0.9, drive: 5.5, drive_pos: post } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "env.out", to: "filt.drive", rate: control, map: { type: set, min: 3.0, max: 7.2 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section A at 0s dur 2.8s {
+    play DrivePre { at: 0s, dur: 2.8s, vel: 0.9, pitch: A2 }
+    play DrivePost { at: 0s, dur: 2.8s, vel: 0.9, pitch: A2 }
+  }
+}

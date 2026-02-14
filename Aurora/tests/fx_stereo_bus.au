@@ -1,0 +1,57 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 64,
+  tail_policy: fixed(2s)
+}
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir: "./renders/midi/",
+  mix_dir: "./renders/mix/",
+  meta_dir: "./renders/meta/",
+  master: "master.wav",
+  render_json: "render.json"
+}
+
+bus StereoFX {
+  channels: 2,
+  out: stem("fx_stereo"),
+  graph: {
+    nodes: [
+      { id: "bus_in", type: mix },
+      { id: "echo", type: delay, params: { time: 330ms, fb: 0.52, mix: 0.7, hicut: 6000Hz, locut: 180Hz, pingpong: true, mod_rate: 0.3Hz, mod_depth: 6ms } },
+      { id: "space", type: reverb_algo, params: { size: 0.84, decay: 5.2s, predelay: 22ms, mix: 0.45, hicut: 7800Hz, locut: 140Hz, width: 0.9 } }
+    ],
+    connect: [
+      { from: "bus_in", to: "echo.in" },
+      { from: "echo", to: "space.in" }
+    ],
+    io: { out: "space" }
+  }
+}
+
+patch Tone {
+  out: stem("tone"),
+  send: { bus: "StereoFX", amount: -6dB },
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 110Hz } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 950Hz, q: 0.8, res: 0.2 } },
+      { id: "amp", type: gain, params: { gain: -16dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section Main at 0s dur 2.5s {
+    play Tone { at: 0s, dur: 2.5s, vel: 0.9, pitch: A2 }
+  }
+}

@@ -805,6 +805,11 @@ struct PatchProgram {
     double cutoff_hz = 1500.0;
     double q = 0.707;
     double res = 0.0;
+    double drive = 1.0;
+    std::string drive_pos = "pre";
+    int slope_db = 12;
+    double keytrack = 0.0;
+    double env_amt = 0.0;
   } filter;
 
   struct Binaural {
@@ -829,7 +834,37 @@ struct PatchProgram {
     std::string node_id;
     double gain = 1.0;
     double cv = 1.0;
+    std::string curve = "linear";
+    double curve_amount = 2.0;
   } vca;
+
+  struct RingMod {
+    bool enabled = false;
+    std::string node_id;
+    std::string shape = "sine";
+    std::string mode = "balanced";
+    double freq_hz = 35.0;
+    double pw = 0.5;
+    double depth = 1.0;
+    double mix = 1.0;
+    double bias = 0.0;
+  } ring_mod;
+
+  struct Softclip {
+    bool enabled = false;
+    std::string node_id;
+    double drive = 1.0;
+    double mix = 1.0;
+    double bias = 0.0;
+  } softclip;
+
+  struct AudioMix {
+    bool enabled = false;
+    std::string node_id;
+    double gain = 1.0;
+    double mix = 1.0;
+    double bias = 0.0;
+  } audio_mix;
 
   struct ModRoute {
     enum class SourceKind { kEnv, kLfo, kCvNode };
@@ -859,6 +894,7 @@ struct PatchProgram {
   struct CvNode {
     std::string node_id;
     std::string type;
+    std::string op = "and";
     double scale = 1.0;
     double offset = 0.0;
     double a = 1.0;
@@ -868,6 +904,10 @@ struct PatchProgram {
     double fall_seconds = 0.01;
     double min = 0.0;
     double max = 1.0;
+    double threshold = 0.5;
+    double hysteresis = 0.0;
+    double high = 1.0;
+    double low = 0.0;
     std::vector<CvInputRoute> inputs;
   };
   std::vector<CvNode> cv_nodes;
@@ -913,7 +953,8 @@ double ParseDetuneSemitones(const aurora::lang::ParamValue& value) {
 
 bool IsCvNodeType(const std::string& node_type) {
   return node_type == "cv_scale" || node_type == "cv_offset" || node_type == "cv_mix" || node_type == "cv_slew" ||
-         node_type == "cv_clip";
+         node_type == "cv_clip" || node_type == "cv_invert" || node_type == "cv_sample_hold" || node_type == "cv_cmp" ||
+         node_type == "cv_logic";
 }
 
 bool NodeIsControlSource(const std::string& node_type) {
@@ -1063,6 +1104,35 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
       }
       program.filter.q = std::max(0.05, NodeParamNumber(node.params, "q", program.filter.q));
       program.filter.res = Clamp(NodeParamNumber(node.params, "res", program.filter.res), 0.0, 1.0);
+      program.filter.drive = std::max(0.0, NodeParamNumber(node.params, "drive", program.filter.drive));
+      program.filter.drive_pos =
+          NodeParamText(node.params, "drive_pos", NodeParamText(node.params, "drive_stage", program.filter.drive_pos));
+      if (const auto it = node.params.find("slope"); it != node.params.end()) {
+        int slope = 12;
+        if (it->second.kind == aurora::lang::ParamValue::Kind::kNumber) {
+          slope = static_cast<int>(std::llround(it->second.number_value));
+        } else if (it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber) {
+          slope = static_cast<int>(std::llround(it->second.unit_number_value.value));
+        } else {
+          const std::string text = ValueToText(it->second);
+          slope = (text.find("24") != std::string::npos) ? 24 : 12;
+        }
+        program.filter.slope_db = (slope >= 24) ? 24 : 12;
+      }
+      program.filter.keytrack = NodeParamNumber(node.params, "keytrack", program.filter.keytrack);
+      if (const auto it = node.params.find("env_amt"); it != node.params.end()) {
+        if (it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber && it->second.unit_number_value.unit == "Hz") {
+          program.filter.env_amt = it->second.unit_number_value.value;
+        } else {
+          program.filter.env_amt = ValueToNumber(it->second, program.filter.env_amt);
+        }
+      } else if (const auto fit = node.params.find("env_amount"); fit != node.params.end()) {
+        if (fit->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber && fit->second.unit_number_value.unit == "Hz") {
+          program.filter.env_amt = fit->second.unit_number_value.value;
+        } else {
+          program.filter.env_amt = ValueToNumber(fit->second, program.filter.env_amt);
+        }
+      }
     } else if (node.type == "lfo") {
       PatchProgram::Lfo lfo;
       lfo.node_id = node.id;
@@ -1092,6 +1162,7 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
       PatchProgram::CvNode cv;
       cv.node_id = node.id;
       cv.type = node.type;
+      cv.op = NodeParamText(node.params, "op", cv.op);
       cv.scale = NodeParamNumber(node.params, "scale", cv.scale);
       cv.offset = NodeParamNumber(node.params, "offset", cv.offset);
       cv.a = NodeParamNumber(node.params, "a", cv.a);
@@ -1105,6 +1176,10 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
       }
       cv.min = NodeParamNumber(node.params, "min", cv.min);
       cv.max = NodeParamNumber(node.params, "max", cv.max);
+      cv.threshold = NodeParamNumber(node.params, "threshold", cv.threshold);
+      cv.hysteresis = std::max(0.0, NodeParamNumber(node.params, "hysteresis", cv.hysteresis));
+      cv.high = NodeParamNumber(node.params, "high", cv.high);
+      cv.low = NodeParamNumber(node.params, "low", cv.low);
       program.cv_nodes.push_back(std::move(cv));
     } else if (node.type == "vca") {
       program.vca.enabled = true;
@@ -1117,6 +1192,52 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
         }
       }
       program.vca.cv = Clamp(NodeParamNumber(node.params, "cv", 1.0), 0.0, 1.0);
+      program.vca.curve = NodeParamText(node.params, "curve", NodeParamText(node.params, "response", program.vca.curve));
+      program.vca.curve_amount =
+          std::max(0.2, NodeParamNumber(node.params, "curve_amt", NodeParamNumber(node.params, "curve_amount", 2.0)));
+    } else if (node.type == "ring_mod" || node.type == "ring_mod_diode") {
+      program.ring_mod.enabled = true;
+      program.ring_mod.node_id = node.id;
+      program.ring_mod.shape = NodeParamText(node.params, "shape", program.ring_mod.shape);
+      program.ring_mod.mode = NodeParamText(node.params, "mode", program.ring_mod.mode);
+      if (node.type == "ring_mod_diode") {
+        program.ring_mod.mode = "diode";
+      }
+      if (const auto it = node.params.find("freq"); it != node.params.end()) {
+        if (it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber && it->second.unit_number_value.unit == "Hz") {
+          program.ring_mod.freq_hz = std::max(0.0, it->second.unit_number_value.value);
+        } else {
+          program.ring_mod.freq_hz = std::max(0.0, ValueToNumber(it->second, program.ring_mod.freq_hz));
+        }
+      } else if (const auto fit = node.params.find("rate"); fit != node.params.end()) {
+        if (fit->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber && fit->second.unit_number_value.unit == "Hz") {
+          program.ring_mod.freq_hz = std::max(0.0, fit->second.unit_number_value.value);
+        } else {
+          program.ring_mod.freq_hz = std::max(0.0, ValueToNumber(fit->second, program.ring_mod.freq_hz));
+        }
+      }
+      program.ring_mod.pw = Clamp(NodeParamNumber(node.params, "pw", program.ring_mod.pw), 0.01, 0.99);
+      program.ring_mod.depth = std::max(0.0, NodeParamNumber(node.params, "depth", program.ring_mod.depth));
+      program.ring_mod.mix = Clamp(NodeParamNumber(node.params, "mix", program.ring_mod.mix), 0.0, 1.0);
+      program.ring_mod.bias = NodeParamNumber(node.params, "bias", program.ring_mod.bias);
+    } else if (node.type == "softclip") {
+      program.softclip.enabled = true;
+      program.softclip.node_id = node.id;
+      program.softclip.drive = std::max(0.0, NodeParamNumber(node.params, "drive", program.softclip.drive));
+      program.softclip.mix = Clamp(NodeParamNumber(node.params, "mix", program.softclip.mix), 0.0, 1.0);
+      program.softclip.bias = NodeParamNumber(node.params, "bias", program.softclip.bias);
+    } else if (node.type == "audio_mix") {
+      program.audio_mix.enabled = true;
+      program.audio_mix.node_id = node.id;
+      if (const auto it = node.params.find("gain"); it != node.params.end()) {
+        if (it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber && it->second.unit_number_value.unit == "dB") {
+          program.audio_mix.gain = DbToLinear(it->second.unit_number_value.value);
+        } else {
+          program.audio_mix.gain = ValueToNumber(it->second, program.audio_mix.gain);
+        }
+      }
+      program.audio_mix.mix = Clamp(NodeParamNumber(node.params, "mix", program.audio_mix.mix), 0.0, 1.0);
+      program.audio_mix.bias = NodeParamNumber(node.params, "bias", program.audio_mix.bias);
     } else if (node.type == "gain") {
       program.gain_node_id = node.id;
       if (const auto it = node.params.find("gain"); it != node.params.end()) {
@@ -1367,6 +1488,8 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   };
   std::vector<double> cv_state(program.cv_nodes.size(), 0.0);
   std::vector<bool> cv_state_valid(program.cv_nodes.size(), false);
+  std::vector<bool> cv_gate_high(program.cv_nodes.size(), false);
+  std::vector<bool> cv_gate_high_valid(program.cv_nodes.size(), false);
   const auto slew_toward = [&](double current, double target, double seconds, double dt) {
     const double tau = std::max(0.0001, seconds);
     const double alpha = 1.0 - std::exp(-dt / tau);
@@ -1470,6 +1593,55 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
       out = in1 + cv.offset;
     } else if (cv.type == "cv_mix") {
       out = in1 * cv.a + in2 * cv.b + cv.bias;
+    } else if (cv.type == "cv_invert") {
+      out = (cv.bias - in1) * cv.scale + cv.offset;
+    } else if (cv.type == "cv_sample_hold") {
+      const double h = std::max(0.0, cv.hysteresis);
+      const double rise = cv.threshold + 0.5 * h;
+      const double fall = cv.threshold - 0.5 * h;
+      bool trig_high = cv_gate_high_valid[cv_index] ? cv_gate_high[cv_index] : false;
+      if (!trig_high && in2 >= rise) {
+        trig_high = true;
+      } else if (trig_high && in2 <= fall) {
+        trig_high = false;
+      }
+      const bool had_prev = cv_gate_high_valid[cv_index];
+      const bool rising = had_prev ? (!cv_gate_high[cv_index] && trig_high) : true;
+      const double held = cv_state_valid[cv_index] ? cv_state[cv_index] : in1;
+      out = rising ? in1 : held;
+      cv_gate_high[cv_index] = trig_high;
+      cv_gate_high_valid[cv_index] = true;
+    } else if (cv.type == "cv_cmp") {
+      const double h = std::max(0.0, cv.hysteresis);
+      const double rise = cv.threshold + 0.5 * h;
+      const double fall = cv.threshold - 0.5 * h;
+      bool gate = cv_gate_high_valid[cv_index] ? cv_gate_high[cv_index] : false;
+      if (!gate && in1 >= rise) {
+        gate = true;
+      } else if (gate && in1 <= fall) {
+        gate = false;
+      }
+      cv_gate_high[cv_index] = gate;
+      cv_gate_high_valid[cv_index] = true;
+      out = gate ? cv.high : cv.low;
+    } else if (cv.type == "cv_logic") {
+      const bool a = in1 >= cv.threshold;
+      const bool b = in2 >= cv.threshold;
+      bool gate = false;
+      if (cv.op == "or") {
+        gate = a || b;
+      } else if (cv.op == "xor") {
+        gate = (a != b);
+      } else if (cv.op == "nand") {
+        gate = !(a && b);
+      } else if (cv.op == "nor") {
+        gate = !(a || b);
+      } else if (cv.op == "xnor") {
+        gate = (a == b);
+      } else {
+        gate = a && b;
+      }
+      out = gate ? cv.high : cv.low;
     } else if (cv.type == "cv_clip") {
       const double lo = std::min(cv.min, cv.max);
       const double hi = std::max(cv.min, cv.max);
@@ -1572,9 +1744,26 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   const ValueRoute filt_freq = make_route(program.filter_node_id + ".freq");
   const ValueRoute filt_q = make_route(program.filter_node_id + ".q");
   const ValueRoute filt_res = make_route(program.filter_node_id + ".res");
+  const ValueRoute filt_drive = make_route(program.filter_node_id + ".drive");
+  const ValueRoute filt_keytrack = make_route(program.filter_node_id + ".keytrack");
+  const ValueRoute filt_env_amt = make_route(program.filter_node_id + ".env_amt");
+  const ValueRoute filt_env_amt_alias = make_route(program.filter_node_id + ".env_amount");
   const ValueRoute gain_db_route = make_route(program.gain_node_id + ".gain");
   const ValueRoute vca_cv_route = make_route(program.vca.node_id + ".cv");
   const ValueRoute vca_gain_route = make_route(program.vca.node_id + ".gain");
+  const ValueRoute vca_curve_amount_route = make_route(program.vca.node_id + ".curve_amt");
+  const ValueRoute vca_curve_amount_alias_route = make_route(program.vca.node_id + ".curve_amount");
+  const ValueRoute ring_freq_route = make_route(program.ring_mod.node_id + ".freq");
+  const ValueRoute ring_mix_route = make_route(program.ring_mod.node_id + ".mix");
+  const ValueRoute ring_depth_route = make_route(program.ring_mod.node_id + ".depth");
+  const ValueRoute ring_bias_route = make_route(program.ring_mod.node_id + ".bias");
+  const ValueRoute ring_pw_route = make_route(program.ring_mod.node_id + ".pw");
+  const ValueRoute softclip_drive_route = make_route(program.softclip.node_id + ".drive");
+  const ValueRoute softclip_mix_route = make_route(program.softclip.node_id + ".mix");
+  const ValueRoute softclip_bias_route = make_route(program.softclip.node_id + ".bias");
+  const ValueRoute audio_mix_gain_route = make_route(program.audio_mix.node_id + ".gain");
+  const ValueRoute audio_mix_mix_route = make_route(program.audio_mix.node_id + ".mix");
+  const ValueRoute audio_mix_bias_route = make_route(program.audio_mix.node_id + ".bias");
   const std::vector<size_t>* env_a_mod_routes = find_target_routes(program.env_node_id + ".a");
   const std::vector<size_t>* env_d_mod_routes = find_target_routes(program.env_node_id + ".d");
   const std::vector<size_t>* env_s_mod_routes = find_target_routes(program.env_node_id + ".s");
@@ -1582,9 +1771,26 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   const std::vector<size_t>* filt_cutoff_mod_routes = find_target_routes(program.filter_node_id + ".cutoff");
   const std::vector<size_t>* filt_q_mod_routes = find_target_routes(program.filter_node_id + ".q");
   const std::vector<size_t>* filt_res_mod_routes = find_target_routes(program.filter_node_id + ".res");
+  const std::vector<size_t>* filt_drive_mod_routes = find_target_routes(program.filter_node_id + ".drive");
+  const std::vector<size_t>* filt_keytrack_mod_routes = find_target_routes(program.filter_node_id + ".keytrack");
+  const std::vector<size_t>* filt_env_amt_mod_routes = find_target_routes(program.filter_node_id + ".env_amt");
+  const std::vector<size_t>* filt_env_amt_alias_mod_routes = find_target_routes(program.filter_node_id + ".env_amount");
   const std::vector<size_t>* gain_db_mod_routes = find_target_routes(program.gain_node_id + ".gain");
   const std::vector<size_t>* vca_cv_mod_routes = find_target_routes(program.vca.node_id + ".cv");
   const std::vector<size_t>* vca_gain_mod_routes = find_target_routes(program.vca.node_id + ".gain");
+  const std::vector<size_t>* vca_curve_amount_mod_routes = find_target_routes(program.vca.node_id + ".curve_amt");
+  const std::vector<size_t>* vca_curve_amount_alias_mod_routes = find_target_routes(program.vca.node_id + ".curve_amount");
+  const std::vector<size_t>* ring_freq_mod_routes = find_target_routes(program.ring_mod.node_id + ".freq");
+  const std::vector<size_t>* ring_mix_mod_routes = find_target_routes(program.ring_mod.node_id + ".mix");
+  const std::vector<size_t>* ring_depth_mod_routes = find_target_routes(program.ring_mod.node_id + ".depth");
+  const std::vector<size_t>* ring_bias_mod_routes = find_target_routes(program.ring_mod.node_id + ".bias");
+  const std::vector<size_t>* ring_pw_mod_routes = find_target_routes(program.ring_mod.node_id + ".pw");
+  const std::vector<size_t>* softclip_drive_mod_routes = find_target_routes(program.softclip.node_id + ".drive");
+  const std::vector<size_t>* softclip_mix_mod_routes = find_target_routes(program.softclip.node_id + ".mix");
+  const std::vector<size_t>* softclip_bias_mod_routes = find_target_routes(program.softclip.node_id + ".bias");
+  const std::vector<size_t>* audio_mix_gain_mod_routes = find_target_routes(program.audio_mix.node_id + ".gain");
+  const std::vector<size_t>* audio_mix_mix_mod_routes = find_target_routes(program.audio_mix.node_id + ".mix");
+  const std::vector<size_t>* audio_mix_bias_mod_routes = find_target_routes(program.audio_mix.node_id + ".bias");
   const auto no_attack_it = play.params.find("__env_no_attack");
   const bool no_attack = (no_attack_it != play.params.end() && no_attack_it->second.kind == aurora::lang::ParamValue::Kind::kBool &&
                           no_attack_it->second.bool_value);
@@ -1597,6 +1803,11 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
     double ic2eq_left = 0.0;
     double ic1eq_right = 0.0;
     double ic2eq_right = 0.0;
+    double ic1eq_left_b = 0.0;
+    double ic2eq_left_b = 0.0;
+    double ic1eq_right_b = 0.0;
+    double ic2eq_right_b = 0.0;
+    double ring_phase = 0.0;
     PCG32 noise_rng(Hash64FromParts(seed, "voice", play.patch, std::to_string(play.start_sample),
                                     std::to_string(static_cast<int>(pitch_index))));
 
@@ -1717,10 +1928,93 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         sample_right *= inv;
       }
 
+      if (program.ring_mod.enabled && !program.ring_mod.node_id.empty()) {
+        const double ring_freq = std::max(
+            0.0, apply_mod(ring_freq_mod_routes, resolve_number(ring_freq_route, program.ring_mod.freq_hz, abs_sample), env, t,
+                           abs_sample));
+        const double ring_depth =
+            std::max(0.0, apply_mod(ring_depth_mod_routes, resolve_number(ring_depth_route, program.ring_mod.depth, abs_sample),
+                                    env, t, abs_sample));
+        const double ring_mix = Clamp(
+            apply_mod(ring_mix_mod_routes, resolve_number(ring_mix_route, program.ring_mod.mix, abs_sample), env, t, abs_sample),
+            0.0, 1.0);
+        const double ring_bias =
+            apply_mod(ring_bias_mod_routes, resolve_number(ring_bias_route, program.ring_mod.bias, abs_sample), env, t, abs_sample);
+        const double ring_pw = Clamp(
+            apply_mod(ring_pw_mod_routes, resolve_number(ring_pw_route, program.ring_mod.pw, abs_sample), env, t, abs_sample), 0.01,
+            0.99);
+        ring_phase += ring_freq / static_cast<double>(sample_rate);
+        const double carrier = LfoWave(program.ring_mod.shape, ring_phase, ring_pw);
+        double wet_left = 0.0;
+        double wet_right = 0.0;
+        if (program.ring_mod.mode == "unbalanced") {
+          const double mod = 1.0 + carrier * ring_depth + ring_bias;
+          wet_left = sample_left * mod;
+          wet_right = sample_right * mod;
+        } else if (program.ring_mod.mode == "diode") {
+          const double mod = std::max(0.0, std::fabs(carrier) * ring_depth + ring_bias);
+          wet_left = sample_left * mod;
+          wet_right = sample_right * mod;
+        } else {
+          const double mod = carrier * ring_depth + ring_bias;
+          wet_left = sample_left * mod;
+          wet_right = sample_right * mod;
+        }
+        sample_left = sample_left * (1.0 - ring_mix) + wet_left * ring_mix;
+        sample_right = sample_right * (1.0 - ring_mix) + wet_right * ring_mix;
+      }
+
+      if (program.softclip.enabled && !program.softclip.node_id.empty()) {
+        const double drive = std::max(
+            0.0, apply_mod(softclip_drive_mod_routes,
+                           resolve_number(softclip_drive_route, program.softclip.drive, abs_sample), env, t, abs_sample));
+        const double clip_mix = Clamp(
+            apply_mod(softclip_mix_mod_routes, resolve_number(softclip_mix_route, program.softclip.mix, abs_sample), env, t,
+                      abs_sample),
+            0.0, 1.0);
+        const double clip_bias =
+            apply_mod(softclip_bias_mod_routes, resolve_number(softclip_bias_route, program.softclip.bias, abs_sample), env, t,
+                      abs_sample);
+        const double wet_left = std::tanh((sample_left + clip_bias) * drive);
+        const double wet_right = std::tanh((sample_right + clip_bias) * drive);
+        sample_left = sample_left * (1.0 - clip_mix) + wet_left * clip_mix;
+        sample_right = sample_right * (1.0 - clip_mix) + wet_right * clip_mix;
+      }
+
+      if (program.audio_mix.enabled && !program.audio_mix.node_id.empty()) {
+        const double util_gain =
+            apply_mod(audio_mix_gain_mod_routes, resolve_number(audio_mix_gain_route, program.audio_mix.gain, abs_sample), env,
+                      t, abs_sample);
+        const double util_mix = Clamp(
+            apply_mod(audio_mix_mix_mod_routes, resolve_number(audio_mix_mix_route, program.audio_mix.mix, abs_sample), env, t,
+                      abs_sample),
+            0.0, 1.0);
+        const double util_bias =
+            apply_mod(audio_mix_bias_mod_routes, resolve_number(audio_mix_bias_route, program.audio_mix.bias, abs_sample), env, t,
+                      abs_sample);
+        const double wet_left = sample_left * util_gain + util_bias;
+        const double wet_right = sample_right * util_gain + util_bias;
+        sample_left = sample_left * (1.0 - util_mix) + wet_left * util_mix;
+        sample_right = sample_right * (1.0 - util_mix) + wet_right * util_mix;
+      }
+
       double cutoff = resolve_number(filt_cutoff, program.filter.cutoff_hz, abs_sample);
       if (filt_cutoff.param == nullptr && filt_cutoff.lane == nullptr) {
         cutoff = resolve_number(filt_freq, cutoff, abs_sample);
       }
+      const double keytrack = apply_mod(filt_keytrack_mod_routes,
+                                        resolve_number(filt_keytrack, program.filter.keytrack, abs_sample), env, t, abs_sample);
+      const double keytrack_ratio = std::pow(2.0, ((static_cast<double>(pitch.midi) - 60.0) / 12.0) * keytrack);
+      cutoff *= keytrack_ratio;
+      ValueRoute active_env_amt = filt_env_amt;
+      const std::vector<size_t>* active_env_amt_mod_routes = filt_env_amt_mod_routes;
+      if (active_env_amt.param == nullptr && active_env_amt.lane == nullptr) {
+        active_env_amt = filt_env_amt_alias;
+        active_env_amt_mod_routes = filt_env_amt_alias_mod_routes;
+      }
+      const double env_amt =
+          apply_mod(active_env_amt_mod_routes, resolve_number(active_env_amt, program.filter.env_amt, abs_sample), env, t, abs_sample);
+      cutoff += env * env_amt;
       cutoff = apply_mod(filt_cutoff_mod_routes, cutoff, env, t, abs_sample);
       cutoff = std::max(20.0, cutoff);
 
@@ -1733,6 +2027,8 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         const double res = Clamp(apply_mod(filt_res_mod_routes, resolve_number(filt_res, program.filter.res, abs_sample), env, t,
                                            abs_sample),
                                  0.0, 1.0);
+        const double drive = std::max(
+            0.0, apply_mod(filt_drive_mod_routes, resolve_number(filt_drive, program.filter.drive, abs_sample), env, t, abs_sample));
 
         // Convert normalized resonance to an additional Q boost, while keeping explicit Q authoritative.
         const double effective_q = Clamp(q * (1.0 + res * 8.0), 0.05, 24.0);
@@ -1764,8 +2060,34 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
           return lp;
         };
 
-        sample_left = process_filter_sample(sample_left, &ic1eq_left, &ic2eq_left);
-        sample_right = process_filter_sample(sample_right, &ic1eq_right, &ic2eq_right);
+        const auto drive_shaper = [&](double in) {
+          if (drive <= 0.0 || std::abs(drive - 1.0) <= 0.0001) {
+            return in;
+          }
+          const double norm = std::tanh(drive);
+          const double inv_norm = (std::abs(norm) > 0.000001) ? (1.0 / norm) : 1.0;
+          return std::tanh(in * drive) * inv_norm;
+        };
+
+        const bool post_drive = (program.filter.drive_pos == "post" || program.filter.drive_pos == "after");
+        const bool steep_slope = program.filter.slope_db >= 24;
+        if (post_drive) {
+          double out_l = process_filter_sample(sample_left, &ic1eq_left, &ic2eq_left);
+          double out_r = process_filter_sample(sample_right, &ic1eq_right, &ic2eq_right);
+          if (steep_slope) {
+            out_l = process_filter_sample(out_l, &ic1eq_left_b, &ic2eq_left_b);
+            out_r = process_filter_sample(out_r, &ic1eq_right_b, &ic2eq_right_b);
+          }
+          sample_left = drive_shaper(out_l);
+          sample_right = drive_shaper(out_r);
+        } else {
+          sample_left = process_filter_sample(drive_shaper(sample_left), &ic1eq_left, &ic2eq_left);
+          sample_right = process_filter_sample(drive_shaper(sample_right), &ic1eq_right, &ic2eq_right);
+          if (steep_slope) {
+            sample_left = process_filter_sample(sample_left, &ic1eq_left_b, &ic2eq_left_b);
+            sample_right = process_filter_sample(sample_right, &ic1eq_right_b, &ic2eq_right_b);
+          }
+        }
       }
 
       double gain = base_gain;
@@ -1781,7 +2103,23 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         const double vca_gain =
             std::max(0.0, apply_mod(vca_gain_mod_routes, resolve_number(vca_gain_route, program.vca.gain, abs_sample), env, t,
                                     abs_sample));
-        gain *= vca_cv * vca_gain;
+        ValueRoute active_curve_amount = vca_curve_amount_route;
+        const std::vector<size_t>* active_curve_amount_mod_routes = vca_curve_amount_mod_routes;
+        if (active_curve_amount.param == nullptr && active_curve_amount.lane == nullptr) {
+          active_curve_amount = vca_curve_amount_alias_route;
+          active_curve_amount_mod_routes = vca_curve_amount_alias_mod_routes;
+        }
+        const double curve_amount =
+            Clamp(apply_mod(active_curve_amount_mod_routes,
+                            resolve_number(active_curve_amount, program.vca.curve_amount, abs_sample), env, t, abs_sample),
+                  0.2, 8.0);
+        double shaped_cv = vca_cv;
+        if (program.vca.curve == "exp" || program.vca.curve == "exponential") {
+          shaped_cv = std::pow(vca_cv, curve_amount);
+        } else if (program.vca.curve == "log" || program.vca.curve == "logarithmic") {
+          shaped_cv = 1.0 - std::pow(1.0 - vca_cv, curve_amount);
+        }
+        gain *= shaped_cv * vca_gain;
       }
       const float out_left = static_cast<float>(sample_left * env * gain);
       const float out_right = static_cast<float>(sample_right * env * gain);

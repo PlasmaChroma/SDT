@@ -1,0 +1,87 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 92,
+  tail_policy: fixed(1s)
+}
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir: "./renders/midi/",
+  mix_dir: "./renders/mix/",
+  meta_dir: "./renders/meta/",
+  master: "master.wav",
+  render_json: "render.json"
+}
+
+patch RingPerc {
+  out: stem("arch_ring_perc"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine, params: { freq: 170Hz } },
+      { id: "env", type: env_ad, params: { a: 2ms, d: 180ms } },
+      { id: "rm", type: ring_mod_diode, params: { shape: tri, freq: 75Hz, depth: 1.2, mix: 1.0, bias: 0.0 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 1.0, curve: exp, curve_amt: 2.2 } },
+      { id: "amp", type: gain, params: { gain: -9dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "env.out", to: "rm.depth", rate: control, map: { type: set, min: 0.4, max: 1.8 } },
+      { from: "env.out", to: "vca.cv", rate: control, map: { type: set, min: 0.0, max: 1.0 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch SHMotion {
+  out: stem("arch_sh_motion"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 120Hz } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 420Hz, q: 0.75, env_amt: 0Hz } },
+      { id: "src", type: lfo, params: { shape: tri, rate: 0.45Hz, depth: 1.0, unipolar: true } },
+      { id: "trig", type: lfo, params: { shape: square, rate: 5.0Hz, depth: 1.0, unipolar: true } },
+      { id: "sh", type: cv_sample_hold, params: { threshold: 0.5, hysteresis: 0.04 } },
+      { id: "amp", type: gain, params: { gain: -13dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+      { from: "src.out", to: "sh.in" },
+      { from: "trig.out", to: "sh.in2" },
+      { from: "sh.out", to: "filt.cutoff", rate: control, map: { type: set, min: 180, max: 2600 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch LogicGate {
+  out: stem("arch_logic_gate"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_tri_blep, params: { freq: 95Hz } },
+      { id: "l1", type: lfo, params: { shape: square, rate: 3.5Hz, depth: 1.0, unipolar: true } },
+      { id: "l2", type: lfo, params: { shape: square, rate: 5.0Hz, depth: 1.0, unipolar: true } },
+      { id: "gate", type: cv_logic, params: { op: xor, threshold: 0.5, high: 1.0, low: 0.0 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 1.0, curve: linear } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "amp.in" },
+      { from: "l1.out", to: "gate.in" },
+      { from: "l2.out", to: "gate.in2" },
+      { from: "gate.out", to: "vca.cv", rate: control, map: { type: set, min: 0.0, max: 1.0 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section A at 0s dur 4s {
+    seq RingPerc { at: 0s, dur: 4s, rate: 0.5beats, pattern: "x...x...x...x...", prob: 1.0, pitch: [C3] }
+    play SHMotion { at: 0s, dur: 4s, vel: 0.82, pitch: A2 }
+    play LogicGate { at: 0s, dur: 4s, vel: 0.86, pitch: E2 }
+  }
+}

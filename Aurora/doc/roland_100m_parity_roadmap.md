@@ -166,10 +166,82 @@ Done criteria:
 ## M4: Module Catalog Expansion
 Target: practical module parity set.
 
+Status: `complete`
+
 Deliverables:
 1. Add missing utility and modulation processors.
 2. Add ring modulation and sample-and-hold family.
 3. Extend filter and VCA options where musically relevant.
+
+Implementation slices:
+1. M4.A CV utility expansion (deterministic control domain)
+   - `cv_invert`
+   - `cv_sample_hold`
+   - `cv_cmp` (comparator with optional hysteresis)
+   - `cv_logic` (`and|or|xor|nand|nor|xnor`)
+2. M4.B Audio utility modules
+   - ring modulation node family (`ring_mod`, optional diode-style variant later)
+   - CV/audio mixer utility refinements
+3. M4.C Filter/VCA options
+   - filter drive/saturation stage
+   - optional filter mode refinements
+   - VCA response curves (linear/exponential)
+
+Implementation progress:
+- Completed:
+1. M4.A node implementation in renderer/validator:
+   - `cv_invert`, `cv_sample_hold`, `cv_cmp`, `cv_logic`
+2. M4.A test fixture and harness:
+   - `tests/m4_cv_modules.au`
+   - `tests/run_m4_tests.sh`
+3. M4.B first audio utility implementation:
+   - `ring_mod` node (carrier shape/rate + depth/mix/bias with modulation routing support)
+4. M4.B test fixture:
+   - `tests/m4_ring_mod.au`
+5. M4.B second audio utility implementation:
+   - `softclip` node (drive/mix/bias with modulation routing support)
+6. M4.B second utility test fixture:
+   - `tests/m4_softclip.au`
+7. M4.B audio utility mixer implementation:
+   - `audio_mix` node (gain/mix/bias utility stage with modulation routing support)
+8. M4.B audio utility mixer test fixture:
+   - `tests/m4_audio_mix.au`
+9. M4.B ring-mod variant support:
+   - `ring_mod.mode` (`balanced|unbalanced|diode`) and `ring_mod_diode` alias node
+10. M4.B ring-mod variant test fixture:
+   - `tests/m4_ring_mod_variant.au`
+11. M4.C first option expansion implemented:
+    - filter input `drive` (active and routable)
+    - VCA curve modes (`linear|exp`)
+12. M4.C fixture:
+    - `tests/m4_filter_vca_options.au`
+13. M4.C VCA curve refinement:
+    - added `log` mode and adjustable curve amount (`curve_amt` / `curve_amount`)
+14. M4.C VCA curve fixture:
+    - `tests/m4_vca_curve_variants.au`
+15. M4.C filter drive placement refinement:
+    - `drive_pos` / `drive_stage` (`pre|post`) support in filter stage
+16. M4.C filter drive placement fixture:
+    - `tests/m4_filter_drive_positions.au`
+17. M4.C filter slope refinement:
+    - `slope: 12|24` support (24 uses cascaded filter core pass)
+18. M4.C filter slope fixture:
+    - `tests/m4_filter_slope.au`
+19. M4.C filter key-tracking refinement:
+    - `keytrack` support in filter cutoff path (pitch-relative cutoff scaling)
+20. M4.C filter key-tracking fixture:
+    - `tests/m4_filter_keytrack.au`
+21. M4.C filter envelope amount refinement:
+    - `env_amt` (`env_amount` alias) support in filter cutoff path
+22. M4.C filter envelope amount fixture:
+    - `tests/m4_filter_env_amount.au`
+23. M4 archetype bank added:
+    - `tests/m4_archetype_bank.au` includes:
+      - ring-mod percussion archetype
+      - sample-and-hold filter motion archetype
+      - logic-driven gating archetype
+- Remaining for M4:
+1. None (optional refinements can be tracked as post-M4 polish).
 
 Done criteria:
 1. A reference bank of classic modular patch archetypes can be authored 1:1 in Aurora graph DSL.
@@ -177,10 +249,23 @@ Done criteria:
 ## M5: Character + Workflow
 Target: production-ready parity experience.
 
+Status: `not_started`
+
 Deliverables:
 1. Optional analog character profiles (`clean`, `vintage_light`, `vintage_heavy`).
 2. Graph and modulation diagnostics in CLI output/metadata.
 3. Preview mode for fast iteration.
+
+Specification work required before implementation:
+1. Character profile contract:
+   - exact DSP hooks per profile (osc drift, filter saturation, noise floor, envelope timing variance)
+   - determinism contract (seed-coupled variation only)
+2. Diagnostics schema:
+   - JSON metadata extensions for modulation trace summaries and node-level peak/RMS stats
+   - warning/error categories and severity levels
+3. Preview architecture:
+   - low-latency render window API
+   - deterministic snapshot export format compatible with full offline render
 
 Done criteria:
 1. Patch design workflow speed is acceptable without external DAW workaround.
@@ -191,11 +276,13 @@ Done criteria:
 - port typing grammar/semantics,
 - gate/trigger event forms,
 - expanded `connect.map` schema,
-- new utility node specs.
+- M4 utility node specs (`cv_invert`, `cv_sample_hold`, `cv_cmp`, `cv_logic`),
+- upcoming M4.B ring-mod node specs.
 2. Update `doc/aurora_requirements_v_1.md` (or v1.1 doc):
 - deterministic rules for mixed-rate execution,
 - feedback semantics,
-- voice policy contracts.
+- voice policy contracts,
+- M4 module semantics and parameter contracts.
 3. Add a dedicated examples suite for parity patterns:
 - envelope-controlled VCA pluck,
 - S&H to filter,
@@ -218,8 +305,10 @@ Done criteria:
 5. M5 after parity-critical engine behavior is locked.
 
 ## First Implementation Slice (Next Sprint)
-1. Add port typing to internal graph compiler structures.
-2. Implement `cv_scale`, `cv_offset`, `cv_mix`, `cv_slew` nodes.
-3. Add trigger/gate event injection path in score expansion.
-4. Extend `connect.map` with `invert` + `bias`.
-5. Add 3 regression `.au` tests proving CV chain correctness.
+1. M4.B: implement `ring_mod` node with deterministic behavior and modulation routing support.
+2. M4.C: add VCA response curve options (`linear|exp`) and tests.
+3. Add archetype fixtures:
+   - ring-mod percussion
+   - sample-and-hold filter stepping
+   - comparator/logic rhythmic gating
+4. Expand parity test runner to include M1-M4 regression matrix.

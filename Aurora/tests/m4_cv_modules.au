@@ -1,0 +1,59 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 90,
+  tail_policy: fixed(1s)
+}
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir: "./renders/midi/",
+  mix_dir: "./renders/mix/",
+  meta_dir: "./renders/meta/",
+  master: "master.wav",
+  render_json: "render.json"
+}
+
+patch CvModules {
+  out: stem("cv_modules"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 140Hz } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 900Hz, q: 0.7 } },
+      { id: "env", type: env_adsr, params: { a: 20ms, d: 300ms, s: 0.25, r: 600ms } },
+      { id: "lfo_trig", type: lfo, params: { shape: square, rate: 8Hz, depth: 1.0, unipolar: true } },
+      { id: "inv", type: cv_invert, params: { scale: 0.65, offset: 0.5 } },
+      { id: "sh", type: cv_sample_hold, params: { threshold: 0.5 } },
+      { id: "cmp", type: cv_cmp, params: { threshold: 0.52, hysteresis: 0.04, high: 1.0, low: 0.0 } },
+      { id: "lg", type: cv_logic, params: { op: xor, threshold: 0.5, high: 1.0, low: 0.0 } },
+      { id: "mixcv", type: cv_mix, params: { a: 0.8, b: 0.35, bias: 0.0 } },
+      { id: "vca", type: vca, params: { gain: 1.0, cv: 1.0 } },
+      { id: "amp", type: gain, params: { gain: -10dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" },
+
+      { from: "env.out", to: "inv.in" },
+      { from: "env.out", to: "cmp.in" },
+      { from: "env.out", to: "sh.in" },
+      { from: "lfo_trig.out", to: "sh.in2" },
+      { from: "cmp.out", to: "lg.in" },
+      { from: "sh.out", to: "lg.in2" },
+      { from: "inv.out", to: "mixcv.in" },
+      { from: "sh.out", to: "mixcv.in2" },
+
+      { from: "mixcv.out", to: "filt.cutoff", rate: control, map: { type: set, min: 250, max: 4200 } },
+      { from: "lg.out", to: "vca.cv", rate: control, map: { type: set, min: 0.08, max: 1.0 } }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section A at 0s dur 5s {
+    play CvModules { at: 0s, dur: 5s, vel: 0.9, pitch: A2 }
+  }
+}

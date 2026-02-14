@@ -1,0 +1,56 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 84,
+  tail_policy: fixed(1s)
+}
+
+outputs {
+  stems_dir: "./renders/stems/",
+  midi_dir: "./renders/midi/",
+  mix_dir: "./renders/mix/",
+  meta_dir: "./renders/meta/",
+  master: "master.wav",
+  render_json: "render.json"
+}
+
+patch KeytrackOff {
+  out: stem("keytrack_off"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 110Hz } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 520Hz, q: 0.85, keytrack: 0.0 } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+patch KeytrackOn {
+  out: stem("keytrack_on"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_saw_blep, params: { freq: 110Hz } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 520Hz, q: 0.85, keytrack: 1.0 } },
+      { id: "amp", type: gain, params: { gain: -12dB } }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "amp.in" }
+    ],
+    io: { out: "amp" }
+  }
+}
+
+score {
+  section A at 0s dur 2.6s {
+    play KeytrackOff { at: 0s, dur: 2.6s, vel: 0.9, pitch: A4 }
+    play KeytrackOn { at: 0s, dur: 2.6s, vel: 0.9, pitch: A4 }
+  }
+}
