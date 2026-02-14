@@ -322,6 +322,13 @@ Current implementation note (renderer):
 
 - `| key=value, key=value, ...`
 
+Current implementation note (renderer):
+- Section transition smoothing is supported with:
+  - `xfade` (shorthand for both edges)
+  - `xfade_in`
+  - `xfade_out`
+- These apply as section-level gain ramps and multiply event envelopes (`play` + expanded `seq`) near section boundaries.
+
 #### 6.7.5 Score
 
 - `score { section ... }`

@@ -204,6 +204,10 @@ struct PlayOccurrence {
   double velocity = 1.0;
   std::vector<ResolvedPitch> pitches;
   std::map<std::string, aurora::lang::ParamValue> params;
+  uint64_t section_start_sample = 0;
+  uint64_t section_end_sample = 0;
+  uint64_t xfade_in_samples = 0;
+  uint64_t xfade_out_samples = 0;
 };
 
 struct SeqDensity {
@@ -307,6 +311,15 @@ std::vector<aurora::lang::ParamValue> SeqPitchList(const std::map<std::string, a
 
 double ParamAsSeconds(const aurora::lang::ParamValue& value, const TempoMap& tempo_map) {
   return ToSeconds(ValueToUnit(value), tempo_map);
+}
+
+double DirectiveSecondsOr(const std::map<std::string, aurora::lang::ParamValue>& directives, const std::string& key,
+                          double fallback_seconds, const TempoMap& tempo_map) {
+  const auto it = directives.find(key);
+  if (it == directives.end()) {
+    return fallback_seconds;
+  }
+  return std::max(0.0, ParamAsSeconds(it->second, tempo_map));
 }
 
 double FieldSecondsOr(const std::map<std::string, aurora::lang::ParamValue>& fields, const std::string& key,
@@ -438,7 +451,8 @@ bool SeqStepActive(const aurora::lang::ParamValue* pattern_value, size_t step_in
 
 void AddSeqHit(std::vector<PlayOccurrence>* plays, std::deque<double>* rolling_times, double absolute_seconds, uint64_t start_sample,
                uint64_t dur_samples, const std::string& patch, double velocity, const ResolvedPitch& pitch,
-               const std::map<std::string, aurora::lang::ParamValue>& params, int max_events_per_minute) {
+               const std::map<std::string, aurora::lang::ParamValue>& params, uint64_t section_start_sample,
+               uint64_t section_end_sample, uint64_t xfade_in_samples, uint64_t xfade_out_samples, int max_events_per_minute) {
   while (!rolling_times->empty() && absolute_seconds - rolling_times->front() > 60.0) {
     rolling_times->pop_front();
   }
@@ -453,6 +467,10 @@ void AddSeqHit(std::vector<PlayOccurrence>* plays, std::deque<double>* rolling_t
   occurrence.velocity = velocity;
   occurrence.pitches.push_back(pitch);
   occurrence.params = params;
+  occurrence.section_start_sample = section_start_sample;
+  occurrence.section_end_sample = section_end_sample;
+  occurrence.xfade_in_samples = xfade_in_samples;
+  occurrence.xfade_out_samples = xfade_out_samples;
   plays->push_back(std::move(occurrence));
 }
 
@@ -466,6 +484,14 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
 
     const uint64_t section_start = ToSamples(section.at, tempo_map, sample_rate);
     const uint64_t section_dur = ToSamples(section.dur, tempo_map, sample_rate);
+    const uint64_t section_end = section_start + section_dur;
+    const double xfade_both_s = DirectiveSecondsOr(section.directives, "xfade", 0.0, tempo_map);
+    const double xfade_in_s = DirectiveSecondsOr(section.directives, "xfade_in", xfade_both_s, tempo_map);
+    const double xfade_out_s = DirectiveSecondsOr(section.directives, "xfade_out", xfade_both_s, tempo_map);
+    const uint64_t xfade_in_samples =
+        static_cast<uint64_t>(std::llround(xfade_in_s * static_cast<double>(sample_rate)));
+    const uint64_t xfade_out_samples =
+        static_cast<uint64_t>(std::llround(xfade_out_s * static_cast<double>(sample_rate)));
     out.timeline_end = std::max(out.timeline_end, section_start + section_dur);
 
     for (const auto& event : section.events) {
@@ -483,6 +509,10 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
           occurrence.pitches.push_back(ResolvePitchValue(aurora::lang::ParamValue::Identifier("C4")));
         }
         occurrence.params = FlattenEventParams(play.params);
+        occurrence.section_start_sample = section_start;
+        occurrence.section_end_sample = section_end;
+        occurrence.xfade_in_samples = xfade_in_samples;
+        occurrence.xfade_out_samples = xfade_out_samples;
         out.timeline_end = std::max(out.timeline_end, occurrence.start_sample + occurrence.dur_samples);
         out.plays.push_back(std::move(occurrence));
         continue;
@@ -587,7 +617,7 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
               std::max<int64_t>(1, static_cast<int64_t>(std::llround(event_len_s * static_cast<double>(sample_rate)))));
           const uint64_t dur_samples = event_len_samples;
           AddSeqHit(&out.plays, &rolling_times, time_s, start_sample, dur_samples, seq.patch, velocity, pitch, seq_event_params,
-                    max_per_minute);
+                    section_start, section_end, xfade_in_samples, xfade_out_samples, max_per_minute);
 
           if (burst.count > 1 && rng.NextUnit() < burst.probability) {
             const double spread = (burst.spread_seconds > 0.0) ? burst.spread_seconds : (rate_s * 0.8);
@@ -595,7 +625,7 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
               const double burst_t = time_s + spread * (static_cast<double>(i) / static_cast<double>(burst.count));
               const uint64_t burst_start = static_cast<uint64_t>(std::llround(burst_t * sample_rate));
               AddSeqHit(&out.plays, &rolling_times, burst_t, burst_start, dur_samples, seq.patch, velocity, pitch, seq_event_params,
-                        max_per_minute);
+                        section_start, section_end, xfade_in_samples, xfade_out_samples, max_per_minute);
             }
           }
         }
@@ -957,6 +987,18 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
       if (play.dur_samples > fade_samples && i > play.dur_samples - fade_samples && fade_samples > 0) {
         const uint64_t rem = play.dur_samples - i;
         env *= static_cast<double>(rem) / static_cast<double>(fade_samples);
+      }
+      if (play.xfade_in_samples > 0 && abs_sample >= play.section_start_sample &&
+          abs_sample < play.section_start_sample + play.xfade_in_samples) {
+        const uint64_t x = abs_sample - play.section_start_sample;
+        env *= Clamp(static_cast<double>(x) / static_cast<double>(play.xfade_in_samples), 0.0, 1.0);
+      }
+      const uint64_t xfade_out_start =
+          (play.section_end_sample > play.xfade_out_samples) ? (play.section_end_sample - play.xfade_out_samples) : 0;
+      if (play.xfade_out_samples > 0 && play.section_end_sample > 0 && abs_sample >= xfade_out_start &&
+          abs_sample < play.section_end_sample) {
+        const uint64_t rem = play.section_end_sample - abs_sample;
+        env *= Clamp(static_cast<double>(rem) / static_cast<double>(play.xfade_out_samples), 0.0, 1.0);
       }
 
       double sample_left = 0.0;

@@ -304,6 +304,18 @@ Known section directives affecting `seq` expansion:
 - `density`: `very_low|low|medium|high`
 - `silence`: `short|medium|long`
 - `pack`: presets (`resist_resolution`, `long_breath`, `sparse_events`, `monolithic_decl`) that set/modify density/silence
+- `xfade`: shorthand to set both `xfade_in` and `xfade_out`
+- `xfade_in`: fade-in duration applied from section start
+- `xfade_out`: fade-out duration applied toward section end
+
+Section crossfade behavior:
+- Crossfade directives are optional and parse-time free-form directives.
+- Values are time literals (`ms|s|min|h|beats` where applicable).
+- During rendering, a section-level gain ramp is multiplied into event envelopes:
+  - `xfade_in`: ramps section gain `0 -> 1` over `[section.at, section.at + xfade_in]`
+  - `xfade_out`: ramps section gain `1 -> 0` over `[section.end - xfade_out, section.end]`
+- These ramps apply to both `play` and expanded `seq` events in the section.
+- If `xfade` is present and specific `xfade_in`/`xfade_out` are absent, both sides use `xfade`.
 
 ## 6.2 `play`
 Format:
