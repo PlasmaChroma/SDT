@@ -212,6 +212,9 @@ ValidationResult Validate(const AuroraFile& file) {
     if (bus.graph.out.empty()) {
       out.errors.push_back("Bus '" + bus.name + "' graph io.out is required.");
     }
+    if (bus.channels < 1 || bus.channels > 2) {
+      out.errors.push_back("Bus '" + bus.name + "' channels must be 1 or 2.");
+    }
     ValidateGraphConnections("Bus '" + bus.name + "' graph", bus.graph, &out);
     ValidateControlFeedbackCycles("Bus '" + bus.name + "' graph", bus.graph, &out);
   }

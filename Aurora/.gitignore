@@ -1,6 +1,6 @@
 # Build Directories
 build-linux/
-au/
+build
 
 # SSH Keys (Security Risk: Never commit these!)
 id_rsa_plasma

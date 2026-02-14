@@ -89,6 +89,7 @@ struct PatchDefinition {
 
 struct BusDefinition {
   std::string name;
+  int channels = 1;
   std::string out_stem;
   GraphDefinition graph;
 };

@@ -662,6 +662,9 @@ class Parser {
     BusDefinition bus;
     bus.name = ExpectIdentifierLike("bus name");
     const auto body = ParseObjectBody();
+    if (const auto it = body.find("channels"); it != body.end()) {
+      bus.channels = static_cast<int>(std::round(ValueAsNumber(it->second, 1.0)));
+    }
     if (const auto it = body.find("out"); it != body.end()) {
       bus.out_stem = ParseStemValue(it->second);
     } else {

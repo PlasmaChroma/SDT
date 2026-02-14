@@ -301,11 +301,21 @@ Minimal keys:
 
 A bus is a summing node with an FX graph.
 
+Bus keys:
+- optional `channels` (`1|2`, default `1`)
+- `out: stem("name")`
+- `graph: { ... }`
+
 Bus input contract:
 
-- Each bus has an implicit summing input ``.
+- Each bus has an implicit summing input `bus_in`.
 - All sends route into `bus_in` (stable summation order).
 - A bus graph may reference `bus_in` as a node id (see Graph DSL).
+- Sends preserve channel layout:
+  - source mono -> mono bus: summed mono
+  - source stereo -> mono bus: L/R averaged into mono
+  - source mono -> stereo bus: duplicated to L/R
+  - source stereo -> stereo bus: channel-preserving
 
 #### 6.7.3 Events
 
@@ -565,9 +575,19 @@ Current implementation notes:
 
 ### 9.7 FX
 
-- `delay(time, fb, mix, hicut, locut)`
-- `reverb_algo(size, decay, predelay, mix, hicut)`
+- `delay(time, fb, mix, hicut, locut, pingpong, mod_rate, mod_depth)`
+- `reverb_algo(size, decay, predelay, mix, hicut, locut, width)`
 - `eq_shelf(low_gain, low_freq, high_gain, high_freq)`
+
+Current implementation notes:
+- Bus delay/reverb are active in renderer and work on mono or stereo buses.
+- `bus.channels: 2` enables stereo FX stems and stereo bus processing.
+- Delay:
+  - `pingpong: true` cross-feeds delay feedback between channels on stereo buses.
+  - `mod_rate` (`Hz`) + `mod_depth` (`time`) modulate delay time per channel.
+- Reverb:
+  - `width` controls stereo image (`0` mono-ish to `1` wide).
+  - `hicut`/`locut` are active damping filters in wet path.
 
 ---
 

@@ -1,6 +1,7 @@
 ﻿#include "aurora/core/renderer.hpp"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -1799,51 +1800,235 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
 }
 
 struct BusProgram {
+  int channels = 1;
+  bool has_delay = false;
   bool has_reverb = false;
-  double mix = 0.3;
-  double decay = 4.0;
-  double predelay_seconds = 0.02;
+
+  double delay_time_seconds = 0.35;
+  double delay_fb = 0.35;
+  double delay_mix = 0.35;
+  double delay_hicut_hz = 12000.0;
+  double delay_locut_hz = 20.0;
+  bool delay_pingpong = false;
+  double delay_mod_rate_hz = 0.0;
+  double delay_mod_depth_seconds = 0.0;
+
+  double reverb_mix = 0.30;
+  double reverb_decay = 4.0;
+  double reverb_predelay_seconds = 0.02;
+  double reverb_size = 0.7;
+  double reverb_width = 1.0;
+  double reverb_hicut_hz = 9000.0;
+  double reverb_locut_hz = 80.0;
 };
+
+double NodeParamHz(const std::map<std::string, aurora::lang::ParamValue>& params, const std::string& key, double fallback) {
+  const auto it = params.find(key);
+  if (it == params.end()) {
+    return fallback;
+  }
+  if (it->second.kind == aurora::lang::ParamValue::Kind::kUnitNumber && it->second.unit_number_value.unit == "Hz") {
+    return std::max(1.0, it->second.unit_number_value.value);
+  }
+  return std::max(1.0, ValueToNumber(it->second, fallback));
+}
 
 BusProgram BuildBusProgram(const aurora::lang::BusDefinition& bus) {
   BusProgram program;
+  program.channels = std::clamp(bus.channels, 1, 2);
   for (const auto& node : bus.graph.nodes) {
     if (node.type == "reverb_algo") {
       program.has_reverb = true;
-      program.mix = Clamp(NodeParamNumber(node.params, "mix", program.mix), 0.0, 1.0);
+      program.reverb_mix = Clamp(NodeParamNumber(node.params, "mix", program.reverb_mix), 0.0, 1.0);
       if (const auto it = node.params.find("decay"); it != node.params.end()) {
-        program.decay = std::max(0.1, UnitLiteralToSeconds(ValueToUnit(it->second)));
+        program.reverb_decay = std::max(0.1, UnitLiteralToSeconds(ValueToUnit(it->second)));
       }
       if (const auto it = node.params.find("predelay"); it != node.params.end()) {
-        program.predelay_seconds = std::max(0.0, UnitLiteralToSeconds(ValueToUnit(it->second)));
+        program.reverb_predelay_seconds = std::max(0.0, UnitLiteralToSeconds(ValueToUnit(it->second)));
       }
+      program.reverb_size = Clamp(NodeParamNumber(node.params, "size", program.reverb_size), 0.1, 1.0);
+      program.reverb_width = Clamp(NodeParamNumber(node.params, "width", program.reverb_width), 0.0, 1.0);
+      program.reverb_hicut_hz = NodeParamHz(node.params, "hicut", program.reverb_hicut_hz);
+      program.reverb_locut_hz = NodeParamHz(node.params, "locut", program.reverb_locut_hz);
     } else if (node.type == "delay") {
-      program.has_reverb = true;
+      program.has_delay = true;
       if (const auto it = node.params.find("time"); it != node.params.end()) {
-        program.predelay_seconds = std::max(0.001, UnitLiteralToSeconds(ValueToUnit(it->second)));
+        program.delay_time_seconds = std::max(0.001, UnitLiteralToSeconds(ValueToUnit(it->second)));
       }
-      program.mix = Clamp(NodeParamNumber(node.params, "mix", 0.35), 0.0, 1.0);
-      program.decay = std::max(0.1, NodeParamNumber(node.params, "fb", 0.5) * 8.0);
+      if (const auto it = node.params.find("mod_depth"); it != node.params.end()) {
+        program.delay_mod_depth_seconds = std::max(0.0, UnitLiteralToSeconds(ValueToUnit(it->second)));
+      }
+      if (const auto it = node.params.find("mod_rate"); it != node.params.end()) {
+        const auto v = ValueToUnit(it->second);
+        if (v.unit == "Hz") {
+          program.delay_mod_rate_hz = std::max(0.0, v.value);
+        } else {
+          program.delay_mod_rate_hz = std::max(0.0, ValueToNumber(it->second, program.delay_mod_rate_hz));
+        }
+      }
+      program.delay_mix = Clamp(NodeParamNumber(node.params, "mix", program.delay_mix), 0.0, 1.0);
+      program.delay_fb = Clamp(NodeParamNumber(node.params, "fb", program.delay_fb), 0.0, 0.99);
+      program.delay_hicut_hz = NodeParamHz(node.params, "hicut", program.delay_hicut_hz);
+      program.delay_locut_hz = NodeParamHz(node.params, "locut", program.delay_locut_hz);
+      if (const auto it = node.params.find("pingpong"); it != node.params.end()) {
+        if (it->second.kind == aurora::lang::ParamValue::Kind::kBool) {
+          program.delay_pingpong = it->second.bool_value;
+        } else {
+          program.delay_pingpong = ValueToNumber(it->second, 0.0) != 0.0;
+        }
+      }
     }
   }
   return program;
 }
 
-void ProcessBusStem(std::vector<float>* buffer, const BusProgram& program, int sample_rate) {
-  if (!program.has_reverb || buffer->empty()) {
+inline double OnePoleLP(double x, double cutoff_hz, int sample_rate, double* state) {
+  const double wc = 2.0 * kPi * std::max(1.0, cutoff_hz);
+  const double dt = 1.0 / static_cast<double>(sample_rate);
+  const double alpha = wc * dt / (1.0 + wc * dt);
+  *state += (x - *state) * Clamp(alpha, 0.0, 1.0);
+  return *state;
+}
+
+inline double OnePoleHP(double x, double cutoff_hz, int sample_rate, double* lp_state) {
+  const double lp = OnePoleLP(x, cutoff_hz, sample_rate, lp_state);
+  return x - lp;
+}
+
+double ReadDelayTap(const std::vector<float>& line, size_t write_idx, double delay_samples) {
+  if (line.empty()) {
+    return 0.0;
+  }
+  const double len = static_cast<double>(line.size());
+  double read_pos = static_cast<double>(write_idx) - delay_samples;
+  while (read_pos < 0.0) {
+    read_pos += len;
+  }
+  while (read_pos >= len) {
+    read_pos -= len;
+  }
+  const size_t i0 = static_cast<size_t>(read_pos);
+  const size_t i1 = (i0 + 1U) % line.size();
+  const double frac = read_pos - static_cast<double>(i0);
+  return static_cast<double>(line[i0]) * (1.0 - frac) + static_cast<double>(line[i1]) * frac;
+}
+
+void ProcessBusStem(aurora::core::AudioStem* stem, const BusProgram& program, int sample_rate) {
+  if (stem == nullptr || stem->samples.empty()) {
     return;
   }
-  const size_t delay_size = std::max<size_t>(1, static_cast<size_t>(std::llround(program.predelay_seconds * sample_rate)));
-  std::vector<float> delay_line(delay_size, 0.0f);
-  size_t idx = 0;
-  const double feedback = Clamp(1.0 - std::exp(-1.0 / (program.decay * sample_rate * 0.25)), 0.05, 0.98);
-  for (size_t n = 0; n < buffer->size(); ++n) {
-    const float dry = (*buffer)[n];
-    const float wet = delay_line[idx];
-    delay_line[idx] = static_cast<float>(dry + wet * feedback);
-    idx = (idx + 1) % delay_line.size();
-    (*buffer)[n] = static_cast<float>(dry * (1.0 - program.mix) + wet * program.mix);
+  const int channels = std::clamp(stem->channels, 1, 2);
+  const size_t frames = stem->samples.size() / static_cast<size_t>(channels);
+  if (frames == 0) {
+    return;
   }
+
+  std::vector<float> work = stem->samples;
+
+  if (program.has_delay) {
+    const double max_delay_seconds =
+        std::max(0.001, program.delay_time_seconds + std::max(0.0, program.delay_mod_depth_seconds) + 0.05);
+    const size_t delay_size =
+        std::max<size_t>(2, static_cast<size_t>(std::ceil(max_delay_seconds * static_cast<double>(sample_rate))));
+    std::vector<float> dl(delay_size, 0.0f);
+    std::vector<float> dr(delay_size, 0.0f);
+    size_t widx = 0;
+    double lfo_phase = 0.0;
+    double lp_l = 0.0, lp_r = 0.0;
+    double hp_lp_l = 0.0, hp_lp_r = 0.0;
+    for (size_t f = 0; f < frames; ++f) {
+      const size_t bi = f * static_cast<size_t>(channels);
+      const double dry_l = static_cast<double>(work[bi]);
+      const double dry_r = channels == 2 ? static_cast<double>(work[bi + 1U]) : dry_l;
+      const double mod = (program.delay_mod_depth_seconds > 0.0 && program.delay_mod_rate_hz > 0.0)
+                             ? std::sin(2.0 * kPi * lfo_phase) * program.delay_mod_depth_seconds
+                             : 0.0;
+      lfo_phase += program.delay_mod_rate_hz / static_cast<double>(sample_rate);
+      if (lfo_phase >= 1.0) {
+        lfo_phase -= std::floor(lfo_phase);
+      }
+      const double dly_l_smp = std::max(1.0, (program.delay_time_seconds + mod) * static_cast<double>(sample_rate));
+      const double dly_r_smp = std::max(1.0, (program.delay_time_seconds - mod) * static_cast<double>(sample_rate));
+      double wet_l = ReadDelayTap(dl, widx, dly_l_smp);
+      double wet_r = ReadDelayTap(dr, widx, dly_r_smp);
+      wet_l = OnePoleLP(wet_l, program.delay_hicut_hz, sample_rate, &lp_l);
+      wet_r = OnePoleLP(wet_r, program.delay_hicut_hz, sample_rate, &lp_r);
+      wet_l = OnePoleHP(wet_l, program.delay_locut_hz, sample_rate, &hp_lp_l);
+      wet_r = OnePoleHP(wet_r, program.delay_locut_hz, sample_rate, &hp_lp_r);
+      const double fb_l = program.delay_pingpong && channels == 2 ? wet_r : wet_l;
+      const double fb_r = program.delay_pingpong && channels == 2 ? wet_l : wet_r;
+      dl[widx] = static_cast<float>(dry_l + fb_l * program.delay_fb);
+      dr[widx] = static_cast<float>(dry_r + fb_r * program.delay_fb);
+      widx = (widx + 1U) % delay_size;
+      const double out_l = dry_l * (1.0 - program.delay_mix) + wet_l * program.delay_mix;
+      const double out_r = dry_r * (1.0 - program.delay_mix) + wet_r * program.delay_mix;
+      work[bi] = static_cast<float>(out_l);
+      if (channels == 2) {
+        work[bi + 1U] = static_cast<float>(out_r);
+      }
+    }
+  }
+
+  if (program.has_reverb) {
+    const int predelay_samples =
+        std::max(1, static_cast<int>(std::llround(program.reverb_predelay_seconds * static_cast<double>(sample_rate))));
+    std::vector<float> pred_l(static_cast<size_t>(predelay_samples), 0.0f);
+    std::vector<float> pred_r(static_cast<size_t>(predelay_samples), 0.0f);
+    size_t pred_idx = 0;
+    const double size_scale = Clamp(program.reverb_size, 0.1, 1.0);
+    const std::array<int, 4> comb_base{1116, 1188, 1277, 1356};
+    std::vector<std::vector<float>> comb_l(4), comb_r(4);
+    std::array<size_t, 4> comb_idx{0, 0, 0, 0};
+    for (size_t i = 0; i < 4; ++i) {
+      const int len = std::max(8, static_cast<int>(std::llround(comb_base[i] * size_scale)));
+      comb_l[i].assign(static_cast<size_t>(len), 0.0f);
+      comb_r[i].assign(static_cast<size_t>(len + (channels == 2 ? 23 : 0)), 0.0f);
+    }
+    const double fb = Clamp(1.0 - std::exp(-3.0 / (program.reverb_decay * static_cast<double>(sample_rate))), 0.2, 0.97);
+    double lp_l = 0.0, lp_r = 0.0;
+    double hp_lp_l = 0.0, hp_lp_r = 0.0;
+    for (size_t f = 0; f < frames; ++f) {
+      const size_t bi = f * static_cast<size_t>(channels);
+      const double dry_l = static_cast<double>(work[bi]);
+      const double dry_r = channels == 2 ? static_cast<double>(work[bi + 1U]) : dry_l;
+      const double in_l = pred_l[pred_idx];
+      const double in_r = pred_r[pred_idx];
+      pred_l[pred_idx] = static_cast<float>(dry_l);
+      pred_r[pred_idx] = static_cast<float>(dry_r);
+      pred_idx = (pred_idx + 1U) % pred_l.size();
+      double wet_l = 0.0, wet_r = 0.0;
+      for (size_t i = 0; i < 4; ++i) {
+        auto& cl = comb_l[i];
+        auto& cr = comb_r[i];
+        const size_t il = comb_idx[i] % cl.size();
+        const size_t ir = comb_idx[i] % cr.size();
+        const double yl = cl[il];
+        const double yr = cr[ir];
+        cl[il] = static_cast<float>(in_l + yl * fb);
+        cr[ir] = static_cast<float>(in_r + yr * fb);
+        comb_idx[i] += 1U;
+        wet_l += yl;
+        wet_r += yr;
+      }
+      wet_l *= 0.25;
+      wet_r *= 0.25;
+      wet_l = OnePoleLP(wet_l, program.reverb_hicut_hz, sample_rate, &lp_l);
+      wet_r = OnePoleLP(wet_r, program.reverb_hicut_hz, sample_rate, &lp_r);
+      wet_l = OnePoleHP(wet_l, program.reverb_locut_hz, sample_rate, &hp_lp_l);
+      wet_r = OnePoleHP(wet_r, program.reverb_locut_hz, sample_rate, &hp_lp_r);
+      if (channels == 2) {
+        const double mid = 0.5 * (wet_l + wet_r);
+        const double side = 0.5 * (wet_l - wet_r) * program.reverb_width;
+        wet_l = mid + side;
+        wet_r = mid - side;
+      }
+      work[bi] = static_cast<float>(dry_l * (1.0 - program.reverb_mix) + wet_l * program.reverb_mix);
+      if (channels == 2) {
+        work[bi + 1U] = static_cast<float>(dry_r * (1.0 - program.reverb_mix) + wet_r * program.reverb_mix);
+      }
+    }
+  }
+  stem->samples.swap(work);
 }
 
 int ParamToCC(const std::string& key) {
@@ -2002,11 +2187,16 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
     report_progress(false);
   }
 
-  std::map<std::string, std::vector<float>> bus_buffers;
+  std::map<std::string, AudioStem> bus_buffers;
   std::map<std::string, BusProgram> bus_programs;
   for (const auto& bus : file.buses) {
-    bus_buffers[bus.name] = std::vector<float>(static_cast<size_t>(total_samples), 0.0f);
-    bus_programs[bus.name] = BuildBusProgram(bus);
+    const BusProgram program = BuildBusProgram(bus);
+    AudioStem buffer;
+    buffer.name = bus.name;
+    buffer.channels = program.channels;
+    buffer.samples.assign(static_cast<size_t>(total_samples) * static_cast<size_t>(buffer.channels), 0.0f);
+    bus_buffers[bus.name] = std::move(buffer);
+    bus_programs[bus.name] = program;
   }
 
   for (const auto& patch : file.patches) {
@@ -2023,17 +2213,29 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
     if (bus_it == bus_buffers.end() || source_it == patch_buffers.end()) {
       continue;
     }
+    AudioStem& bus_stem = bus_it->second;
+    const AudioStem& src_stem = source_it->second;
     const float send_gain = static_cast<float>(DbToLinear(program.send->amount_db));
-    const int src_channels = source_it->second.channels;
+    const int src_channels = src_stem.channels;
+    const int bus_channels = bus_stem.channels;
     for (size_t frame = 0; frame < static_cast<size_t>(total_samples); ++frame) {
-      float mono = 0.0f;
+      float src_l = 0.0f;
+      float src_r = 0.0f;
       if (src_channels == 1) {
-        mono = source_it->second.samples[frame];
+        src_l = src_stem.samples[frame];
+        src_r = src_l;
       } else {
         const size_t base = frame * 2U;
-        mono = 0.5f * (source_it->second.samples[base] + source_it->second.samples[base + 1U]);
+        src_l = src_stem.samples[base];
+        src_r = src_stem.samples[base + 1U];
       }
-      bus_it->second[frame] += mono * send_gain;
+      if (bus_channels == 1) {
+        bus_stem.samples[frame] += 0.5f * (src_l + src_r) * send_gain;
+      } else {
+        const size_t base = frame * 2U;
+        bus_stem.samples[base] += src_l * send_gain;
+        bus_stem.samples[base + 1U] += src_r * send_gain;
+      }
     }
   }
 
@@ -2049,7 +2251,7 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
     if (buffer_it == bus_buffers.end() || program_it == bus_programs.end()) {
       continue;
     }
-    std::vector<float>* buffer_ptr = &buffer_it->second;
+    AudioStem* buffer_ptr = &buffer_it->second;
     const BusProgram* program_ptr = &program_it->second;
     bus_futures.push_back(BusFuture{
         bus_name, std::async(std::launch::async, [buffer_ptr, program_ptr, sample_rate = result.metadata.sample_rate]() {
@@ -2074,9 +2276,9 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
   result.bus_stems.reserve(file.buses.size());
   for (const auto& bus : file.buses) {
     AudioStem stem;
-    stem.channels = 1;
+    stem.channels = bus_buffers[bus.name].channels;
     stem.name = bus.out_stem.empty() ? bus.name : bus.out_stem;
-    stem.samples = bus_buffers[bus.name];
+    stem.samples = bus_buffers[bus.name].samples;
     result.bus_stems.push_back(std::move(stem));
   }
 

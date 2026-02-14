@@ -198,11 +198,13 @@ Validation rules:
 
 ## 5.6 `bus <name>`
 Body keys:
+- `channels` (number, default `1`, allowed `1|2`)
 - `out` (usually `stem("name")`; if omitted defaults to bus name)
 - `graph` object (see Graph schema)
 
 Validation rules:
 - bus names must be unique
+- `channels` must be `1` or `2`
 - graph must contain at least one node
 - graph `io.out` is required
 
@@ -471,6 +473,7 @@ Errors:
 - `globals.block != 256`
 - duplicate patch names
 - duplicate bus names
+- bus channels outside `1..2`
 - empty graph nodes in patch/bus
 - missing graph `io.out` in patch/bus
 - patch send references unknown bus
@@ -518,9 +521,13 @@ Warnings:
 - `play.params` and `seq.params` override automation and static node values for the same key.
 - `osc.freq` is now an active/static parameter and participates in precedence.
 - Patch stems are stereo (`channels=2`) when `patch.binaural.enabled` is `true`; otherwise mono.
+- Bus stems follow `bus.channels` (`1` mono, `2` stereo).
 - Master becomes stereo automatically when any contributing stem is stereo.
 - `play` velocities are clamped to `[0, 1.5]` in rendering.
 - `seq` velocities are clamped to `[0, 1.0]`.
+- Active bus FX params:
+  - `delay`: `time`, `fb`, `mix`, `hicut`, `locut`, `pingpong`, `mod_rate`, `mod_depth`
+  - `reverb_algo`: `mix`, `decay`, `predelay`, `size`, `width`, `hicut`, `locut`
 
 ## 8.1 Param Routing Precedence Tables
 
