@@ -281,6 +281,15 @@ Supported params:
 - `mix` (dry/wet)
 - `damp` (feedback damping)
 
+Implemented pan node syntax (`pan`):
+```au
+{ id: "pan1", type: pan, params: { pos: -0.35, law: equal_power, width: 1.1 } }
+```
+Supported params:
+- `pos` (pan position, runtime clamped to `[-1, 1]`)
+- `law` (`equal_power` default, `linear` supported)
+- `width` (stereo width scaling, runtime clamped to `[0, 2]`)
+
 Implemented oscillator parameter behavior (`osc_*` nodes):
 - Oscillator frequency precedence:
   1. event-level `params.<oscNode>.freq`
@@ -545,6 +554,7 @@ Target handling:
   - filter: `<filter_node>.cutoff`, `<filter_node>.freq` (cutoff alias when `.cutoff` is absent), `<filter_node>.q`, `<filter_node>.res`
   - gain: `<gain_node>.gain`
   - comb: `<comb_node>.time`, `<comb_node>.fb`, `<comb_node>.mix`, `<comb_node>.damp`
+  - pan: `<pan_node>.pos`, `<pan_node>.width`
 
 ## 6.4 `seq`
 Format:
@@ -622,6 +632,7 @@ Warnings:
   - `softclip`: `<clip>.drive`, `<clip>.mix`, `<clip>.bias`
   - `audio_mix`: `<mx>.gain`, `<mx>.mix`, `<mx>.bias`
   - `comb`: `<comb>.time`, `<comb>.fb`, `<comb>.mix`, `<comb>.damp`
+  - `pan`: `<pan>.pos`, `<pan>.width`
 - Modulation routes from graph `connect` are applied after event/automation/static resolution for each sample.
 - CV utility nodes are evaluated as control sources:
   - `cv_scale`: `out = in * scale + bias`
@@ -656,6 +667,14 @@ Warnings:
     - `damp`: feedback damping (`[0,1]`, higher values damp high frequencies more strongly)
   - stage equation per channel (conceptual): delayed-feedback comb with one-pole damping in feedback path
   - currently inserted as a per-voice stage before final gain/VCA output gain
+- `pan` node is an active per-voice stereo stage:
+  - core params:
+    - `pos`: pan position from left (`-1`) to right (`+1`)
+    - `law`: `equal_power` (default) or `linear`
+    - `width`: stereo width scalar (`0` mono collapse, `1` unchanged, `>1` widened)
+  - mono-like input uses pan-law gains directly
+  - stereo input is balanced by pan law after width scaling
+  - currently inserted as a per-voice stage before final gain/VCA output gain
 - filter `drive` is an active pre-filter input stage:
   - input shaping uses normalized `tanh` waveshaping
   - `drive_pos` / `drive_stage` selects placement: `pre` (default) or `post`
@@ -685,7 +704,7 @@ Warnings:
 - Envelope release tails are rendered beyond note duration (`gate`/`play`), and render length accounts for those tails.
 - `play.params` and `seq.params` override automation and static node values for the same key.
 - `osc.freq` is now an active/static parameter and participates in precedence.
-- Patch stems are stereo (`channels=2`) when `patch.binaural.enabled` is `true`; otherwise mono.
+- Patch stems are stereo (`channels=2`) when `patch.binaural.enabled` is `true` or a `pan` node is present; otherwise mono.
 - Bus stems follow `bus.channels` (`1` mono, `2` stereo).
 - Master becomes stereo automatically when any contributing stem is stereo.
 - Render metadata JSON includes diagnostic stem detail objects:
@@ -728,6 +747,8 @@ All routed params follow:
 | Comb | `<comb>.fb` | comb node `params.fb` | Runtime clamped to `[-0.99, 0.99]`. |
 | Comb | `<comb>.mix` | comb node `params.mix` | Runtime clamped to `[0, 1]`. |
 | Comb | `<comb>.damp` | comb node `params.damp` | Runtime clamped to `[0, 1]`; controls feedback damping. |
+| Pan | `<pan>.pos` | pan node `params.pos` | Runtime clamped to `[-1, 1]`. |
+| Pan | `<pan>.width` | pan node `params.width` | Runtime clamped to `[0, 2]`. |
 | VCA | `<vca>.cv` | vca node `params.cv` | Runtime clamped to `[0, 1]`; multiplied into final gain. |
 | VCA | `<vca>.gain` | vca node `params.gain` | Linear by default (`dB` accepted statically); multiplied into final gain. |
 | VCA | `<vca>.curve_amt` (`<vca>.curve_amount`) | vca node `params.curve_amt`/`curve_amount` | Runtime clamped to `[0.2, 8.0]`; used by `curve: exp|log`. |

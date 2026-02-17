@@ -940,6 +940,14 @@ struct PatchProgram {
     double damp = 0.3;
   } comb;
 
+  struct Pan {
+    bool enabled = false;
+    std::string node_id;
+    double pos = 0.0;
+    std::string law = "equal_power";
+    double width = 1.0;
+  } pan;
+
   struct ModRoute {
     enum class SourceKind { kEnv, kLfo, kCvNode };
     enum class Op { kSet, kAdd, kMul };
@@ -1321,6 +1329,12 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
       program.comb.feedback = Clamp(NodeParamNumber(node.params, "fb", program.comb.feedback), -0.99, 0.99);
       program.comb.mix = Clamp(NodeParamNumber(node.params, "mix", program.comb.mix), 0.0, 1.0);
       program.comb.damp = Clamp(NodeParamNumber(node.params, "damp", program.comb.damp), 0.0, 1.0);
+    } else if (node.type == "pan") {
+      program.pan.enabled = true;
+      program.pan.node_id = node.id;
+      program.pan.pos = Clamp(NodeParamNumber(node.params, "pos", program.pan.pos), -1.0, 1.0);
+      program.pan.law = NodeParamText(node.params, "law", program.pan.law);
+      program.pan.width = Clamp(NodeParamNumber(node.params, "width", program.pan.width), 0.0, 2.0);
     } else if (node.type == "gain") {
       program.gain_node_id = node.id;
       if (const auto it = node.params.find("gain"); it != node.params.end()) {
@@ -1851,6 +1865,8 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   const ValueRoute comb_fb_route = make_route(program.comb.node_id + ".fb");
   const ValueRoute comb_mix_route = make_route(program.comb.node_id + ".mix");
   const ValueRoute comb_damp_route = make_route(program.comb.node_id + ".damp");
+  const ValueRoute pan_pos_route = make_route(program.pan.node_id + ".pos");
+  const ValueRoute pan_width_route = make_route(program.pan.node_id + ".width");
   const std::vector<size_t>* env_a_mod_routes = find_target_routes(program.env_node_id + ".a");
   const std::vector<size_t>* env_d_mod_routes = find_target_routes(program.env_node_id + ".d");
   const std::vector<size_t>* env_s_mod_routes = find_target_routes(program.env_node_id + ".s");
@@ -1882,6 +1898,8 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   const std::vector<size_t>* comb_fb_mod_routes = find_target_routes(program.comb.node_id + ".fb");
   const std::vector<size_t>* comb_mix_mod_routes = find_target_routes(program.comb.node_id + ".mix");
   const std::vector<size_t>* comb_damp_mod_routes = find_target_routes(program.comb.node_id + ".damp");
+  const std::vector<size_t>* pan_pos_mod_routes = find_target_routes(program.pan.node_id + ".pos");
+  const std::vector<size_t>* pan_width_mod_routes = find_target_routes(program.pan.node_id + ".width");
   const auto no_attack_it = play.params.find("__env_no_attack");
   const bool no_attack = (no_attack_it != play.params.end() && no_attack_it->second.kind == aurora::lang::ParamValue::Kind::kBool &&
                           no_attack_it->second.bool_value);
@@ -2220,6 +2238,50 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
 
         sample_left = sample_left * (1.0 - comb_mix) + delayed_l * comb_mix;
         sample_right = sample_right * (1.0 - comb_mix) + delayed_r * comb_mix;
+      }
+
+      if (program.pan.enabled && !program.pan.node_id.empty()) {
+        const double pan_pos = Clamp(
+            apply_mod(pan_pos_mod_routes, resolve_number(pan_pos_route, program.pan.pos, abs_sample), env, t, abs_sample), -1.0, 1.0);
+        const double pan_width = Clamp(
+            apply_mod(pan_width_mod_routes, resolve_number(pan_width_route, program.pan.width, abs_sample), env, t, abs_sample),
+            0.0, 2.0);
+        const double mid = 0.5 * (sample_left + sample_right);
+        const double side = 0.5 * (sample_left - sample_right) * pan_width;
+        double stereo_left = mid + side;
+        double stereo_right = mid - side;
+        const bool mono_like = std::abs(sample_left - sample_right) < 1e-12;
+        if (mono_like) {
+          if (program.pan.law == "linear") {
+            const double norm = (pan_pos + 1.0) * 0.5;
+            stereo_left = stereo_left * (1.0 - norm);
+            stereo_right = stereo_right * norm;
+          } else {
+            const double angle = (pan_pos + 1.0) * (kPi * 0.25);
+            stereo_left *= std::cos(angle);
+            stereo_right *= std::sin(angle);
+          }
+        } else {
+          double bal_l = 1.0;
+          double bal_r = 1.0;
+          if (program.pan.law == "linear") {
+            if (pan_pos > 0.0) {
+              bal_l = 1.0 - pan_pos;
+            } else if (pan_pos < 0.0) {
+              bal_r = 1.0 + pan_pos;
+            }
+          } else {
+            if (pan_pos > 0.0) {
+              bal_l = std::cos(pan_pos * (kPi * 0.5));
+            } else if (pan_pos < 0.0) {
+              bal_r = std::cos((-pan_pos) * (kPi * 0.5));
+            }
+          }
+          stereo_left *= Clamp(bal_l, 0.0, 1.0);
+          stereo_right *= Clamp(bal_r, 0.0, 1.0);
+        }
+        sample_left = stereo_left;
+        sample_right = stereo_right;
       }
 
       double gain = base_gain;
@@ -2577,7 +2639,7 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
     const PatchProgram& program = program_it->second;
     AudioStem buffer;
     buffer.name = patch.name;
-    buffer.channels = program.binaural.enabled ? 2 : 1;
+    buffer.channels = (program.binaural.enabled || program.pan.enabled) ? 2 : 1;
     buffer.samples.assign(static_cast<size_t>(total_samples) * static_cast<size_t>(buffer.channels), 0.0f);
     patch_buffers[patch.name] = std::move(buffer);
   }
