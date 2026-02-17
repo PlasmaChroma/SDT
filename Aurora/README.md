@@ -43,8 +43,16 @@ With `--out`, artifacts are written directly under that directory (for example `
 ## CLI Usage
 
 ```text
-aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>]
+aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>] [--analyze] [--analysis-out <path>] [--intent sleep|ritual|dub]
+aurora analyze <input.wav> [--out <analysis.json>] [--intent sleep|ritual|dub]
+aurora analyze --stems <stem1.wav> <stem2.wav> ... [--mix <mix.wav>] [--out <analysis.json>] [--intent sleep|ritual|dub]
 ```
+
+Analysis reports are written as deterministic JSON. In render mode with `--analyze`, Aurora writes `analysis.json` under `meta/` by default.
+
+Current standalone `analyze` input support in this build:
+- WAV (PCM 16/24/32-bit and 32-bit float)
+- FLAC/MP3/AIFF are reported as unsupported by this build
 
 ## Clean Rebuild
 

@@ -1,4 +1,5 @@
 add_library(aurora_core
+  analyzer.cpp
   renderer.cpp
 )
 
@@ -11,4 +12,3 @@ target_link_libraries(aurora_core
   PUBLIC
     aurora_lang
 )
-

@@ -1,15 +1,18 @@
+#include <chrono>
+#include <exception>
 #include <filesystem>
 #include <fstream>
-#include <chrono>
 #include <future>
 #include <iostream>
-#include <exception>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "aurora/core/analyzer.hpp"
 #include "aurora/core/renderer.hpp"
 #include "aurora/core/timebase.hpp"
+#include "aurora/io/analysis_writer.hpp"
+#include "aurora/io/audio_reader.hpp"
 #include "aurora/io/json_writer.hpp"
 #include "aurora/io/midi_writer.hpp"
 #include "aurora/io/wav_writer.hpp"
@@ -18,18 +21,33 @@
 
 namespace {
 
-struct CliOptions {
+struct RenderCliOptions {
   uint64_t seed = 0;
   int sample_rate = 0;
   std::optional<std::filesystem::path> out_root;
+  bool analyze = false;
+  std::optional<std::filesystem::path> analysis_out;
+  std::string intent;
+};
+
+struct AnalyzeCliOptions {
+  std::vector<std::filesystem::path> positional;
+  bool stems_mode = false;
+  std::optional<std::filesystem::path> mix_file;
+  std::optional<std::filesystem::path> out_path;
+  std::string intent;
 };
 
 void PrintUsage() {
   std::cerr << "Usage:\n";
-  std::cerr << "  aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>]\n";
+  std::cerr << "  aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>] [--analyze]";
+  std::cerr << " [--analysis-out <path>] [--intent sleep|ritual|dub]\n";
+  std::cerr << "  aurora analyze <input.wav> [--out <analysis.json>] [--intent sleep|ritual|dub]\n";
+  std::cerr << "  aurora analyze --stems <stem1.wav> <stem2.wav> ... [--mix <mix.wav>] [--out <analysis.json>]";
+  std::cerr << " [--intent sleep|ritual|dub]\n";
 }
 
-bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, CliOptions* options, std::string* error) {
+bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, RenderCliOptions* options, std::string* error) {
   if (argc < 3) {
     *error = "Missing .au file path.";
     return false;
@@ -77,7 +95,86 @@ bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, CliOpti
       options->out_root = std::filesystem::path(argv[++i]);
       continue;
     }
+    if (arg == "--analyze") {
+      options->analyze = true;
+      continue;
+    }
+    if (arg == "--analysis-out") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --analysis-out";
+        return false;
+      }
+      options->analysis_out = std::filesystem::path(argv[++i]);
+      options->analyze = true;
+      continue;
+    }
+    if (arg == "--intent") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --intent";
+        return false;
+      }
+      options->intent = argv[++i];
+      options->analyze = true;
+      continue;
+    }
     *error = "Unknown argument: " + arg;
+    return false;
+  }
+  return true;
+}
+
+bool ParseAnalyzeArgs(int argc, char** argv, AnalyzeCliOptions* options, std::string* error) {
+  if (argc < 3) {
+    *error = "Missing audio input path.";
+    return false;
+  }
+  for (int i = 2; i < argc; ++i) {
+    const std::string arg = argv[i];
+    if (arg == "--stems") {
+      options->stems_mode = true;
+      continue;
+    }
+    if (arg == "--mix") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --mix";
+        return false;
+      }
+      options->mix_file = std::filesystem::path(argv[++i]);
+      continue;
+    }
+    if (arg == "--out") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --out";
+        return false;
+      }
+      options->out_path = std::filesystem::path(argv[++i]);
+      continue;
+    }
+    if (arg == "--intent") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --intent";
+        return false;
+      }
+      options->intent = argv[++i];
+      continue;
+    }
+    if (!arg.empty() && arg[0] == '-') {
+      *error = "Unknown argument: " + arg;
+      return false;
+    }
+    options->positional.push_back(std::filesystem::path(arg));
+  }
+
+  if (!options->stems_mode) {
+    if (options->positional.size() != 1U) {
+      *error = "analyze expects a single input file unless --stems is used.";
+      return false;
+    }
+    return true;
+  }
+
+  if (options->positional.empty() && !options->mix_file.has_value()) {
+    *error = "--stems mode requires one or more audio file paths.";
     return false;
   }
   return true;
@@ -119,6 +216,83 @@ std::string FormatElapsed(const std::chrono::steady_clock::time_point& start) {
   return std::to_string(ms) + "ms";
 }
 
+int RunAnalyzeCommand(const AnalyzeCliOptions& options, const std::chrono::steady_clock::time_point& start_time) {
+  auto log_step = [&](const std::string& msg) {
+    std::cerr << "[aurora +" << FormatElapsed(start_time) << "] " << msg << "\n";
+  };
+
+  aurora::core::AnalysisOptions analysis_options;
+  analysis_options.intent = options.intent;
+
+  aurora::core::AudioStem mix;
+  std::vector<aurora::core::AudioStem> stems;
+  int mix_sample_rate = 0;
+  std::string mode;
+
+  if (!options.stems_mode) {
+    std::string error;
+    log_step("Loading audio: " + options.positional.front().string());
+    if (!aurora::io::ReadAudioFile(options.positional.front(), &mix, &mix_sample_rate, &error)) {
+      std::cerr << "Analyze error: " << error << "\n";
+      return 3;
+    }
+    mode = "standalone_analysis";
+  } else {
+    std::filesystem::path mix_path;
+    std::vector<std::filesystem::path> stem_paths = options.positional;
+
+    if (options.mix_file.has_value()) {
+      mix_path = options.mix_file.value();
+    } else {
+      mix_path = stem_paths.back();
+      stem_paths.pop_back();
+    }
+
+    std::string error;
+    log_step("Loading mix audio: " + mix_path.string());
+    if (!aurora::io::ReadAudioFile(mix_path, &mix, &mix_sample_rate, &error)) {
+      std::cerr << "Analyze error: " << error << "\n";
+      return 3;
+    }
+
+    for (const auto& stem_path : stem_paths) {
+      aurora::core::AudioStem stem;
+      int stem_sr = 0;
+      log_step("Loading stem audio: " + stem_path.string());
+      if (!aurora::io::ReadAudioFile(stem_path, &stem, &stem_sr, &error)) {
+        std::cerr << "Analyze error: " << error << "\n";
+        return 3;
+      }
+      if (stem_sr != mix_sample_rate) {
+        std::cerr << "Analyze error: sample-rate mismatch between stem '" << stem_path.string() << "' (" << stem_sr
+                  << ") and mix (" << mix_sample_rate << ").\n";
+        return 3;
+      }
+      stems.push_back(std::move(stem));
+    }
+    mode = "hybrid_stems";
+  }
+
+  log_step("Running analysis");
+  const aurora::core::AnalysisReport report =
+      aurora::core::AnalyzeFiles(stems, mix, mix_sample_rate, mode, analysis_options);
+
+  const std::filesystem::path out_path = options.out_path.value_or(std::filesystem::current_path() / "analysis.json");
+  std::string write_error;
+  if (!aurora::io::WriteAnalysisJson(out_path, report, &write_error)) {
+    std::cerr << "Analyze error: " << write_error << "\n";
+    return 6;
+  }
+
+  log_step("Done");
+  std::cout << "Analysis complete\n";
+  std::cout << "  mode: " << report.mode << "\n";
+  std::cout << "  sample_rate: " << report.sample_rate << "\n";
+  std::cout << "  mix_lufs: " << report.mix.loudness.integrated_lufs << "\n";
+  std::cout << "  output: " << out_path.string() << "\n";
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -133,6 +307,17 @@ int main(int argc, char** argv) {
   }
 
   const std::string command = argv[1];
+  if (command == "analyze") {
+    AnalyzeCliOptions options;
+    std::string cli_error;
+    if (!ParseAnalyzeArgs(argc, argv, &options, &cli_error)) {
+      std::cerr << "Argument error: " << cli_error << "\n";
+      PrintUsage();
+      return 2;
+    }
+    return RunAnalyzeCommand(options, start_time);
+  }
+
   if (command != "render") {
     std::cerr << "Unsupported command: " << command << "\n";
     PrintUsage();
@@ -140,7 +325,7 @@ int main(int argc, char** argv) {
   }
 
   std::filesystem::path au_file;
-  CliOptions options;
+  RenderCliOptions options;
   std::string cli_error;
   if (!ParseRenderArgs(argc, argv, &au_file, &options, &cli_error)) {
     std::cerr << "Argument error: " << cli_error << "\n";
@@ -278,11 +463,31 @@ int main(int argc, char** argv) {
     }
   }
 
+  std::optional<std::filesystem::path> analysis_path;
+  if (options.analyze) {
+    log_step("Running integrated analysis");
+    aurora::core::AnalysisOptions analysis_options;
+    analysis_options.intent = options.intent;
+    const aurora::core::AnalysisReport report = aurora::core::AnalyzeRender(rendered, analysis_options);
+    const std::filesystem::path out_path = options.analysis_out.value_or(meta_dir / "analysis.json");
+    std::string error;
+    if (!aurora::io::WriteAnalysisJson(out_path, report, &error)) {
+      std::cerr << "I/O error: " << error << "\n";
+      return 6;
+    }
+    analysis_path = out_path;
+    std::cout << "  mix_lufs: " << report.mix.loudness.integrated_lufs << "\n";
+    std::cout << "  transients_per_minute: " << report.mix.transient.transients_per_minute << "\n";
+  }
+
   log_step("Done");
   std::cout << "Render complete\n";
   std::cout << "  sample_rate: " << rendered.metadata.sample_rate << "\n";
   std::cout << "  total_samples: " << rendered.metadata.total_samples << "\n";
   std::cout << "  stems: " << rendered.patch_stems.size() + rendered.bus_stems.size() << "\n";
   std::cout << "  midi_tracks: " << rendered.midi_tracks.size() << "\n";
+  if (analysis_path.has_value()) {
+    std::cout << "  analysis: " << analysis_path->string() << "\n";
+  }
   return 0;
 }
