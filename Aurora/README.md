@@ -53,7 +53,9 @@ Analysis reports are written as deterministic JSON. In render mode with `--analy
 
 Current standalone `analyze` input support in this build:
 - WAV (PCM 16/24/32-bit and 32-bit float)
-- FLAC/MP3/AIFF are reported as unsupported by this build
+- FLAC
+- MP3
+- AIFF
 
 ## Clean Rebuild
 

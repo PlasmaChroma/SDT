@@ -44,7 +44,8 @@ void PrintUsage() {
   std::cerr << "Usage:\n";
   std::cerr << "  aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>] [--analyze]";
   std::cerr << " [--analysis-out <path>] [--analyze-threads N] [--intent sleep|ritual|dub]\n";
-  std::cerr << "  aurora analyze <input.wav> [--out <analysis.json>] [--analyze-threads N] [--intent sleep|ritual|dub]\n";
+  std::cerr << "  aurora analyze <input.wav|input.flac|input.mp3|input.aiff> [--out <analysis.json>] [--analyze-threads N]";
+  std::cerr << " [--intent sleep|ritual|dub]\n";
   std::cerr << "  aurora analyze --stems <stem1.wav> <stem2.wav> ... [--mix <mix.wav>] [--out <analysis.json>]";
   std::cerr << " [--analyze-threads N] [--intent sleep|ritual|dub]\n";
 }

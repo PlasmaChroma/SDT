@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -160,6 +161,49 @@ bool ReadWavPcmOrFloat(const std::filesystem::path& path, aurora::core::AudioSte
   return true;
 }
 
+std::string EscapeSingleQuotes(const std::string& value) {
+  std::string out;
+  out.reserve(value.size() + 8U);
+  for (char c : value) {
+    if (c == '\'') {
+      out += "'\\''";
+    } else {
+      out.push_back(c);
+    }
+  }
+  return out;
+}
+
+bool ReadFlacViaFfmpeg(const std::filesystem::path& path, aurora::core::AudioStem* stem, int* sample_rate, std::string* error) {
+  const std::filesystem::path tmp_wav = std::filesystem::temp_directory_path() /
+                                        ("aurora_flac_decode_" + std::to_string(std::rand()) + ".wav");
+
+  const std::string input_escaped = EscapeSingleQuotes(path.string());
+  const std::string tmp_escaped = EscapeSingleQuotes(tmp_wav.string());
+  const std::string command =
+      "ffmpeg -v error -y -i '" + input_escaped + "' -f wav '" + tmp_escaped + "' >/dev/null 2>&1";
+  const int code = std::system(command.c_str());
+  if (code != 0) {
+    if (error != nullptr) {
+      *error = "Failed to decode FLAC file (ffmpeg returned non-zero): " + path.string();
+    }
+    return false;
+  }
+
+  std::string wav_error;
+  const bool ok = ReadWavPcmOrFloat(tmp_wav, stem, sample_rate, &wav_error);
+  std::error_code ec;
+  std::filesystem::remove(tmp_wav, ec);
+  if (!ok) {
+    if (error != nullptr) {
+      *error = "Failed to parse ffmpeg-decoded FLAC WAV: " + wav_error;
+    }
+    return false;
+  }
+  stem->name = path.stem().string();
+  return true;
+}
+
 }  // namespace
 
 bool ReadAudioFile(const std::filesystem::path& path, aurora::core::AudioStem* stem, int* sample_rate, std::string* error) {
@@ -176,10 +220,7 @@ bool ReadAudioFile(const std::filesystem::path& path, aurora::core::AudioStem* s
 
   if (HasAudioExtension(path, ".flac") || HasAudioExtension(path, ".mp3") || HasAudioExtension(path, ".aiff") ||
       HasAudioExtension(path, ".aif")) {
-    if (error != nullptr) {
-      *error = "This Aurora build supports WAV input for analyze mode. Unsupported format: " + path.extension().string();
-    }
-    return false;
+    return ReadFlacViaFfmpeg(path, stem, sample_rate, error);
   }
 
   if (error != nullptr) {

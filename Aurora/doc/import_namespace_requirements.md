@@ -9,13 +9,14 @@ Primary requirement:
 ## Scope
 In scope for first iteration:
 1. Importing `patch` definitions from another `.au` file.
-2. Optional import of additional top-level elements (`bus`, `pattern`) behind explicit allow-lists.
-3. Alias/namespace-based symbol qualification in score/events/automation/send references.
+2. Alias/namespace-based symbol qualification in score/events/automation references for imported patches.
 
 Out of scope for first iteration:
 1. Importing `globals` or `outputs`.
 2. Runtime dynamic loading.
 3. Network/URL imports.
+4. Importing `bus` or `pattern`.
+5. Selector filters (`only [...]`, `except [...]`).
 
 ## Design Principles
 1. Deterministic: identical project tree + source text must produce identical outputs.
@@ -36,7 +37,9 @@ imports {
 Required syntax elements:
 1. Source path (string).
 2. Namespace alias via `as <identifier>`.
-3. Optional `only [...]` selector list to import specific symbols.
+
+Phase 2 syntax:
+1. `only [...]` selector list to import specific symbols.
 
 Optional future syntax:
 1. `except [...]` selectors.
@@ -46,19 +49,23 @@ Optional future syntax:
 1. Imported symbols are referenced as `<alias>.<symbol>`.
 2. Local (non-imported) symbols remain unqualified.
 3. No implicit merging between namespaces.
-4. Nested imports flatten to the importing file using namespace chains:
-   - recommended behavior: `rootAlias.childAlias.Symbol`.
+4. For v1, only one qualification level is valid in source references: `<alias>.<symbol>`.
+5. Nested imports are flattened during resolution to a single visible alias namespace per root import. Chained references like `a.b.Symbol` are not valid in v1 source syntax.
 
 Example references:
 1. `play strings.LegatoLead { ... }`
-2. `send: { bus: "fx.Space" }` where `fx` is an import alias and `Space` is imported bus.
-3. `automate patch.strings.LegatoLead.filt.cutoff linear { ... }`
+2. `automate patch.strings.LegatoLead.filt.cutoff linear { ... }`
+
+Reference grammar requirements (v1):
+1. Patch reference sites (`play`, `trigger`, `gate`, `seq` patch selector) accept either `LocalPatch` or `Alias.Patch`.
+2. Automation patch targets must use `patch.<patch_ref>.<node_id>.<param>` where `<patch_ref>` is either `LocalPatch` or `Alias.Patch`.
+3. `.` inside automation targets remains the structural separator; parser/validator must treat the second segment as part of `<patch_ref>` when it is an alias-qualified patch name.
 
 ## Symbol Eligibility (v1)
 Required:
 1. `patch`
 
-Optional if implemented in same phase:
+Phase 2:
 1. `bus`
 2. `pattern`
 
@@ -70,19 +77,21 @@ Not importable:
 ## Path Resolution Rules
 1. Relative import paths resolve against the importing file directory.
 2. Absolute paths are allowed but discouraged.
-3. Path traversal outside project root should be configurable:
-   - default deny for safety in CLI mode.
-4. Canonicalize paths before cycle checks to avoid duplicates via symlink/path variants.
+3. Canonicalize paths before cycle checks to avoid duplicates via symlink/path variants.
 
 ## Validation Requirements
 Emit validation errors for:
 1. Missing import file.
 2. Parse/validation failure inside imported file.
 3. Duplicate import alias in same file.
-4. Unknown symbol in `only [...]`.
+4. Unknown alias in namespaced symbol reference.
 5. Reference to unqualified imported symbol (when qualification required).
 6. Illegal import of non-importable top-level element.
 7. Import cycle detected (`A -> B -> A`).
+8. Invalid qualified reference shape (for example extra namespace depth like `a.b.C` in v1).
+
+Emit validation errors in Phase 2 (when selectors are implemented):
+1. Unknown symbol in `only [...]`.
 
 Emit warnings for:
 1. Imported symbol declared but unused.
@@ -93,12 +102,16 @@ Emit warnings for:
 2. Two imports may share symbol names if aliases differ.
 3. Alias cannot equal an existing local top-level symbol name.
 4. Explicit unqualified references always bind local symbols only.
+5. Alias must be a valid identifier token (same lexical rules as other identifiers).
+6. Symbol identifiers cannot contain `.`; dot is reserved for qualification and reference path separators.
 
 ## Runtime/Compilation Model
 1. Imports are resolved before score expansion and semantic validation.
 2. Imported ASTs are copied into compilation context with namespaced symbol IDs.
 3. Internal node IDs inside imported patches remain patch-local and do not require global namespacing.
 4. Automation/reference parsing must accept namespaced patch names as first-class identifiers.
+5. Resolver order is deterministic and stable by source order of `use` entries.
+6. In v1, resolver exports imported patches into exactly one alias namespace per import line; no user-visible chained namespace emission.
 
 ## Determinism and Caching
 1. Resolver must produce stable import order (source order).
@@ -115,11 +128,6 @@ Diagnostics should include:
 3. Symbol and alias where relevant.
 4. Cycle chain details for cycle errors.
 
-## Security Constraints
-1. No network fetch in default CLI mode.
-2. No command execution during import resolution.
-3. Optional `--allow-absolute-imports` CLI flag for stricter environments.
-
 ## Examples
 ### Example 1: Basic patch import
 ```au
@@ -134,7 +142,7 @@ score {
 }
 ```
 
-### Example 2: Selective drum import
+### Example 2 (Phase 2): Selective drum import
 ```au
 imports {
   use "./lib/drumkit.au" as kit only [Kick, Snare, HatClosed, HatOpen]
