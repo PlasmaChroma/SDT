@@ -44,9 +44,21 @@ With `--out`, artifacts are written directly under that directory (for example `
 
 ```text
 aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>] [--analyze] [--analysis-out <path>] [--analyze-threads N] [--intent sleep|ritual|dub]
-aurora analyze <input.wav> [--out <analysis.json>] [--analyze-threads N] [--intent sleep|ritual|dub]
+aurora analyze <input.wav|input.flac|input.mp3|input.aiff> [--out <analysis.json>] [--analyze-threads N] [--intent sleep|ritual|dub]
 aurora analyze --stems <stem1.wav> <stem2.wav> ... [--mix <mix.wav>] [--out <analysis.json>] [--analyze-threads N] [--intent sleep|ritual|dub]
 ```
+
+## Namespaced Imports (Phase 1)
+
+Aurora render supports patch imports with aliases:
+
+```au
+imports {
+  use "./lib_patch.au" as lib
+}
+```
+
+Imported patches are referenced as `alias.PatchName` in events and patch targets (for example `play lib.ImportedLead { ... }` and `automate patch.lib.ImportedLead.env.a linear { ... }`).
 
 Analysis reports are written as deterministic JSON. In render mode with `--analyze`, Aurora writes `analysis.json` under `meta/` by default.
 `--analyze-threads N` sets the maximum concurrent stem-analysis jobs (`N >= 1`).

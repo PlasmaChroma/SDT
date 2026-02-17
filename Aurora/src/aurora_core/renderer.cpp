@@ -88,6 +88,39 @@ std::pair<std::string, std::string> SplitNodePort(const std::string& endpoint) {
   return {endpoint.substr(0, dot), endpoint.substr(dot + 1)};
 }
 
+std::vector<std::string> SplitByDot(const std::string& value) {
+  std::vector<std::string> parts;
+  size_t start = 0;
+  while (start <= value.size()) {
+    const size_t dot = value.find('.', start);
+    if (dot == std::string::npos) {
+      parts.push_back(value.substr(start));
+      break;
+    }
+    parts.push_back(value.substr(start, dot - start));
+    start = dot + 1;
+  }
+  return parts;
+}
+
+std::optional<std::pair<std::string, size_t>> ResolvePatchRefFromTarget(const std::vector<std::string>& parts, size_t patch_index,
+                                                                        const std::set<std::string>& patch_names) {
+  if (patch_index >= parts.size()) {
+    return std::nullopt;
+  }
+  const std::string single = parts[patch_index];
+  if (patch_names.contains(single)) {
+    return std::make_pair(single, patch_index + 1U);
+  }
+  if (patch_index + 1U < parts.size()) {
+    const std::string dotted = single + "." + parts[patch_index + 1U];
+    if (patch_names.contains(dotted)) {
+      return std::make_pair(dotted, patch_index + 2U);
+    }
+  }
+  return std::nullopt;
+}
+
 std::vector<int> BuildEuclideanPattern(int pulses, int steps, int rotation) {
   std::vector<int> out;
   if (steps <= 0) {
@@ -498,6 +531,10 @@ void AddSeqHit(std::vector<PlayOccurrence>* plays, std::deque<double>* rolling_t
 
 ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap& tempo_map, int sample_rate, uint64_t seed) {
   ExpansionResult out;
+  std::set<std::string> patch_names;
+  for (const auto& patch : file.patches) {
+    patch_names.insert(patch.name);
+  }
 
   for (const auto& section : file.sections) {
     const SectionConstraintState constraints = ResolveSectionConstraints(section);
@@ -522,21 +559,15 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
     for (const auto& event : section.events) {
       if (std::holds_alternative<aurora::lang::SetEvent>(event)) {
         const auto& set = std::get<aurora::lang::SetEvent>(event);
-        std::vector<std::string> parts;
-        size_t start = 0;
-        while (start < set.target.size()) {
-          const size_t dot = set.target.find('.', start);
-          if (dot == std::string::npos) {
-            parts.push_back(set.target.substr(start));
-            break;
+        const auto parts = SplitByDot(set.target);
+        if (!parts.empty() && parts[0] == "patch") {
+          const auto patch_ref = ResolvePatchRefFromTarget(parts, 1U, patch_names);
+          if (!patch_ref.has_value() || parts.size() < patch_ref->second + 2U) {
+            continue;
           }
-          parts.push_back(set.target.substr(start, dot - start));
-          start = dot + 1;
-        }
-        if (parts.size() >= 4 && parts[0] == "patch") {
-          const std::string patch_name = parts[1];
-          std::string key = parts[2];
-          for (size_t i = 3; i < parts.size(); ++i) {
+          const std::string patch_name = patch_ref->first;
+          std::string key = parts[patch_ref->second];
+          for (size_t i = patch_ref->second + 1U; i < parts.size(); ++i) {
             key += "." + parts[i];
           }
           section_set_params_by_patch[patch_name][key] = set.value;
@@ -578,23 +609,16 @@ ExpansionResult ExpandScore(const aurora::lang::AuroraFile& file, const TempoMap
 
       if (std::holds_alternative<aurora::lang::AutomateEvent>(event)) {
         const auto& automate = std::get<aurora::lang::AutomateEvent>(event);
-        const std::string target = automate.target;
-        std::vector<std::string> parts;
-        size_t start = 0;
-        while (start < target.size()) {
-          const size_t dot = target.find('.', start);
-          if (dot == std::string::npos) {
-            parts.push_back(target.substr(start));
-            break;
-          }
-          parts.push_back(target.substr(start, dot - start));
-          start = dot + 1;
-        }
-        if (parts.size() < 4 || parts[0] != "patch") {
+        const auto parts = SplitByDot(automate.target);
+        if (parts.empty() || parts[0] != "patch") {
           continue;
         }
-        const std::string patch_name = parts[1];
-        const std::string key = parts[2] + "." + parts[3];
+        const auto patch_ref = ResolvePatchRefFromTarget(parts, 1U, patch_names);
+        if (!patch_ref.has_value() || parts.size() < patch_ref->second + 2U) {
+          continue;
+        }
+        const std::string patch_name = patch_ref->first;
+        const std::string key = parts[patch_ref->second] + "." + parts[patch_ref->second + 1U];
         AutomationLane lane;
         lane.curve = automate.curve;
         for (const auto& [time, value] : automate.points) {

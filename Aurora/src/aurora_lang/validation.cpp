@@ -3,7 +3,9 @@
 #include <set>
 #include <map>
 #include <functional>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace aurora::lang {
 namespace {
@@ -34,6 +36,39 @@ std::pair<std::string, std::string> SplitNodePort(const std::string& endpoint) {
     return {endpoint, ""};
   }
   return {endpoint.substr(0, dot), endpoint.substr(dot + 1)};
+}
+
+std::vector<std::string> SplitByDot(const std::string& value) {
+  std::vector<std::string> parts;
+  size_t start = 0;
+  while (start <= value.size()) {
+    const size_t dot = value.find('.', start);
+    if (dot == std::string::npos) {
+      parts.push_back(value.substr(start));
+      break;
+    }
+    parts.push_back(value.substr(start, dot - start));
+    start = dot + 1;
+  }
+  return parts;
+}
+
+std::optional<std::pair<std::string, size_t>> ResolvePatchRefFromTarget(const std::vector<std::string>& parts, size_t patch_index,
+                                                                        const std::set<std::string>& patch_names) {
+  if (patch_index >= parts.size()) {
+    return std::nullopt;
+  }
+  const std::string single = parts[patch_index];
+  if (patch_names.contains(single)) {
+    return std::make_pair(single, patch_index + 1);
+  }
+  if (patch_index + 1 < parts.size()) {
+    const std::string dotted = single + "." + parts[patch_index + 1];
+    if (patch_names.contains(dotted)) {
+      return std::make_pair(dotted, patch_index + 2);
+    }
+  }
+  return std::nullopt;
 }
 
 enum class PortKind { kAudioIn, kControlIn, kAudioOut, kControlOut };
@@ -162,6 +197,19 @@ ValidationResult Validate(const AuroraFile& file) {
   }
 
   std::set<std::string> patch_names;
+  std::set<std::string> import_aliases;
+  for (const auto& import : file.imports) {
+    if (import.source.empty()) {
+      out.errors.push_back("Import source path cannot be empty.");
+    }
+    if (import.alias.empty()) {
+      out.errors.push_back("Import alias cannot be empty.");
+      continue;
+    }
+    if (!import_aliases.insert(import.alias).second) {
+      out.errors.push_back("Duplicate import alias: " + import.alias);
+    }
+  }
   std::set<std::string> stem_names;
   for (const auto& patch : file.patches) {
     if (!patch_names.insert(patch.name).second) {
@@ -231,6 +279,57 @@ ValidationResult Validate(const AuroraFile& file) {
 
   if (!file.globals.tempo.has_value() && file.globals.tempo_map.empty()) {
     out.warnings.push_back("No tempo specified; defaulting to 60 BPM.");
+  }
+
+  for (const auto& section : file.sections) {
+    for (const auto& event : section.events) {
+      if (std::holds_alternative<PlayEvent>(event)) {
+        const auto& play = std::get<PlayEvent>(event);
+        if (!patch_names.contains(play.patch)) {
+          out.errors.push_back("Section '" + section.name + "' references unknown patch '" + play.patch + "'.");
+        }
+        continue;
+      }
+      if (std::holds_alternative<SeqEvent>(event)) {
+        const auto& seq = std::get<SeqEvent>(event);
+        if (!patch_names.contains(seq.patch)) {
+          out.errors.push_back("Section '" + section.name + "' seq references unknown patch '" + seq.patch + "'.");
+        }
+        continue;
+      }
+      if (std::holds_alternative<SetEvent>(event)) {
+        const auto& set = std::get<SetEvent>(event);
+        const auto parts = SplitByDot(set.target);
+        if (parts.empty() || parts.front() != "patch") {
+          continue;
+        }
+        const auto patch_ref = ResolvePatchRefFromTarget(parts, 1U, patch_names);
+        if (!patch_ref.has_value()) {
+          out.errors.push_back("Section '" + section.name + "' set target references unknown patch in '" + set.target + "'.");
+          continue;
+        }
+        if (parts.size() < patch_ref->second + 2U) {
+          out.errors.push_back("Section '" + section.name + "' set target is incomplete: '" + set.target + "'.");
+        }
+        continue;
+      }
+      if (std::holds_alternative<AutomateEvent>(event)) {
+        const auto& automate = std::get<AutomateEvent>(event);
+        const auto parts = SplitByDot(automate.target);
+        if (parts.empty() || parts.front() != "patch") {
+          continue;
+        }
+        const auto patch_ref = ResolvePatchRefFromTarget(parts, 1U, patch_names);
+        if (!patch_ref.has_value()) {
+          out.errors.push_back("Section '" + section.name +
+                               "' automate target references unknown patch in '" + automate.target + "'.");
+          continue;
+        }
+        if (parts.size() < patch_ref->second + 2U) {
+          out.errors.push_back("Section '" + section.name + "' automate target is incomplete: '" + automate.target + "'.");
+        }
+      }
+    }
   }
 
   out.ok = out.errors.empty();

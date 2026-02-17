@@ -1,5 +1,9 @@
 # Aurora Namespaced Import Requirements (Draft)
 
+Status:
+- Phase 1 implemented in Aurora CLI render path (`imports { use \"...\" as alias }`, patch import only).
+- Phase 2+ items remain planned.
+
 ## Goal
 Add an import mechanism that allows an `.au` file to reuse definitions (starting with instrument/patch designs) from other `.au` files without naming collisions.
 

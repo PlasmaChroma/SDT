@@ -338,6 +338,8 @@ class Parser {
     while (!AtEnd()) {
       if (MatchIdentifier("aurora")) {
         ParseAuroraHeader(file);
+      } else if (MatchIdentifier("imports")) {
+        ParseImports(file);
       } else if (MatchIdentifier("assets")) {
         ParseAssets(file);
       } else if (MatchIdentifier("outputs")) {
@@ -422,6 +424,31 @@ class Parser {
       out += ExpectIdentifierLike(context);
     }
     return out;
+  }
+
+  void ParseImports(AuroraFile& file) {
+    ExpectSymbol('{', "imports block");
+    while (!MatchSymbol('}')) {
+      if (!MatchIdentifier("use")) {
+        const Token& t = Peek();
+        throw ParseException(t.line, t.column, "Expected 'use' in imports block");
+      }
+      const std::string source = ExpectIdentifierLike("import source path");
+      if (!MatchIdentifier("as")) {
+        const Token& t = Peek();
+        throw ParseException(t.line, t.column, "Expected 'as' in import statement");
+      }
+      const std::string alias = ExpectIdentifierLike("import alias");
+      if (MatchIdentifier("only")) {
+        const Token& t = Peek();
+        throw ParseException(t.line, t.column, "'only [...]' imports are not supported in v1.");
+      }
+      if (MatchIdentifier("except")) {
+        const Token& t = Peek();
+        throw ParseException(t.line, t.column, "'except [...]' imports are not supported in v1.");
+      }
+      file.imports.push_back(ImportDefinition{source, alias});
+    }
   }
 
   ParamValue ParseValue() {
@@ -682,7 +709,7 @@ class Parser {
 
   PlayEvent ParsePlayEvent() {
     PlayEvent event;
-    event.patch = ExpectIdentifierLike("play patch name");
+    event.patch = ParseDottedIdentifier("play patch name");
     const Token& body_token = Peek();
     const ParamValue body_value = ParseValue();
     const auto body = ValueAsObject(body_value, body_token.line, body_token.column, "play event");
@@ -711,7 +738,7 @@ class Parser {
 
   PlayEvent ParseGateLikeEvent(const std::string& context, const UnitNumber& default_dur) {
     PlayEvent event;
-    event.patch = ExpectIdentifierLike(context + " patch name");
+    event.patch = ParseDottedIdentifier(context + " patch name");
     const Token& body_token = Peek();
     const ParamValue body_value = ParseValue();
     const auto body = ValueAsObject(body_value, body_token.line, body_token.column, context + " event");
@@ -772,7 +799,7 @@ class Parser {
 
   SeqEvent ParseSeqEvent() {
     SeqEvent event;
-    event.patch = ExpectIdentifierLike("seq patch name");
+    event.patch = ParseDottedIdentifier("seq patch name");
     const Token& body_token = Peek();
     const ParamValue body_value = ParseValue();
     event.fields = ValueAsObject(body_value, body_token.line, body_token.column, "seq event");

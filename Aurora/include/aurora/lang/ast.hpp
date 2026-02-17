@@ -21,6 +21,11 @@ struct AssetsDefinition {
   std::map<std::string, std::string> samples;
 };
 
+struct ImportDefinition {
+  std::string source;
+  std::string alias;
+};
+
 struct OutputsDefinition {
   std::string stems_dir = "renders/stems";
   std::string midi_dir = "renders/midi";
@@ -131,6 +136,7 @@ struct SectionDefinition {
 
 struct AuroraFile {
   std::string version;
+  std::vector<ImportDefinition> imports;
   AssetsDefinition assets;
   OutputsDefinition outputs;
   GlobalsDefinition globals;

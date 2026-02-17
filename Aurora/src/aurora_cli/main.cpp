@@ -4,7 +4,10 @@
 #include <fstream>
 #include <future>
 #include <iostream>
+#include <map>
 #include <optional>
+#include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -238,6 +241,159 @@ bool ReadFile(const std::filesystem::path& path, std::string* contents, std::str
   return true;
 }
 
+std::string JoinCycle(const std::vector<std::string>& stack, const std::string& back_to) {
+  std::ostringstream out;
+  bool started = false;
+  for (const auto& item : stack) {
+    if (!started && item != back_to) {
+      continue;
+    }
+    if (!started) {
+      started = true;
+    } else {
+      out << " -> ";
+    }
+    out << item;
+  }
+  if (started) {
+    out << " -> " << back_to;
+  } else {
+    out << back_to;
+  }
+  return out.str();
+}
+
+std::string BasePatchName(const std::string& patch_name) {
+  const size_t last_dot = patch_name.find_last_of('.');
+  if (last_dot == std::string::npos) {
+    return patch_name;
+  }
+  return patch_name.substr(last_dot + 1);
+}
+
+std::filesystem::path ResolveImportPath(const std::filesystem::path& importer_file, const std::string& source) {
+  const std::filesystem::path raw(source);
+  const std::filesystem::path joined = raw.is_absolute() ? raw : (importer_file.parent_path() / raw);
+  std::error_code ec;
+  const std::filesystem::path canonical = std::filesystem::weakly_canonical(joined, ec);
+  if (!ec) {
+    return canonical;
+  }
+  return joined.lexically_normal();
+}
+
+bool ResolveImportsRecursive(const std::filesystem::path& file_path, aurora::lang::AuroraFile* file,
+                            std::vector<std::string>* import_stack, std::string* error) {
+  if (file == nullptr || import_stack == nullptr) {
+    if (error != nullptr) {
+      *error = "Internal error: null import resolver state.";
+    }
+    return false;
+  }
+
+  std::set<std::string> alias_names;
+  std::set<std::string> local_symbol_names;
+  for (const auto& patch : file->patches) {
+    local_symbol_names.insert(patch.name);
+  }
+  for (const auto& bus : file->buses) {
+    local_symbol_names.insert(bus.name);
+  }
+
+  std::vector<aurora::lang::PatchDefinition> imported_patches;
+  for (const auto& import : file->imports) {
+    if (import.alias.empty()) {
+      if (error != nullptr) {
+        *error = "Import alias cannot be empty in file: " + file_path.string();
+      }
+      return false;
+    }
+    if (!alias_names.insert(import.alias).second) {
+      if (error != nullptr) {
+        *error = "Duplicate import alias '" + import.alias + "' in file: " + file_path.string();
+      }
+      return false;
+    }
+    if (local_symbol_names.contains(import.alias)) {
+      if (error != nullptr) {
+        *error = "Import alias '" + import.alias + "' conflicts with local top-level symbol in file: " + file_path.string();
+      }
+      return false;
+    }
+
+    const std::filesystem::path import_path = ResolveImportPath(file_path, import.source);
+    const std::string import_key = import_path.string();
+    for (const auto& active : *import_stack) {
+      if (active == import_key) {
+        if (error != nullptr) {
+          *error = "Import cycle detected: " + JoinCycle(*import_stack, import_key);
+        }
+        return false;
+      }
+    }
+
+    std::string imported_source;
+    std::string read_error;
+    if (!ReadFile(import_path, &imported_source, &read_error)) {
+      if (error != nullptr) {
+        *error = "Failed to load import '" + import.source + "' from " + file_path.string() + ": " + read_error;
+      }
+      return false;
+    }
+
+    aurora::lang::ParseResult imported_parse = aurora::lang::ParseAuroraSource(imported_source);
+    if (!imported_parse.ok) {
+      if (error != nullptr) {
+        std::ostringstream msg;
+        msg << "Failed to parse import '" << import_path.string() << "'";
+        if (!imported_parse.diagnostics.empty()) {
+          const auto& d = imported_parse.diagnostics.front();
+          msg << " (" << d.line << ":" << d.column << "): " << d.message;
+        }
+        *error = msg.str();
+      }
+      return false;
+    }
+
+    import_stack->push_back(import_key);
+    if (!ResolveImportsRecursive(import_path, &imported_parse.file, import_stack, error)) {
+      import_stack->pop_back();
+      return false;
+    }
+    import_stack->pop_back();
+
+    std::set<std::string> exported_names;
+    for (const auto& imported_patch : imported_parse.file.patches) {
+      const std::string exported_name = import.alias + "." + BasePatchName(imported_patch.name);
+      if (!exported_names.insert(exported_name).second) {
+        if (error != nullptr) {
+          *error = "Import '" + import.alias + "' exports duplicate patch symbol '" + exported_name + "'.";
+        }
+        return false;
+      }
+      aurora::lang::PatchDefinition patch_copy = imported_patch;
+      patch_copy.name = exported_name;
+      imported_patches.push_back(std::move(patch_copy));
+    }
+  }
+
+  std::set<std::string> all_patch_names;
+  for (const auto& patch : file->patches) {
+    all_patch_names.insert(patch.name);
+  }
+  for (const auto& patch : imported_patches) {
+    if (!all_patch_names.insert(patch.name).second) {
+      if (error != nullptr) {
+        *error = "Imported patch name conflicts with existing patch: " + patch.name;
+      }
+      return false;
+    }
+    file->patches.push_back(patch);
+  }
+
+  return true;
+}
+
 std::filesystem::path ResolveOutputPath(const std::string& configured_path, const std::filesystem::path& au_parent,
                                         const std::optional<std::filesystem::path>& cli_out) {
   const std::filesystem::path path(configured_path);
@@ -383,12 +539,26 @@ int main(int argc, char** argv) {
   }
 
   log_step("Parsing");
-  const aurora::lang::ParseResult parse = aurora::lang::ParseAuroraSource(source);
+  aurora::lang::ParseResult parse = aurora::lang::ParseAuroraSource(source);
   if (!parse.ok) {
     for (const auto& d : parse.diagnostics) {
       std::cerr << au_file.string() << ":" << d.line << ":" << d.column << ": parse error: " << d.message << "\n";
     }
     return 4;
+  }
+
+  log_step("Resolving imports");
+  {
+    std::error_code ec;
+    const std::filesystem::path canonical_au_file = std::filesystem::weakly_canonical(au_file, ec);
+    const std::string root_key = (ec ? au_file.lexically_normal() : canonical_au_file).string();
+    std::vector<std::string> import_stack;
+    import_stack.push_back(root_key);
+    std::string import_error;
+    if (!ResolveImportsRecursive(au_file, &parse.file, &import_stack, &import_error)) {
+      std::cerr << "import error: " << import_error << "\n";
+      return 4;
+    }
   }
 
   log_step("Validating");
