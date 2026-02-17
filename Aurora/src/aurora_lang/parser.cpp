@@ -315,6 +315,18 @@ UnitNumber ValueAsUnitNumber(const ParamValue& value, int line, int column, cons
   throw ParseException(line, column, "Expected numeric time literal in " + context + ", got " + value.DebugString());
 }
 
+double UnitNumberToSeconds(const UnitNumber& value) {
+  double seconds = value.value;
+  if (value.unit == "ms") {
+    seconds /= 1000.0;
+  } else if (value.unit == "min") {
+    seconds *= 60.0;
+  } else if (value.unit == "h") {
+    seconds *= 3600.0;
+  }
+  return seconds;
+}
+
 std::map<std::string, ParamValue> ValueAsObject(const ParamValue& value, int line, int column, const std::string& context) {
   if (value.kind != ParamValue::Kind::kObject) {
     throw ParseException(line, column, "Expected object in " + context + ", got " + value.DebugString());
@@ -661,6 +673,43 @@ class Parser {
       }
       if (const auto mix_it = binaural_obj.find("mix"); mix_it != binaural_obj.end()) {
         patch.binaural.mix = ValueAsNumber(mix_it->second, patch.binaural.mix);
+      }
+    }
+    if (const auto it = body.find("voice_spread"); it != body.end() && it->second.kind == ParamValue::Kind::kObject) {
+      patch.voice_spread.enabled = true;
+      const auto spread_obj = it->second.object_values;
+      if (const auto pan_it = spread_obj.find("pan"); pan_it != spread_obj.end()) {
+        patch.voice_spread.pan = ValueAsNumber(pan_it->second, patch.voice_spread.pan);
+      }
+      if (const auto detune_it = spread_obj.find("detune"); detune_it != spread_obj.end()) {
+        if (detune_it->second.kind == ParamValue::Kind::kUnitNumber) {
+          const std::string& unit = detune_it->second.unit_number_value.unit;
+          if (unit == "c") {
+            patch.voice_spread.detune_semitones = detune_it->second.unit_number_value.value / 100.0;
+          } else if (unit == "st") {
+            patch.voice_spread.detune_semitones = detune_it->second.unit_number_value.value;
+          }
+        } else if (detune_it->second.kind == ParamValue::Kind::kNumber) {
+          // Bare numeric detune in voice_spread is interpreted as cents.
+          patch.voice_spread.detune_semitones = detune_it->second.number_value / 100.0;
+        }
+      }
+      if (const auto delay_it = spread_obj.find("delay"); delay_it != spread_obj.end()) {
+        if (delay_it->second.kind == ParamValue::Kind::kUnitNumber) {
+          patch.voice_spread.delay_seconds = UnitNumberToSeconds(delay_it->second.unit_number_value);
+        } else if (delay_it->second.kind == ParamValue::Kind::kNumber) {
+          patch.voice_spread.delay_seconds = delay_it->second.number_value;
+        }
+      }
+    }
+    if (const auto it = body.find("stage_position"); it != body.end() && it->second.kind == ParamValue::Kind::kObject) {
+      patch.stage_position.enabled = true;
+      const auto stage_obj = it->second.object_values;
+      if (const auto pan_it = stage_obj.find("pan"); pan_it != stage_obj.end()) {
+        patch.stage_position.pan = ValueAsNumber(pan_it->second, patch.stage_position.pan);
+      }
+      if (const auto depth_it = stage_obj.find("depth"); depth_it != stage_obj.end()) {
+        patch.stage_position.depth = ValueAsNumber(depth_it->second, patch.stage_position.depth);
       }
     }
     if (const auto it = body.find("out"); it != body.end()) {

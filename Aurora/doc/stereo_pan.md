@@ -5,13 +5,33 @@ It is split into phases so we can implement incrementally without blocking on ad
 
 ## Status
 
-- Current renderer does not implement a dedicated `pan` node.
-- Current patch stereo behavior is tied to `patch.binaural.enabled`.
+- Implemented: dedicated `pan` node in renderer.
+- Implemented: patch stem is stereo when `pan` node is present (in addition to `patch.binaural.enabled`).
 - Buses support `channels: 1|2`; patches do not currently parse `channels`.
+
+### Completion Summary
+
+- Complete:
+  - `pan` node parsing/rendering
+  - `pan.pos` routing (event params/automation/modulation)
+  - `pan.width` routing (event params/automation/modulation)
+  - `pan.law` static param (`equal_power|linear`)
+  - `voice_spread` patch object (`pan`, `detune`, `delay`) with deterministic per-voice randomization
+  - `stereo_width` node parsing/rendering
+  - `stereo_width.width` routing (event params/automation/modulation)
+  - `depth` node parsing/rendering (`distance`, `air_absorption`, `early_reflection_send`)
+  - `stage_position` patch helper (`pan`, `depth`) as defaults for pan/depth nodes
+  - `decorrelate` node parsing/rendering (`time`, `mix`)
+  - `decorrelate.time` and `decorrelate.mix` routing (event params/automation/modulation)
+  - language spec entries in `doc/au_language_spec.md`
+- Pending:
+  - none
 
 ## Phase 1 (MVP): Programmable Pan
 
 ### 1.1 Node Type: `pan`
+
+Status: Complete.
 
 Purpose:
 - Pan mono sources in stereo.
@@ -39,6 +59,8 @@ Stereo input behavior:
 
 ### 1.2 Routable Targets
 
+Status: Complete.
+
 Add routed params:
 - `<pan>.pos`
 - `<pan>.width`
@@ -52,6 +74,8 @@ Routing precedence follows existing engine rules:
 4. static node param
 
 ### 1.3 Automation/Modulation Examples
+
+Status: Complete (targets are wired in renderer).
 
 ```au
 automate patch.Strings.pan1.pos linear {
@@ -69,6 +93,8 @@ connect: [
 ## Phase 2: Voice Spread
 
 ### 2.1 Patch-Level Object: `voice_spread`
+
+Status: Complete.
 
 Add optional patch object:
 
@@ -97,6 +123,8 @@ Determinism requirement:
 
 ### 3.1 Node Type: `stereo_width`
 
+Status: Complete.
+
 Purpose:
 - Explicit mid/side width processing when needed independently of panning.
 
@@ -116,6 +144,8 @@ R' = M - S
 
 ### 3.2 Node Type: `depth`
 
+Status: Complete.
+
 Purpose:
 - Place source front/back before reverb tail.
 
@@ -132,6 +162,8 @@ Proposed behavior:
 
 ### 3.3 Stage Position Preset (Optional)
 
+Status: Complete.
+
 Optional helper object to place orchestral sections consistently:
 
 ```au
@@ -139,6 +171,17 @@ stage_position: { pan: -0.6, depth: 0.25 }
 ```
 
 This is syntactic sugar over `pan` + `depth` defaults.
+
+### 3.4 Node Type: `decorrelate`
+
+Status: Complete.
+
+Purpose:
+- Break overly identical L/R coherence in stacked voices with very short stereo delays.
+
+Params:
+- `time` (default around `1ms`, short-delay decorrelation window)
+- `mix` (`0..1`)
 
 ## Language and Parser Notes
 

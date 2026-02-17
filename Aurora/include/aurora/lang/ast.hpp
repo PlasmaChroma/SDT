@@ -79,6 +79,17 @@ struct PatchDefinition {
     double shift_hz = 0.0;
     double mix = 1.0;
   };
+  struct VoiceSpreadDefinition {
+    bool enabled = false;
+    double pan = 0.0;
+    double detune_semitones = 0.0;
+    double delay_seconds = 0.0;
+  };
+  struct StagePositionDefinition {
+    bool enabled = false;
+    double pan = 0.0;
+    double depth = 0.0;
+  };
 
   std::string name;
   int poly = 8;
@@ -87,6 +98,8 @@ struct PatchDefinition {
   bool legato = false;
   std::string retrig = "always";
   BinauralDefinition binaural;
+  VoiceSpreadDefinition voice_spread;
+  StagePositionDefinition stage_position;
   std::string out_stem;
   std::optional<SendDefinition> send;
   GraphDefinition graph;

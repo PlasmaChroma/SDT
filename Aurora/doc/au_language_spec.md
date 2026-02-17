@@ -193,6 +193,14 @@ Body keys:
   - `enabled` (bool, default `false`)
   - `shift` or `shift_hz` (number or `Hz`, default `0`)
   - `mix` (number, default `1.0`)
+- `voice_spread` object (optional):
+  - `pan` (number, default `0.0`, clamped to `[0,1]`)
+  - `detune` (number/cents/semitones, default `0`; bare number interpreted as cents)
+  - `delay` (time/number in seconds, default `0`)
+- `stage_position` object (optional):
+  - `pan` (number, clamped to `[-1,1]`)
+  - `depth` (number, clamped to `[0,1]`)
+  - acts as default/sugar for `pan.pos` and `depth.distance` when those node params are omitted
 - `out` (usually `stem("name")`; if omitted defaults to patch name)
 - `send` object:
   - `bus` (text)
@@ -289,6 +297,31 @@ Supported params:
 - `pos` (pan position, runtime clamped to `[-1, 1]`)
 - `law` (`equal_power` default, `linear` supported)
 - `width` (stereo width scaling, runtime clamped to `[0, 2]`)
+
+Implemented stereo width node syntax (`stereo_width`):
+```au
+{ id: "w1", type: stereo_width, params: { width: 1.25, saturate: true } }
+```
+Supported params:
+- `width` (stereo width scaling, runtime clamped to `[0, 2]`)
+- `saturate` (bool, static; applies soft saturation after width transform)
+
+Implemented depth node syntax (`depth`):
+```au
+{ id: "d1", type: depth, params: { distance: 0.4, air_absorption: 0.75, early_reflection_send: 0.5 } }
+```
+Supported params:
+- `distance` (runtime clamped to `[0, 1]`)
+- `air_absorption` (runtime clamped to `[0, 1]`)
+- `early_reflection_send` (runtime clamped to `[0, 1]`)
+
+Implemented decorrelate node syntax (`decorrelate`):
+```au
+{ id: "dc1", type: decorrelate, params: { time: 1.0ms, mix: 0.9 } }
+```
+Supported params:
+- `time` (time/number seconds, runtime clamped to `[0.2ms, 10ms]`)
+- `mix` (runtime clamped to `[0, 1]`)
 
 Implemented oscillator parameter behavior (`osc_*` nodes):
 - Oscillator frequency precedence:
@@ -555,6 +588,9 @@ Target handling:
   - gain: `<gain_node>.gain`
   - comb: `<comb_node>.time`, `<comb_node>.fb`, `<comb_node>.mix`, `<comb_node>.damp`
   - pan: `<pan_node>.pos`, `<pan_node>.width`
+  - stereo_width: `<stereo_width_node>.width`
+  - depth: `<depth_node>.distance`, `<depth_node>.air_absorption`, `<depth_node>.early_reflection_send`
+  - decorrelate: `<decorrelate_node>.time`, `<decorrelate_node>.mix`
 
 ## 6.4 `seq`
 Format:
@@ -633,6 +669,9 @@ Warnings:
   - `audio_mix`: `<mx>.gain`, `<mx>.mix`, `<mx>.bias`
   - `comb`: `<comb>.time`, `<comb>.fb`, `<comb>.mix`, `<comb>.damp`
   - `pan`: `<pan>.pos`, `<pan>.width`
+  - `stereo_width`: `<stereo_width>.width`
+  - `depth`: `<depth>.distance`, `<depth>.air_absorption`, `<depth>.early_reflection_send`
+  - `decorrelate`: `<decorrelate>.time`, `<decorrelate>.mix`
 - Modulation routes from graph `connect` are applied after event/automation/static resolution for each sample.
 - CV utility nodes are evaluated as control sources:
   - `cv_scale`: `out = in * scale + bias`
@@ -675,6 +714,38 @@ Warnings:
   - mono-like input uses pan-law gains directly
   - stereo input is balanced by pan law after width scaling
   - currently inserted as a per-voice stage before final gain/VCA output gain
+- `stereo_width` node is an active per-voice stereo stage:
+  - core params:
+    - `width`: stereo width scalar (`0` mono collapse, `1` unchanged, `>1` widened)
+    - `saturate`: optional static post-stage soft saturation
+  - stage uses mid/side scaling: `M=(L+R)/2`, `S=(L-R)/2`, `S*=width`, then reconstructs `L/R`
+  - currently inserted as a per-voice stage before final gain/VCA output gain
+- `voice_spread` patch object applies deterministic per-voice variation:
+  - `pan`: random pan offset in `[-pan, +pan]`
+  - `detune`: random pitch offset in `[-detune, +detune]` (cents/semitones per parser rules)
+  - `delay`: random per-voice onset offset in `[0, delay]`
+  - randomness is seeded from render seed + patch + note start + pitch index for deterministic renders
+- `depth` node is an active per-voice spatial stage:
+  - core params:
+    - `distance`: controls attenuation and delay tap timing
+    - `air_absorption`: scales high-frequency damping as distance increases
+    - `early_reflection_send`: blends short early-reflection taps into output
+  - implementation details:
+    - one-pole low-pass damping based on `distance * air_absorption`
+    - short stereo tap-based reflections whose delay grows with `distance`
+    - distance-based gain attenuation (up to about `-18 dB` at max distance)
+  - currently inserted as a per-voice stage before final gain/VCA output gain
+- `decorrelate` node is an active per-voice stereo decorrelation stage:
+  - core params:
+    - `time`: decorrelation delay window in seconds
+    - `mix`: dry/wet blend for delayed decorrelated taps
+  - implementation details:
+    - uses very short per-channel delays with deterministic per-voice random offset around `time`
+    - blended per channel to reduce identical L/R oscillator coherence
+  - currently inserted as a per-voice stage before pan/width/depth output stages
+- `stage_position` patch object is implemented as helper defaults:
+  - `stage_position.pan` sets default `pan.pos` when pan node param is omitted
+  - `stage_position.depth` sets default `depth.distance` when depth node param is omitted
 - filter `drive` is an active pre-filter input stage:
   - input shaping uses normalized `tanh` waveshaping
   - `drive_pos` / `drive_stage` selects placement: `pre` (default) or `post`
@@ -704,7 +775,7 @@ Warnings:
 - Envelope release tails are rendered beyond note duration (`gate`/`play`), and render length accounts for those tails.
 - `play.params` and `seq.params` override automation and static node values for the same key.
 - `osc.freq` is now an active/static parameter and participates in precedence.
-- Patch stems are stereo (`channels=2`) when `patch.binaural.enabled` is `true` or a `pan` node is present; otherwise mono.
+- Patch stems are stereo (`channels=2`) when `patch.binaural.enabled` is `true`, or a `pan`/`stereo_width`/`depth`/`decorrelate` node is present, or `voice_spread.pan > 0`; otherwise mono.
 - Bus stems follow `bus.channels` (`1` mono, `2` stereo).
 - Master becomes stereo automatically when any contributing stem is stereo.
 - Render metadata JSON includes diagnostic stem detail objects:
@@ -749,6 +820,12 @@ All routed params follow:
 | Comb | `<comb>.damp` | comb node `params.damp` | Runtime clamped to `[0, 1]`; controls feedback damping. |
 | Pan | `<pan>.pos` | pan node `params.pos` | Runtime clamped to `[-1, 1]`. |
 | Pan | `<pan>.width` | pan node `params.width` | Runtime clamped to `[0, 2]`. |
+| Stereo Width | `<stereo_width>.width` | stereo_width node `params.width` | Runtime clamped to `[0, 2]`. |
+| Depth | `<depth>.distance` | depth node `params.distance` | Runtime clamped to `[0, 1]`; increases attenuation and reflection timing. |
+| Depth | `<depth>.air_absorption` | depth node `params.air_absorption` | Runtime clamped to `[0, 1]`; increases HF damping with distance. |
+| Depth | `<depth>.early_reflection_send` | depth node `params.early_reflection_send` | Runtime clamped to `[0, 1]`; increases short reflection blend. |
+| Decorrelate | `<decorrelate>.time` | decorrelate node `params.time` | Runtime clamped to `[0.2ms, 10ms]`. |
+| Decorrelate | `<decorrelate>.mix` | decorrelate node `params.mix` | Runtime clamped to `[0, 1]`. |
 | VCA | `<vca>.cv` | vca node `params.cv` | Runtime clamped to `[0, 1]`; multiplied into final gain. |
 | VCA | `<vca>.gain` | vca node `params.gain` | Linear by default (`dB` accepted statically); multiplied into final gain. |
 | VCA | `<vca>.curve_amt` (`<vca>.curve_amount`) | vca node `params.curve_amt`/`curve_amount` | Runtime clamped to `[0.2, 8.0]`; used by `curve: exp|log`. |

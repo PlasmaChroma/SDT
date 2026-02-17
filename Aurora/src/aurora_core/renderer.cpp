@@ -883,6 +883,19 @@ struct PatchProgram {
     double mix = 1.0;
   } binaural;
 
+  struct VoiceSpread {
+    bool enabled = false;
+    double pan = 0.0;
+    double detune_semitones = 0.0;
+    double delay_seconds = 0.0;
+  } voice_spread;
+
+  struct StagePosition {
+    bool enabled = false;
+    double pan = 0.0;
+    double depth = 0.0;
+  } stage_position;
+
   struct Lfo {
     std::string node_id;
     std::string shape = "sine";
@@ -947,6 +960,28 @@ struct PatchProgram {
     std::string law = "equal_power";
     double width = 1.0;
   } pan;
+
+  struct StereoWidth {
+    bool enabled = false;
+    std::string node_id;
+    double width = 1.0;
+    bool saturate = false;
+  } stereo_width;
+
+  struct Depth {
+    bool enabled = false;
+    std::string node_id;
+    double distance = 0.0;
+    double air_absorption = 0.7;
+    double early_reflection_send = 0.25;
+  } depth;
+
+  struct Decorrelate {
+    bool enabled = false;
+    std::string node_id;
+    double time_seconds = 0.0008;
+    double mix = 1.0;
+  } decorrelate;
 
   struct ModRoute {
     enum class SourceKind { kEnv, kLfo, kCvNode };
@@ -1109,6 +1144,17 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
   program.binaural.enabled = patch.binaural.enabled;
   program.binaural.shift_hz = patch.binaural.shift_hz;
   program.binaural.mix = Clamp(patch.binaural.mix, 0.0, 1.0);
+  program.voice_spread.enabled = patch.voice_spread.enabled;
+  program.voice_spread.pan = Clamp(patch.voice_spread.pan, 0.0, 1.0);
+  program.voice_spread.detune_semitones = patch.voice_spread.detune_semitones;
+  program.voice_spread.delay_seconds = std::max(0.0, patch.voice_spread.delay_seconds);
+  program.stage_position.enabled = patch.stage_position.enabled;
+  program.stage_position.pan = Clamp(patch.stage_position.pan, -1.0, 1.0);
+  program.stage_position.depth = Clamp(patch.stage_position.depth, 0.0, 1.0);
+  if (program.stage_position.enabled) {
+    program.pan.pos = program.stage_position.pan;
+    program.depth.distance = program.stage_position.depth;
+  }
   std::map<std::string, std::string> node_types;
   for (const auto& node : patch.graph.nodes) {
     node_types[node.id] = node.type;
@@ -1335,6 +1381,29 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
       program.pan.pos = Clamp(NodeParamNumber(node.params, "pos", program.pan.pos), -1.0, 1.0);
       program.pan.law = NodeParamText(node.params, "law", program.pan.law);
       program.pan.width = Clamp(NodeParamNumber(node.params, "width", program.pan.width), 0.0, 2.0);
+    } else if (node.type == "stereo_width") {
+      program.stereo_width.enabled = true;
+      program.stereo_width.node_id = node.id;
+      program.stereo_width.width = Clamp(NodeParamNumber(node.params, "width", program.stereo_width.width), 0.0, 2.0);
+      if (const auto it = node.params.find("saturate"); it != node.params.end() &&
+                                                  it->second.kind == aurora::lang::ParamValue::Kind::kBool) {
+        program.stereo_width.saturate = it->second.bool_value;
+      }
+    } else if (node.type == "depth") {
+      program.depth.enabled = true;
+      program.depth.node_id = node.id;
+      program.depth.distance = Clamp(NodeParamNumber(node.params, "distance", program.depth.distance), 0.0, 1.0);
+      program.depth.air_absorption =
+          Clamp(NodeParamNumber(node.params, "air_absorption", program.depth.air_absorption), 0.0, 1.0);
+      program.depth.early_reflection_send =
+          Clamp(NodeParamNumber(node.params, "early_reflection_send", program.depth.early_reflection_send), 0.0, 1.0);
+    } else if (node.type == "decorrelate") {
+      program.decorrelate.enabled = true;
+      program.decorrelate.node_id = node.id;
+      if (const auto it = node.params.find("time"); it != node.params.end()) {
+        program.decorrelate.time_seconds = Clamp(UnitLiteralToSeconds(ValueToUnit(it->second)), 0.0002, 0.01);
+      }
+      program.decorrelate.mix = Clamp(NodeParamNumber(node.params, "mix", program.decorrelate.mix), 0.0, 1.0);
     } else if (node.type == "gain") {
       program.gain_node_id = node.id;
       if (const auto it = node.params.find("gain"); it != node.params.end()) {
@@ -1867,6 +1936,12 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   const ValueRoute comb_damp_route = make_route(program.comb.node_id + ".damp");
   const ValueRoute pan_pos_route = make_route(program.pan.node_id + ".pos");
   const ValueRoute pan_width_route = make_route(program.pan.node_id + ".width");
+  const ValueRoute stereo_width_route = make_route(program.stereo_width.node_id + ".width");
+  const ValueRoute depth_distance_route = make_route(program.depth.node_id + ".distance");
+  const ValueRoute depth_air_abs_route = make_route(program.depth.node_id + ".air_absorption");
+  const ValueRoute depth_er_send_route = make_route(program.depth.node_id + ".early_reflection_send");
+  const ValueRoute decor_time_route = make_route(program.decorrelate.node_id + ".time");
+  const ValueRoute decor_mix_route = make_route(program.decorrelate.node_id + ".mix");
   const std::vector<size_t>* env_a_mod_routes = find_target_routes(program.env_node_id + ".a");
   const std::vector<size_t>* env_d_mod_routes = find_target_routes(program.env_node_id + ".d");
   const std::vector<size_t>* env_s_mod_routes = find_target_routes(program.env_node_id + ".s");
@@ -1900,6 +1975,12 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   const std::vector<size_t>* comb_damp_mod_routes = find_target_routes(program.comb.node_id + ".damp");
   const std::vector<size_t>* pan_pos_mod_routes = find_target_routes(program.pan.node_id + ".pos");
   const std::vector<size_t>* pan_width_mod_routes = find_target_routes(program.pan.node_id + ".width");
+  const std::vector<size_t>* stereo_width_mod_routes = find_target_routes(program.stereo_width.node_id + ".width");
+  const std::vector<size_t>* depth_distance_mod_routes = find_target_routes(program.depth.node_id + ".distance");
+  const std::vector<size_t>* depth_air_abs_mod_routes = find_target_routes(program.depth.node_id + ".air_absorption");
+  const std::vector<size_t>* depth_er_send_mod_routes = find_target_routes(program.depth.node_id + ".early_reflection_send");
+  const std::vector<size_t>* decor_time_mod_routes = find_target_routes(program.decorrelate.node_id + ".time");
+  const std::vector<size_t>* decor_mix_mod_routes = find_target_routes(program.decorrelate.node_id + ".mix");
   const auto no_attack_it = play.params.find("__env_no_attack");
   const bool no_attack = (no_attack_it != play.params.end() && no_attack_it->second.kind == aurora::lang::ParamValue::Kind::kBool &&
                           no_attack_it->second.bool_value);
@@ -1922,12 +2003,53 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
     size_t comb_write_index = 0;
     double comb_lp_l = 0.0;
     double comb_lp_r = 0.0;
+    std::vector<float> depth_line_l;
+    std::vector<float> depth_line_r;
+    size_t depth_write_index = 0;
+    double depth_lp_l = 0.0;
+    double depth_lp_r = 0.0;
+    std::vector<float> decor_line_l;
+    std::vector<float> decor_line_r;
+    size_t decor_write_index = 0;
+    double decor_delay_l = 0.0;
+    double decor_delay_r = 0.0;
     if (program.comb.enabled && !program.comb.node_id.empty()) {
       const double reserve_seconds = Clamp(program.comb.time_seconds * 2.0 + 0.05, 0.01, 2.0);
       const size_t reserve_samples = std::max<size_t>(
           2U, static_cast<size_t>(std::llround(reserve_seconds * static_cast<double>(sample_rate))));
       comb_line_l.assign(reserve_samples, 0.0F);
       comb_line_r.assign(reserve_samples, 0.0F);
+    }
+    if (program.depth.enabled && !program.depth.node_id.empty()) {
+      const size_t reserve_samples =
+          std::max<size_t>(2U, static_cast<size_t>(std::llround(0.08 * static_cast<double>(sample_rate))));
+      depth_line_l.assign(reserve_samples, 0.0F);
+      depth_line_r.assign(reserve_samples, 0.0F);
+    }
+    if (program.decorrelate.enabled && !program.decorrelate.node_id.empty()) {
+      const size_t reserve_samples =
+          std::max<size_t>(2U, static_cast<size_t>(std::llround(0.012 * static_cast<double>(sample_rate))));
+      decor_line_l.assign(reserve_samples, 0.0F);
+      decor_line_r.assign(reserve_samples, 0.0F);
+      PCG32 decor_rng(Hash64FromParts(seed, "decor", play.patch, std::to_string(play.start_sample),
+                                      std::to_string(static_cast<int>(pitch_index))));
+      const double base = Clamp(program.decorrelate.time_seconds, 0.0002, 0.01);
+      decor_delay_l = Clamp(base * decor_rng.Uniform(0.7, 1.3), 0.0002, 0.01) * static_cast<double>(sample_rate);
+      decor_delay_r = Clamp(base * decor_rng.Uniform(0.7, 1.3), 0.0002, 0.01) * static_cast<double>(sample_rate);
+    }
+    double spread_pan_offset = 0.0;
+    double spread_detune_semitones = 0.0;
+    uint64_t spread_delay_samples = 0;
+    if (program.voice_spread.enabled) {
+      PCG32 spread_rng(Hash64FromParts(seed, "voice_spread", play.patch, std::to_string(play.start_sample),
+                                       std::to_string(static_cast<int>(pitch_index))));
+      const double pan_amount = Clamp(program.voice_spread.pan, 0.0, 1.0);
+      spread_pan_offset = spread_rng.Uniform(-pan_amount, pan_amount);
+      spread_detune_semitones =
+          spread_rng.Uniform(-program.voice_spread.detune_semitones, program.voice_spread.detune_semitones);
+      const double delay_seconds = std::max(0.0, program.voice_spread.delay_seconds);
+      spread_delay_samples =
+          static_cast<uint64_t>(std::llround(spread_rng.Uniform(0.0, delay_seconds) * static_cast<double>(sample_rate)));
     }
     PCG32 noise_rng(Hash64FromParts(seed, "voice", play.patch, std::to_string(play.start_sample),
                                     std::to_string(static_cast<int>(pitch_index))));
@@ -1945,12 +2067,74 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         render_samples += rel;
       }
     }
+    render_samples += spread_delay_samples;
+    const auto apply_pan_law = [&](double in_l, double in_r, double pos, const std::string& law, double width) {
+      const double pan_pos = Clamp(pos, -1.0, 1.0);
+      const double pan_width = Clamp(width, 0.0, 2.0);
+      const double mid = 0.5 * (in_l + in_r);
+      const double side = 0.5 * (in_l - in_r) * pan_width;
+      double out_l = mid + side;
+      double out_r = mid - side;
+      const bool mono_like = std::abs(in_l - in_r) < 1e-12;
+      if (mono_like) {
+        if (law == "linear") {
+          const double norm = (pan_pos + 1.0) * 0.5;
+          out_l *= (1.0 - norm);
+          out_r *= norm;
+        } else {
+          const double angle = (pan_pos + 1.0) * (kPi * 0.25);
+          out_l *= std::cos(angle);
+          out_r *= std::sin(angle);
+        }
+      } else {
+        double bal_l = 1.0;
+        double bal_r = 1.0;
+        if (law == "linear") {
+          if (pan_pos > 0.0) {
+            bal_l = 1.0 - pan_pos;
+          } else if (pan_pos < 0.0) {
+            bal_r = 1.0 + pan_pos;
+          }
+        } else {
+          if (pan_pos > 0.0) {
+            bal_l = std::cos(pan_pos * (kPi * 0.5));
+          } else if (pan_pos < 0.0) {
+            bal_r = std::cos((-pan_pos) * (kPi * 0.5));
+          }
+        }
+        out_l *= Clamp(bal_l, 0.0, 1.0);
+        out_r *= Clamp(bal_r, 0.0, 1.0);
+      }
+      return std::pair<double, double>{out_l, out_r};
+    };
+    const auto read_delay_tap = [&](const std::vector<float>& line, size_t write_idx, double delay_samples) {
+      if (line.empty()) {
+        return 0.0;
+      }
+      const double len = static_cast<double>(line.size());
+      double read_pos = static_cast<double>(write_idx) - delay_samples;
+      while (read_pos < 0.0) {
+        read_pos += len;
+      }
+      while (read_pos >= len) {
+        read_pos -= len;
+      }
+      const size_t i0 = static_cast<size_t>(read_pos);
+      const size_t i1 = (i0 + 1U) % line.size();
+      const double frac = read_pos - static_cast<double>(i0);
+      return static_cast<double>(line[i0]) * (1.0 - frac) + static_cast<double>(line[i1]) * frac;
+    };
+
     for (uint64_t i = 0; i < render_samples; ++i) {
+      if (i < spread_delay_samples) {
+        continue;
+      }
+      const uint64_t voice_i = i - spread_delay_samples;
       const uint64_t abs_sample = play.start_sample + i;
       if (abs_sample >= stem_frames) {
         break;
       }
-      const double t = static_cast<double>(i) / sample_rate;
+      const double t = static_cast<double>(voice_i) / sample_rate;
       const double note_dur = static_cast<double>(play.dur_samples) / sample_rate;
       PatchProgram::Env env_state = program.env;
       if (program.env.enabled && !program.env_node_id.empty()) {
@@ -1965,11 +2149,12 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
       }
       double env = EnvelopeValue(env_state, t, note_dur, no_attack);
 
-      if (i < fade_samples && fade_samples > 0) {
-        env *= static_cast<double>(i) / static_cast<double>(fade_samples);
+      if (voice_i < fade_samples && fade_samples > 0) {
+        env *= static_cast<double>(voice_i) / static_cast<double>(fade_samples);
       }
-      if (i < play.dur_samples && play.dur_samples > fade_samples && i > play.dur_samples - fade_samples && fade_samples > 0) {
-        const uint64_t rem = play.dur_samples - i;
+      if (voice_i < play.dur_samples && play.dur_samples > fade_samples && voice_i > play.dur_samples - fade_samples &&
+          fade_samples > 0) {
+        const uint64_t rem = play.dur_samples - voice_i;
         env *= static_cast<double>(rem) / static_cast<double>(fade_samples);
       }
       if (play.xfade_in_samples > 0 && abs_sample >= play.section_start_sample &&
@@ -1994,7 +2179,8 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         const double transpose = resolve_semitones(route.transpose, 0.0, false, abs_sample);
         const double mod_detune = apply_mod(route.detune_mod_routes, detune, env, t, abs_sample);
         const double mod_transpose = apply_mod(route.transpose_mod_routes, transpose, env, t, abs_sample);
-        const double pitch_freq = std::max(1.0, pitch.frequency * std::pow(2.0, (mod_detune + mod_transpose) / 12.0));
+        const double pitch_freq =
+            std::max(1.0, pitch.frequency * std::pow(2.0, (mod_detune + spread_detune_semitones + mod_transpose) / 12.0));
 
         // Event pitch is authoritative when present; static osc.freq is fallback only.
         double freq = (play.pitches.empty() && osc.freq_hz.has_value()) ? *osc.freq_hz : pitch_freq;
@@ -2240,48 +2426,100 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         sample_right = sample_right * (1.0 - comb_mix) + delayed_r * comb_mix;
       }
 
+      if (program.decorrelate.enabled && !program.decorrelate.node_id.empty() && !decor_line_l.empty()) {
+        const double decor_time =
+            Clamp(apply_mod(decor_time_mod_routes, resolve_seconds(decor_time_route, program.decorrelate.time_seconds, abs_sample),
+                            env, t, abs_sample),
+                  0.0002, 0.01);
+        const double decor_mix = Clamp(
+            apply_mod(decor_mix_mod_routes, resolve_number(decor_mix_route, program.decorrelate.mix, abs_sample), env, t, abs_sample),
+            0.0, 1.0);
+        const double active_l = Clamp(0.5 * decor_delay_l + 0.5 * decor_time * static_cast<double>(sample_rate), 1.0,
+                                      static_cast<double>(decor_line_l.size() - 1U));
+        const double active_r = Clamp(0.5 * decor_delay_r + 0.5 * decor_time * static_cast<double>(sample_rate), 1.0,
+                                      static_cast<double>(decor_line_r.size() - 1U));
+        const double wet_l = read_delay_tap(decor_line_l, decor_write_index, active_l);
+        const double wet_r = read_delay_tap(decor_line_r, decor_write_index, active_r);
+        decor_line_l[decor_write_index] = static_cast<float>(sample_left);
+        decor_line_r[decor_write_index] = static_cast<float>(sample_right);
+        decor_write_index = (decor_write_index + 1U) % decor_line_l.size();
+        sample_left = sample_left * (1.0 - decor_mix) + wet_l * decor_mix;
+        sample_right = sample_right * (1.0 - decor_mix) + wet_r * decor_mix;
+      }
+
+      if (program.voice_spread.enabled && std::abs(spread_pan_offset) > 1e-9) {
+        const auto spread_out = apply_pan_law(sample_left, sample_right, spread_pan_offset, "equal_power", 1.0);
+        sample_left = spread_out.first;
+        sample_right = spread_out.second;
+      }
+
       if (program.pan.enabled && !program.pan.node_id.empty()) {
         const double pan_pos = Clamp(
             apply_mod(pan_pos_mod_routes, resolve_number(pan_pos_route, program.pan.pos, abs_sample), env, t, abs_sample), -1.0, 1.0);
         const double pan_width = Clamp(
             apply_mod(pan_width_mod_routes, resolve_number(pan_width_route, program.pan.width, abs_sample), env, t, abs_sample),
             0.0, 2.0);
+        const auto pan_out = apply_pan_law(sample_left, sample_right, pan_pos, program.pan.law, pan_width);
+        sample_left = pan_out.first;
+        sample_right = pan_out.second;
+      }
+
+      if (program.stereo_width.enabled && !program.stereo_width.node_id.empty()) {
+        const double width = Clamp(
+            apply_mod(stereo_width_mod_routes, resolve_number(stereo_width_route, program.stereo_width.width, abs_sample), env, t,
+                      abs_sample),
+            0.0, 2.0);
         const double mid = 0.5 * (sample_left + sample_right);
-        const double side = 0.5 * (sample_left - sample_right) * pan_width;
-        double stereo_left = mid + side;
-        double stereo_right = mid - side;
-        const bool mono_like = std::abs(sample_left - sample_right) < 1e-12;
-        if (mono_like) {
-          if (program.pan.law == "linear") {
-            const double norm = (pan_pos + 1.0) * 0.5;
-            stereo_left = stereo_left * (1.0 - norm);
-            stereo_right = stereo_right * norm;
-          } else {
-            const double angle = (pan_pos + 1.0) * (kPi * 0.25);
-            stereo_left *= std::cos(angle);
-            stereo_right *= std::sin(angle);
-          }
-        } else {
-          double bal_l = 1.0;
-          double bal_r = 1.0;
-          if (program.pan.law == "linear") {
-            if (pan_pos > 0.0) {
-              bal_l = 1.0 - pan_pos;
-            } else if (pan_pos < 0.0) {
-              bal_r = 1.0 + pan_pos;
-            }
-          } else {
-            if (pan_pos > 0.0) {
-              bal_l = std::cos(pan_pos * (kPi * 0.5));
-            } else if (pan_pos < 0.0) {
-              bal_r = std::cos((-pan_pos) * (kPi * 0.5));
-            }
-          }
-          stereo_left *= Clamp(bal_l, 0.0, 1.0);
-          stereo_right *= Clamp(bal_r, 0.0, 1.0);
+        const double side = 0.5 * (sample_left - sample_right) * width;
+        sample_left = mid + side;
+        sample_right = mid - side;
+        if (program.stereo_width.saturate) {
+          sample_left = std::tanh(sample_left);
+          sample_right = std::tanh(sample_right);
         }
-        sample_left = stereo_left;
-        sample_right = stereo_right;
+      }
+
+      if (program.depth.enabled && !program.depth.node_id.empty() && !depth_line_l.empty()) {
+        const double distance = Clamp(apply_mod(depth_distance_mod_routes,
+                                                resolve_number(depth_distance_route, program.depth.distance, abs_sample), env, t,
+                                                abs_sample),
+                                      0.0, 1.0);
+        const double air_absorption = Clamp(apply_mod(depth_air_abs_mod_routes,
+                                                      resolve_number(depth_air_abs_route, program.depth.air_absorption, abs_sample),
+                                                      env, t, abs_sample),
+                                            0.0, 1.0);
+        const double er_send = Clamp(apply_mod(depth_er_send_mod_routes,
+                                               resolve_number(depth_er_send_route, program.depth.early_reflection_send, abs_sample),
+                                               env, t, abs_sample),
+                                     0.0, 1.0);
+
+        const double depth_cutoff = Clamp(20000.0 - (20000.0 - 700.0) * (air_absorption * distance), 150.0, 20000.0);
+        const double wc = 2.0 * kPi * std::max(1.0, depth_cutoff);
+        const double dt = 1.0 / static_cast<double>(sample_rate);
+        const double alpha = Clamp(wc * dt / (1.0 + wc * dt), 0.0, 1.0);
+        depth_lp_l += (sample_left - depth_lp_l) * alpha;
+        depth_lp_r += (sample_right - depth_lp_r) * alpha;
+        sample_left = depth_lp_l;
+        sample_right = depth_lp_r;
+
+        const double base_delay_seconds = 0.004 + 0.022 * distance;
+        const double tap1 = std::max(1.0, base_delay_seconds * static_cast<double>(sample_rate));
+        const double tap2 = std::max(1.0, (base_delay_seconds * 1.67 + 0.0015) * static_cast<double>(sample_rate));
+        const double er_l = 0.65 * read_delay_tap(depth_line_l, depth_write_index, tap1) +
+                            0.35 * read_delay_tap(depth_line_r, depth_write_index, tap2);
+        const double er_r = 0.65 * read_delay_tap(depth_line_r, depth_write_index, tap1) +
+                            0.35 * read_delay_tap(depth_line_l, depth_write_index, tap2);
+        depth_line_l[depth_write_index] = static_cast<float>(sample_left);
+        depth_line_r[depth_write_index] = static_cast<float>(sample_right);
+        depth_write_index = (depth_write_index + 1U) % depth_line_l.size();
+
+        const double er_mix = Clamp(er_send * (0.2 + 0.8 * distance), 0.0, 1.0);
+        sample_left = sample_left * (1.0 - 0.45 * er_mix) + er_l * er_mix;
+        sample_right = sample_right * (1.0 - 0.45 * er_mix) + er_r * er_mix;
+
+        const double depth_gain = DbToLinear(-18.0 * distance);
+        sample_left *= depth_gain;
+        sample_right *= depth_gain;
       }
 
       double gain = base_gain;
@@ -2637,9 +2875,29 @@ RenderResult Renderer::Render(const aurora::lang::AuroraFile& file, const Render
       continue;
     }
     const PatchProgram& program = program_it->second;
+    bool has_pan_node = false;
+    bool has_stereo_width_node = false;
+    bool has_depth_node = false;
+    bool has_decorrelate_node = false;
+    for (const auto& node : patch.graph.nodes) {
+      if (node.type == "pan") {
+        has_pan_node = true;
+      } else if (node.type == "stereo_width") {
+        has_stereo_width_node = true;
+      } else if (node.type == "depth") {
+        has_depth_node = true;
+      } else if (node.type == "decorrelate") {
+        has_decorrelate_node = true;
+      }
+    }
     AudioStem buffer;
     buffer.name = patch.name;
-    buffer.channels = (program.binaural.enabled || program.pan.enabled) ? 2 : 1;
+    buffer.channels =
+        (program.binaural.enabled || program.pan.enabled || program.stereo_width.enabled || program.depth.enabled ||
+         program.decorrelate.enabled || has_pan_node || has_stereo_width_node || has_depth_node || has_decorrelate_node ||
+         patch.voice_spread.pan > 0.0)
+            ? 2
+            : 1;
     buffer.samples.assign(static_cast<size_t>(total_samples) * static_cast<size_t>(buffer.channels), 0.0f);
     patch_buffers[patch.name] = std::move(buffer);
   }
