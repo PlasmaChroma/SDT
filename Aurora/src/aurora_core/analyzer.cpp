@@ -5,11 +5,13 @@
 #include <complex>
 #include <cstdint>
 #include <ctime>
+#include <atomic>
 #include <iomanip>
 #include <map>
 #include <numeric>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace aurora::core {
@@ -582,13 +584,53 @@ AnalysisReport AnalyzeFiles(const std::vector<AudioStem>& stems, const AudioStem
   report.timestamp = NowIso8601Utc();
   report.sample_rate = sample_rate;
   report.mode = mode;
-  report.mix = AnalyzeStem(mix, sample_rate, options);
+  const size_t total_jobs = stems.size() + 1U;  // mix + stems
+  std::vector<FileAnalysis> analyzed_stems(stems.size());
 
-  double mix_rms_linear = std::pow(10.0, report.mix.rms_db / 20.0);
+  size_t workers = 0;
+  if (options.max_parallel_jobs > 0) {
+    workers = static_cast<size_t>(options.max_parallel_jobs);
+  } else {
+    const unsigned int hw = std::thread::hardware_concurrency();
+    workers = hw == 0U ? 1U : static_cast<size_t>(hw);
+  }
+  workers = std::max<size_t>(1U, std::min(workers, total_jobs));
+
+  if (workers == 1U) {
+    report.mix = AnalyzeStem(mix, sample_rate, options);
+    for (size_t i = 0; i < stems.size(); ++i) {
+      analyzed_stems[i] = AnalyzeStem(stems[i], sample_rate, options);
+    }
+  } else {
+    std::atomic<size_t> next_job{0U};
+    std::vector<std::thread> pool;
+    pool.reserve(workers);
+    for (size_t t = 0; t < workers; ++t) {
+      pool.emplace_back([&]() {
+        while (true) {
+          const size_t job = next_job.fetch_add(1U);
+          if (job >= total_jobs) {
+            break;
+          }
+          if (job == 0U) {
+            report.mix = AnalyzeStem(mix, sample_rate, options);
+          } else {
+            const size_t stem_index = job - 1U;
+            analyzed_stems[stem_index] = AnalyzeStem(stems[stem_index], sample_rate, options);
+          }
+        }
+      });
+    }
+    for (auto& worker : pool) {
+      worker.join();
+    }
+  }
+
+  const double mix_rms_linear = std::pow(10.0, report.mix.rms_db / 20.0);
   const double mix_sub_ratio = report.mix.sub.sub_to_total_ratio;
-  report.stems.reserve(stems.size());
-  for (const auto& stem : stems) {
-    FileAnalysis analyzed = AnalyzeStem(stem, sample_rate, options);
+
+  report.stems.reserve(analyzed_stems.size());
+  for (auto& analyzed : analyzed_stems) {
     const double stem_rms_linear = std::pow(10.0, analyzed.rms_db / 20.0);
     analyzed.relative_loudness_lufs = analyzed.loudness.integrated_lufs - report.mix.loudness.integrated_lufs;
     analyzed.energy_contribution_ratio = stem_rms_linear / std::max(mix_rms_linear, kEpsilon);

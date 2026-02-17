@@ -96,6 +96,7 @@ struct AnalysisOptions {
   int fft_size = 2048;
   int fft_hop = 1024;
   double silence_threshold_db = -50.0;
+  int max_parallel_jobs = 0;
   std::string intent;
 };
 

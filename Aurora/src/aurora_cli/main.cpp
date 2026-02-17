@@ -27,6 +27,7 @@ struct RenderCliOptions {
   std::optional<std::filesystem::path> out_root;
   bool analyze = false;
   std::optional<std::filesystem::path> analysis_out;
+  int analyze_threads = 0;
   std::string intent;
 };
 
@@ -35,16 +36,17 @@ struct AnalyzeCliOptions {
   bool stems_mode = false;
   std::optional<std::filesystem::path> mix_file;
   std::optional<std::filesystem::path> out_path;
+  int analyze_threads = 0;
   std::string intent;
 };
 
 void PrintUsage() {
   std::cerr << "Usage:\n";
   std::cerr << "  aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>] [--analyze]";
-  std::cerr << " [--analysis-out <path>] [--intent sleep|ritual|dub]\n";
-  std::cerr << "  aurora analyze <input.wav> [--out <analysis.json>] [--intent sleep|ritual|dub]\n";
+  std::cerr << " [--analysis-out <path>] [--analyze-threads N] [--intent sleep|ritual|dub]\n";
+  std::cerr << "  aurora analyze <input.wav> [--out <analysis.json>] [--analyze-threads N] [--intent sleep|ritual|dub]\n";
   std::cerr << "  aurora analyze --stems <stem1.wav> <stem2.wav> ... [--mix <mix.wav>] [--out <analysis.json>]";
-  std::cerr << " [--intent sleep|ritual|dub]\n";
+  std::cerr << " [--analyze-threads N] [--intent sleep|ritual|dub]\n";
 }
 
 bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, RenderCliOptions* options, std::string* error) {
@@ -117,6 +119,25 @@ bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, RenderC
       options->analyze = true;
       continue;
     }
+    if (arg == "--analyze-threads") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --analyze-threads";
+        return false;
+      }
+      const std::string value = argv[++i];
+      try {
+        options->analyze_threads = std::stoi(value);
+      } catch (const std::exception&) {
+        *error = "Invalid --analyze-threads value: " + value;
+        return false;
+      }
+      if (options->analyze_threads < 1) {
+        *error = "--analyze-threads must be >= 1.";
+        return false;
+      }
+      options->analyze = true;
+      continue;
+    }
     *error = "Unknown argument: " + arg;
     return false;
   }
@@ -156,6 +177,24 @@ bool ParseAnalyzeArgs(int argc, char** argv, AnalyzeCliOptions* options, std::st
         return false;
       }
       options->intent = argv[++i];
+      continue;
+    }
+    if (arg == "--analyze-threads") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --analyze-threads";
+        return false;
+      }
+      const std::string value = argv[++i];
+      try {
+        options->analyze_threads = std::stoi(value);
+      } catch (const std::exception&) {
+        *error = "Invalid --analyze-threads value: " + value;
+        return false;
+      }
+      if (options->analyze_threads < 1) {
+        *error = "--analyze-threads must be >= 1.";
+        return false;
+      }
       continue;
     }
     if (!arg.empty() && arg[0] == '-') {
@@ -222,6 +261,7 @@ int RunAnalyzeCommand(const AnalyzeCliOptions& options, const std::chrono::stead
   };
 
   aurora::core::AnalysisOptions analysis_options;
+  analysis_options.max_parallel_jobs = options.analyze_threads;
   analysis_options.intent = options.intent;
 
   aurora::core::AudioStem mix;
@@ -467,6 +507,7 @@ int main(int argc, char** argv) {
   if (options.analyze) {
     log_step("Running integrated analysis");
     aurora::core::AnalysisOptions analysis_options;
+    analysis_options.max_parallel_jobs = options.analyze_threads;
     analysis_options.intent = options.intent;
     const aurora::core::AnalysisReport report = aurora::core::AnalyzeRender(rendered, analysis_options);
     const std::filesystem::path out_path = options.analysis_out.value_or(meta_dir / "analysis.json");
