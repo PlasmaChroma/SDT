@@ -271,6 +271,16 @@ Example:
 
 Renderer behavior only interprets a subset of node types/params (others parse but may have no audible effect).
 
+Implemented comb node syntax (`comb`):
+```au
+{ id: "comb1", type: comb, params: { time: 23ms, fb: 0.7, mix: 0.45, damp: 0.35 } }
+```
+Supported params:
+- `time` (time literal or number interpreted as seconds)
+- `fb` (feedback)
+- `mix` (dry/wet)
+- `damp` (feedback damping)
+
 Implemented oscillator parameter behavior (`osc_*` nodes):
 - Oscillator frequency precedence:
   1. event-level `params.<oscNode>.freq`
@@ -534,6 +544,7 @@ Target handling:
   - envelope: `<env_node>.a`, `<env_node>.d`, `<env_node>.s`, `<env_node>.r`
   - filter: `<filter_node>.cutoff`, `<filter_node>.freq` (cutoff alias when `.cutoff` is absent), `<filter_node>.q`, `<filter_node>.res`
   - gain: `<gain_node>.gain`
+  - comb: `<comb_node>.time`, `<comb_node>.fb`, `<comb_node>.mix`, `<comb_node>.damp`
 
 ## 6.4 `seq`
 Format:
@@ -610,6 +621,7 @@ Warnings:
   - `ring_mod`: `<ring>.freq`, `<ring>.mix`, `<ring>.depth`, `<ring>.bias`, `<ring>.pw`
   - `softclip`: `<clip>.drive`, `<clip>.mix`, `<clip>.bias`
   - `audio_mix`: `<mx>.gain`, `<mx>.mix`, `<mx>.bias`
+  - `comb`: `<comb>.time`, `<comb>.fb`, `<comb>.mix`, `<comb>.damp`
 - Modulation routes from graph `connect` are applied after event/automation/static resolution for each sample.
 - CV utility nodes are evaluated as control sources:
   - `cv_scale`: `out = in * scale + bias`
@@ -636,6 +648,14 @@ Warnings:
 - `audio_mix` node is an active audio utility stage:
   - stage equation per channel: `out = dry*(1-mix) + (dry*gain + bias)*mix`
   - currently inserted as a per-voice stage before filter/gain/VCA output gain stages
+- `comb` node is an active per-voice comb-filter stage:
+  - core params:
+    - `time`: delay time (seconds; unit time literals supported in static/event values)
+    - `fb`: feedback amount (runtime clamped to `[-0.99, 0.99]`)
+    - `mix`: dry/wet blend (`[0,1]`)
+    - `damp`: feedback damping (`[0,1]`, higher values damp high frequencies more strongly)
+  - stage equation per channel (conceptual): delayed-feedback comb with one-pole damping in feedback path
+  - currently inserted as a per-voice stage before final gain/VCA output gain
 - filter `drive` is an active pre-filter input stage:
   - input shaping uses normalized `tanh` waveshaping
   - `drive_pos` / `drive_stage` selects placement: `pre` (default) or `post`
@@ -704,6 +724,10 @@ All routed params follow:
 | Filter | `<filter>.keytrack` | filter `keytrack` | Pitch-relative cutoff scaling around MIDI 60; `0` off, `1` full octave-follow. |
 | Filter | `<filter>.env_amt` (`<filter>.env_amount`) | filter `env_amt`/`env_amount` | Adds envelope-scaled Hz offset to cutoff each sample. |
 | Gain | `<gain>.gain` | gain node `params.gain` | Treated as dB in render path and converted to linear gain. |
+| Comb | `<comb>.time` | comb node `params.time` | Runtime minimum `1ms`; unit times accepted. |
+| Comb | `<comb>.fb` | comb node `params.fb` | Runtime clamped to `[-0.99, 0.99]`. |
+| Comb | `<comb>.mix` | comb node `params.mix` | Runtime clamped to `[0, 1]`. |
+| Comb | `<comb>.damp` | comb node `params.damp` | Runtime clamped to `[0, 1]`; controls feedback damping. |
 | VCA | `<vca>.cv` | vca node `params.cv` | Runtime clamped to `[0, 1]`; multiplied into final gain. |
 | VCA | `<vca>.gain` | vca node `params.gain` | Linear by default (`dB` accepted statically); multiplied into final gain. |
 | VCA | `<vca>.curve_amt` (`<vca>.curve_amount`) | vca node `params.curve_amt`/`curve_amount` | Runtime clamped to `[0.2, 8.0]`; used by `curve: exp|log`. |

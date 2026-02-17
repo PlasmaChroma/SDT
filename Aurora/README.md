@@ -60,6 +60,12 @@ imports {
 
 Imported patches are referenced as `alias.PatchName` in events and patch targets (for example `play lib.ImportedLead { ... }` and `automate patch.lib.ImportedLead.env.a linear { ... }`).
 
+Patch graph includes a `comb` node with core params:
+- `time` (unit time literal)
+- `fb` (feedback, clamped to [-0.99, 0.99])
+- `mix` (dry/wet)
+- `damp` (feedback damping, [0,1])
+
 Analysis reports are written as deterministic JSON. In render mode with `--analyze`, Aurora writes `analysis.json` under `meta/` by default.
 `--analyze-threads N` sets the maximum concurrent stem-analysis jobs (`N >= 1`).
 

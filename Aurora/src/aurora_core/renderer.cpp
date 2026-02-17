@@ -931,6 +931,15 @@ struct PatchProgram {
     double bias = 0.0;
   } audio_mix;
 
+  struct Comb {
+    bool enabled = false;
+    std::string node_id;
+    double time_seconds = 0.03;
+    double feedback = 0.55;
+    double mix = 0.4;
+    double damp = 0.3;
+  } comb;
+
   struct ModRoute {
     enum class SourceKind { kEnv, kLfo, kCvNode };
     enum class Op { kSet, kAdd, kMul };
@@ -1303,6 +1312,15 @@ PatchProgram BuildPatchProgram(const aurora::lang::PatchDefinition& patch) {
       }
       program.audio_mix.mix = Clamp(NodeParamNumber(node.params, "mix", program.audio_mix.mix), 0.0, 1.0);
       program.audio_mix.bias = NodeParamNumber(node.params, "bias", program.audio_mix.bias);
+    } else if (node.type == "comb") {
+      program.comb.enabled = true;
+      program.comb.node_id = node.id;
+      if (const auto it = node.params.find("time"); it != node.params.end()) {
+        program.comb.time_seconds = std::max(0.001, UnitLiteralToSeconds(ValueToUnit(it->second)));
+      }
+      program.comb.feedback = Clamp(NodeParamNumber(node.params, "fb", program.comb.feedback), -0.99, 0.99);
+      program.comb.mix = Clamp(NodeParamNumber(node.params, "mix", program.comb.mix), 0.0, 1.0);
+      program.comb.damp = Clamp(NodeParamNumber(node.params, "damp", program.comb.damp), 0.0, 1.0);
     } else if (node.type == "gain") {
       program.gain_node_id = node.id;
       if (const auto it = node.params.find("gain"); it != node.params.end()) {
@@ -1829,6 +1847,10 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   const ValueRoute audio_mix_gain_route = make_route(program.audio_mix.node_id + ".gain");
   const ValueRoute audio_mix_mix_route = make_route(program.audio_mix.node_id + ".mix");
   const ValueRoute audio_mix_bias_route = make_route(program.audio_mix.node_id + ".bias");
+  const ValueRoute comb_time_route = make_route(program.comb.node_id + ".time");
+  const ValueRoute comb_fb_route = make_route(program.comb.node_id + ".fb");
+  const ValueRoute comb_mix_route = make_route(program.comb.node_id + ".mix");
+  const ValueRoute comb_damp_route = make_route(program.comb.node_id + ".damp");
   const std::vector<size_t>* env_a_mod_routes = find_target_routes(program.env_node_id + ".a");
   const std::vector<size_t>* env_d_mod_routes = find_target_routes(program.env_node_id + ".d");
   const std::vector<size_t>* env_s_mod_routes = find_target_routes(program.env_node_id + ".s");
@@ -1856,6 +1878,10 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   const std::vector<size_t>* audio_mix_gain_mod_routes = find_target_routes(program.audio_mix.node_id + ".gain");
   const std::vector<size_t>* audio_mix_mix_mod_routes = find_target_routes(program.audio_mix.node_id + ".mix");
   const std::vector<size_t>* audio_mix_bias_mod_routes = find_target_routes(program.audio_mix.node_id + ".bias");
+  const std::vector<size_t>* comb_time_mod_routes = find_target_routes(program.comb.node_id + ".time");
+  const std::vector<size_t>* comb_fb_mod_routes = find_target_routes(program.comb.node_id + ".fb");
+  const std::vector<size_t>* comb_mix_mod_routes = find_target_routes(program.comb.node_id + ".mix");
+  const std::vector<size_t>* comb_damp_mod_routes = find_target_routes(program.comb.node_id + ".damp");
   const auto no_attack_it = play.params.find("__env_no_attack");
   const bool no_attack = (no_attack_it != play.params.end() && no_attack_it->second.kind == aurora::lang::ParamValue::Kind::kBool &&
                           no_attack_it->second.bool_value);
@@ -1873,6 +1899,18 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
     double ic1eq_right_b = 0.0;
     double ic2eq_right_b = 0.0;
     double ring_phase = 0.0;
+    std::vector<float> comb_line_l;
+    std::vector<float> comb_line_r;
+    size_t comb_write_index = 0;
+    double comb_lp_l = 0.0;
+    double comb_lp_r = 0.0;
+    if (program.comb.enabled && !program.comb.node_id.empty()) {
+      const double reserve_seconds = Clamp(program.comb.time_seconds * 2.0 + 0.05, 0.01, 2.0);
+      const size_t reserve_samples = std::max<size_t>(
+          2U, static_cast<size_t>(std::llround(reserve_seconds * static_cast<double>(sample_rate))));
+      comb_line_l.assign(reserve_samples, 0.0F);
+      comb_line_r.assign(reserve_samples, 0.0F);
+    }
     PCG32 noise_rng(Hash64FromParts(seed, "voice", play.patch, std::to_string(play.start_sample),
                                     std::to_string(static_cast<int>(pitch_index))));
 
@@ -2151,6 +2189,37 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
             sample_right = process_filter_sample(sample_right, &ic1eq_right_b, &ic2eq_right_b);
           }
         }
+      }
+
+      if (program.comb.enabled && !program.comb.node_id.empty() && !comb_line_l.empty()) {
+        const double comb_time_seconds = std::max(
+            0.001, apply_mod(comb_time_mod_routes, resolve_seconds(comb_time_route, program.comb.time_seconds, abs_sample), env, t,
+                             abs_sample));
+        const size_t comb_delay = static_cast<size_t>(std::llround(comb_time_seconds * static_cast<double>(sample_rate)));
+        const size_t max_delay = comb_line_l.size() > 1U ? comb_line_l.size() - 1U : 1U;
+        const size_t delay_samples = std::max<size_t>(1U, std::min(comb_delay, max_delay));
+        const double comb_fb = Clamp(
+            apply_mod(comb_fb_mod_routes, resolve_number(comb_fb_route, program.comb.feedback, abs_sample), env, t, abs_sample),
+            -0.99, 0.99);
+        const double comb_mix = Clamp(
+            apply_mod(comb_mix_mod_routes, resolve_number(comb_mix_route, program.comb.mix, abs_sample), env, t, abs_sample), 0.0,
+            1.0);
+        const double comb_damp = Clamp(
+            apply_mod(comb_damp_mod_routes, resolve_number(comb_damp_route, program.comb.damp, abs_sample), env, t, abs_sample), 0.0,
+            1.0);
+
+        const size_t read_index = (comb_write_index + comb_line_l.size() - delay_samples) % comb_line_l.size();
+        const double delayed_l = static_cast<double>(comb_line_l[read_index]);
+        const double delayed_r = static_cast<double>(comb_line_r[read_index]);
+        const double lp_alpha = 1.0 - comb_damp;
+        comb_lp_l += (delayed_l - comb_lp_l) * lp_alpha;
+        comb_lp_r += (delayed_r - comb_lp_r) * lp_alpha;
+        comb_line_l[comb_write_index] = static_cast<float>(sample_left + comb_lp_l * comb_fb);
+        comb_line_r[comb_write_index] = static_cast<float>(sample_right + comb_lp_r * comb_fb);
+        comb_write_index = (comb_write_index + 1U) % comb_line_l.size();
+
+        sample_left = sample_left * (1.0 - comb_mix) + delayed_l * comb_mix;
+        sample_right = sample_right * (1.0 - comb_mix) + delayed_r * comb_mix;
       }
 
       double gain = base_gain;
