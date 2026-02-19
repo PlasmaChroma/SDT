@@ -1562,6 +1562,31 @@ double OscSample(const std::string& osc_type, double phase, double pulse_width) 
   return std::sin(2.0 * kPi * norm);
 }
 
+struct Smoother1p {
+  double a = 1.0;
+  double y = 0.0;
+  bool inited = false;
+
+  void SetTimeSeconds(double tau, double sr) {
+    if (tau <= 0.0 || sr <= 0.0) {
+      a = 1.0;
+      return;
+    }
+    a = 1.0 - std::exp(-1.0 / (tau * sr));
+    a = Clamp(a, 0.0, 1.0);
+  }
+
+  double Process(double x) {
+    if (!inited) {
+      y = x;
+      inited = true;
+      return y;
+    }
+    y += a * (x - y);
+    return y;
+  }
+};
+
 void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play, const PatchProgram& program,
                       const std::map<std::string, AutomationLane>& automation, int sample_rate, int block_size,
                       uint64_t seed) {
@@ -1981,6 +2006,29 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
   const std::vector<size_t>* depth_er_send_mod_routes = find_target_routes(program.depth.node_id + ".early_reflection_send");
   const std::vector<size_t>* decor_time_mod_routes = find_target_routes(program.decorrelate.node_id + ".time");
   const std::vector<size_t>* decor_mix_mod_routes = find_target_routes(program.decorrelate.node_id + ".mix");
+
+  const auto has_control_rate_routes_only = [&](const std::vector<size_t>* routes) {
+    if (routes == nullptr || routes->empty()) {
+      return false;
+    }
+    bool has_control = false;
+    bool has_audio = false;
+    for (const size_t route_index : *routes) {
+      if (route_index >= program.mod_routes.size()) {
+        continue;
+      }
+      const auto& route = program.mod_routes[route_index];
+      if (route.rate == "audio") {
+        has_audio = true;
+      } else {
+        has_control = true;
+      }
+    }
+    return has_control && !has_audio;
+  };
+  const bool smooth_vca_cv = has_control_rate_routes_only(vca_cv_mod_routes);
+  constexpr double kControlModSmoothMs = 1.0;
+
   const auto no_attack_it = play.params.find("__env_no_attack");
   const bool no_attack = (no_attack_it != play.params.end() && no_attack_it->second.kind == aurora::lang::ParamValue::Kind::kBool &&
                           no_attack_it->second.bool_value);
@@ -1998,6 +2046,10 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
     double ic1eq_right_b = 0.0;
     double ic2eq_right_b = 0.0;
     double ring_phase = 0.0;
+    Smoother1p vca_cv_smoother;
+    if (smooth_vca_cv) {
+      vca_cv_smoother.SetTimeSeconds(kControlModSmoothMs * 0.001, static_cast<double>(sample_rate));
+    }
     std::vector<float> comb_line_l;
     std::vector<float> comb_line_r;
     size_t comb_write_index = 0;
@@ -2531,9 +2583,10 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
         gain = DbToLinear(gain_db) * play.velocity;
       }
       if (program.vca.enabled && !program.vca.node_id.empty()) {
-        const double vca_cv = Clamp(apply_mod(vca_cv_mod_routes, resolve_number(vca_cv_route, program.vca.cv, abs_sample), env, t,
-                                              abs_sample),
-                                    0.0, 1.0);
+        const double vca_cv_raw =
+            Clamp(apply_mod(vca_cv_mod_routes, resolve_number(vca_cv_route, program.vca.cv, abs_sample), env, t, abs_sample), 0.0,
+                  1.0);
+        const double vca_cv = smooth_vca_cv ? Clamp(vca_cv_smoother.Process(vca_cv_raw), 0.0, 1.0) : vca_cv_raw;
         const double vca_gain =
             std::max(0.0, apply_mod(vca_gain_mod_routes, resolve_number(vca_gain_route, program.vca.gain, abs_sample), env, t,
                                     abs_sample));

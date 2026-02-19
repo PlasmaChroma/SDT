@@ -85,7 +85,7 @@ patch SubBoom {
     ],
     connect: [
       { from: "osc", to: "vca.in" },
-      { from: "env.out", to: "vca.cv", rate: audio }
+      { from: "env.out", to: "vca.cv", rate: control }
     ],
     io: { out: "vca" }
   }
