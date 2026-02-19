@@ -1,0 +1,149 @@
+aurora { version: "1.0" }
+
+globals {
+  sr: 48000,
+  block: 256,
+  tempo: 72
+}
+
+//////////////////////////////////////////////////////////////////
+// BUS FX
+//////////////////////////////////////////////////////////////////
+
+bus Hall {
+  channels: 2,
+  out: stem("hall"),
+  graph: {
+    nodes: [
+      { id: "rev", type: reverb_algo, params: { mix: 0.35, decay: 4.5, size: 0.9, width: 1.0 } }
+    ],
+    connect: [],
+    io: { out: "rev" }
+  }
+}
+
+//////////////////////////////////////////////////////////////////
+// PATCHES
+//////////////////////////////////////////////////////////////////
+
+patch Strings {
+  poly: 16,
+  voice_spread: { pan: 0.6, detune: 7c },
+  stage_position: { depth: 0.4 },
+  send: { bus: "Hall", amount: -6dB },
+  out: stem("strings"),
+
+  graph: {
+    nodes: [
+      { id: "osc1", type: osc_saw, params: { detune: -4c } },
+      { id: "osc2", type: osc_saw, params: { detune: 4c } },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 1800Hz, q: 0.7, slope: 24 } },
+      { id: "env", type: env_adsr, params: { a: 500ms, d: 800ms, s: 0.8, r: 2s } },
+      { id: "vca", type: vca }
+    ],
+    connect: [
+      { from: "osc1", to: "filt.in" },
+      { from: "osc2", to: "filt.in" },
+      { from: "filt", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: control }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+patch BrassLead {
+  mono: true,
+  legato: true,
+  stage_position: { depth: 0.2 },
+  send: { bus: "Hall", amount: -4dB },
+  out: stem("brass"),
+
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine },
+      { id: "filt", type: svf, params: { mode: lp, cutoff: 1200Hz, q: 0.9, drive: 2.5 } },
+      { id: "env", type: env_adsr, params: { a: 300ms, d: 300ms, s: 0.7, r: 600ms } },
+      { id: "vca", type: vca }
+    ],
+    connect: [
+      { from: "osc", to: "filt.in" },
+      { from: "filt", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: audio }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+patch SubBoom {
+  mono: true,
+  out: stem("sub"),
+  graph: {
+    nodes: [
+      { id: "osc", type: osc_sine },
+      { id: "env", type: env_ad, params: { a: 10ms, d: 800ms } },
+      { id: "vca", type: vca }
+    ],
+    connect: [
+      { from: "osc", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: audio }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+//////////////////////////////////////////////////////////////////
+// SCORE
+//////////////////////////////////////////////////////////////////
+
+score {
+
+  ////////////////////////////////////////////////////////////////
+  // INTRO
+  ////////////////////////////////////////////////////////////////
+
+  section Intro at 0beats dur 8beats {
+    play Strings { at: 0beats, dur: 8beats, pitch: [C3, G3, E4] }
+  }
+
+  ////////////////////////////////////////////////////////////////
+  // MAIN MELODY (TWINKLE)
+  ////////////////////////////////////////////////////////////////
+
+  section Theme at 8beats dur 16beats {
+
+    // Twinkle melody
+    play BrassLead { at: 0beats, dur: 1beats, pitch: C4 }
+    play BrassLead { at: 1beats, dur: 1beats, pitch: C4 }
+    play BrassLead { at: 2beats, dur: 1beats, pitch: G4 }
+    play BrassLead { at: 3beats, dur: 1beats, pitch: G4 }
+    play BrassLead { at: 4beats, dur: 1beats, pitch: A4 }
+    play BrassLead { at: 5beats, dur: 1beats, pitch: A4 }
+    play BrassLead { at: 6beats, dur: 2beats, pitch: G4 }
+
+    play Strings { at: 0beats, dur: 8beats, pitch: [C3, G3, E4] }
+
+    play SubBoom { at: 0beats, dur: 1beats, pitch: C2 }
+    play SubBoom { at: 4beats, dur: 1beats, pitch: F2 }
+  }
+
+  ////////////////////////////////////////////////////////////////
+  // MODULATION + FINALE
+  ////////////////////////////////////////////////////////////////
+
+  section Finale at 24beats dur 16beats {
+
+    set patch.Strings.filt.cutoff = 3200Hz
+
+    play BrassLead { at: 0beats, dur: 1beats, pitch: D4 }
+    play BrassLead { at: 1beats, dur: 1beats, pitch: D4 }
+    play BrassLead { at: 2beats, dur: 1beats, pitch: A4 }
+    play BrassLead { at: 3beats, dur: 1beats, pitch: A4 }
+    play BrassLead { at: 4beats, dur: 1beats, pitch: B4 }
+    play BrassLead { at: 5beats, dur: 1beats, pitch: B4 }
+    play BrassLead { at: 6beats, dur: 2beats, pitch: A4 }
+
+    play Strings { at: 0beats, dur: 8beats, pitch: [D3, A3, F#4] }
+    play SubBoom { at: 0beats, dur: 1beats, pitch: D2 }
+  }
+
+}

@@ -48,6 +48,46 @@ void WriteSpectralRatios(std::ofstream& out, const aurora::core::SpectralRatios&
   out << pad << "\"ultra\": " << r.ultra << "\n";
 }
 
+void WriteSpectrogram(std::ofstream& out, const aurora::core::SpectrogramArtifact& spec, int indent) {
+  const std::string pad(static_cast<size_t>(indent), ' ');
+  out << pad << "\"enabled\": " << (spec.enabled ? "true" : "false");
+  if (!spec.path.empty()) {
+    out << ",\n" << pad << "\"path\": \"" << EscapeJson(spec.path) << "\"";
+  }
+  if (!spec.paths.empty()) {
+    out << ",\n" << pad << "\"paths\": [\n";
+    for (size_t i = 0; i < spec.paths.size(); ++i) {
+      out << pad << "  \"" << EscapeJson(spec.paths[i]) << "\"";
+      if (i + 1 < spec.paths.size()) {
+        out << ",";
+      }
+      out << "\n";
+    }
+    out << pad << "]";
+  }
+  if (!spec.error.empty()) {
+    out << ",\n" << pad << "\"error\": \"" << EscapeJson(spec.error) << "\"";
+  }
+  if (spec.enabled) {
+    out << ",\n" << pad << "\"mode\": \"" << EscapeJson(spec.mode) << "\"";
+    out << ",\n" << pad << "\"sr\": " << spec.sr;
+    out << ",\n" << pad << "\"window\": " << spec.window;
+    out << ",\n" << pad << "\"hop\": " << spec.hop;
+    out << ",\n" << pad << "\"nfft\": " << spec.nfft;
+    out << ",\n" << pad << "\"freq_scale\": \"" << EscapeJson(spec.freq_scale) << "\"";
+    out << ",\n" << pad << "\"min_hz\": " << spec.min_hz;
+    out << ",\n" << pad << "\"max_hz\": " << spec.max_hz;
+    out << ",\n" << pad << "\"db_min\": " << spec.db_min;
+    out << ",\n" << pad << "\"db_max\": " << spec.db_max;
+    out << ",\n" << pad << "\"colormap\": \"" << EscapeJson(spec.colormap) << "\"";
+    out << ",\n" << pad << "\"width_px\": " << spec.width_px;
+    out << ",\n" << pad << "\"height_px\": " << spec.height_px;
+    out << ",\n" << pad << "\"gamma\": " << spec.gamma;
+    out << ",\n" << pad << "\"smoothing_bins\": " << spec.smoothing_bins;
+  }
+  out << "\n";
+}
+
 void WriteFileAnalysis(std::ofstream& out, const aurora::core::FileAnalysis& item, int indent) {
   const std::string pad(static_cast<size_t>(indent), ' ');
   out << pad << "\"name\": \"" << EscapeJson(item.name) << "\",\n";
@@ -96,7 +136,15 @@ void WriteFileAnalysis(std::ofstream& out, const aurora::core::FileAnalysis& ite
   out << pad << "\"relative_loudness_lufs\": " << item.relative_loudness_lufs << ",\n";
   out << pad << "\"energy_contribution_ratio\": " << item.energy_contribution_ratio << ",\n";
   out << pad << "\"sub_contribution_ratio\": " << item.sub_contribution_ratio << ",\n";
-  out << pad << "\"frequency_dominance_profile\": \"" << EscapeJson(item.frequency_dominance_profile) << "\"\n";
+  out << pad << "\"frequency_dominance_profile\": \"" << EscapeJson(item.frequency_dominance_profile) << "\"";
+  if (item.spectrogram.present) {
+    out << ",\n";
+    out << pad << "\"spectrogram\": {\n";
+    WriteSpectrogram(out, item.spectrogram, indent + 2);
+    out << pad << "}\n";
+  } else {
+    out << "\n";
+  }
 }
 
 }  // namespace

@@ -1,5 +1,6 @@
 add_library(aurora_core
   analyzer.cpp
+  spectrogram.cpp
   renderer.cpp
 )
 

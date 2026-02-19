@@ -2148,12 +2148,14 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
             std::max(0.0001, apply_mod(env_r_mod_routes, resolve_seconds(env_r, program.env.r, abs_sample), 0.0, t, abs_sample));
       }
       double env = EnvelopeValue(env_state, t, note_dur, no_attack);
+      const bool env_has_release_stage =
+          program.env.enabled && program.env.mode != PatchProgram::Env::Mode::kAd;
 
       if (voice_i < fade_samples && fade_samples > 0) {
         env *= static_cast<double>(voice_i) / static_cast<double>(fade_samples);
       }
-      if (voice_i < play.dur_samples && play.dur_samples > fade_samples && voice_i > play.dur_samples - fade_samples &&
-          fade_samples > 0) {
+      if (!env_has_release_stage && voice_i < play.dur_samples && play.dur_samples > fade_samples &&
+          voice_i > play.dur_samples - fade_samples && fade_samples > 0) {
         const uint64_t rem = play.dur_samples - voice_i;
         env *= static_cast<double>(rem) / static_cast<double>(fade_samples);
       }
@@ -2210,10 +2212,10 @@ void RenderPlayToStem(aurora::core::AudioStem* stem, const PlayOccurrence& play,
 
         const double pw = Clamp(apply_mod(route.pw_mod_routes, resolve_number(route.pw, osc.pw, abs_sample), env, t, abs_sample),
                                 0.01, 0.99);
-        phases_left[osc_idx] += freq_left / static_cast<double>(sample_rate);
         sample_left += OscSample(osc.type, phases_left[osc_idx], pw);
-        phases_right[osc_idx] += freq_right / static_cast<double>(sample_rate);
+        phases_left[osc_idx] += freq_left / static_cast<double>(sample_rate);
         sample_right += OscSample(osc.type, phases_right[osc_idx], pw);
+        phases_right[osc_idx] += freq_right / static_cast<double>(sample_rate);
       }
       if (program.noise_white) {
         const double n = noise_rng.Uniform(-1.0, 1.0) * 0.25;

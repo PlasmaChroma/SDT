@@ -60,6 +60,29 @@ struct SubMetrics {
   double low_frequency_phase_coherence = 0.0;
 };
 
+struct SpectrogramArtifact {
+  bool present = false;
+  bool enabled = false;
+  std::string path;
+  std::vector<std::string> paths;
+  std::string error;
+  std::string mode = "mixdown";
+  int sr = 0;
+  int window = 2048;
+  int hop = 512;
+  int nfft = 2048;
+  std::string freq_scale = "log";
+  double min_hz = 20.0;
+  double max_hz = 20000.0;
+  double db_min = -90.0;
+  double db_max = 0.0;
+  std::string colormap = "magma";
+  int width_px = 1600;
+  int height_px = 512;
+  double gamma = 1.0;
+  int smoothing_bins = 0;
+};
+
 struct IntentEvaluation {
   std::string status = "not_evaluated";
   std::vector<std::string> notes;
@@ -79,6 +102,7 @@ struct FileAnalysis {
   double energy_contribution_ratio = 0.0;
   double sub_contribution_ratio = 0.0;
   std::string frequency_dominance_profile;
+  SpectrogramArtifact spectrogram;
 };
 
 struct AnalysisReport {

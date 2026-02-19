@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <exception>
 #include <filesystem>
@@ -5,6 +6,9 @@
 #include <future>
 #include <iostream>
 #include <map>
+#include <cctype>
+#include <cmath>
+#include <limits>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -13,11 +17,13 @@
 
 #include "aurora/core/analyzer.hpp"
 #include "aurora/core/renderer.hpp"
+#include "aurora/core/spectrogram.hpp"
 #include "aurora/core/timebase.hpp"
 #include "aurora/io/analysis_writer.hpp"
 #include "aurora/io/audio_reader.hpp"
 #include "aurora/io/json_writer.hpp"
 #include "aurora/io/midi_writer.hpp"
+#include "aurora/io/png_writer.hpp"
 #include "aurora/io/wav_writer.hpp"
 #include "aurora/lang/parser.hpp"
 #include "aurora/lang/validation.hpp"
@@ -32,6 +38,9 @@ struct RenderCliOptions {
   std::optional<std::filesystem::path> analysis_out;
   int analyze_threads = 0;
   std::string intent;
+  bool spectrogram = true;
+  std::optional<std::filesystem::path> spectrogram_out;
+  std::optional<std::string> spectrogram_config_json;
 };
 
 struct AnalyzeCliOptions {
@@ -41,16 +50,21 @@ struct AnalyzeCliOptions {
   std::optional<std::filesystem::path> out_path;
   int analyze_threads = 0;
   std::string intent;
+  bool spectrogram = true;
+  std::optional<std::filesystem::path> spectrogram_out;
+  std::optional<std::string> spectrogram_config_json;
 };
 
 void PrintUsage() {
   std::cerr << "Usage:\n";
   std::cerr << "  aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>] [--analyze]";
-  std::cerr << " [--analysis-out <path>] [--analyze-threads N] [--intent sleep|ritual|dub]\n";
+  std::cerr << " [--analysis-out <path>] [--analyze-threads N] [--intent sleep|ritual|dub]";
+  std::cerr << " [--nospectrogram] [--spectrogram-out <dir>] [--spectrogram-config <json>]\n";
   std::cerr << "  aurora analyze <input.wav|input.flac|input.mp3|input.aiff> [--out <analysis.json>] [--analyze-threads N]";
-  std::cerr << " [--intent sleep|ritual|dub]\n";
+  std::cerr << " [--intent sleep|ritual|dub] [--nospectrogram] [--spectrogram-out <dir>] [--spectrogram-config <json>]\n";
   std::cerr << "  aurora analyze --stems <stem1.wav> <stem2.wav> ... [--mix <mix.wav>] [--out <analysis.json>]";
-  std::cerr << " [--analyze-threads N] [--intent sleep|ritual|dub]\n";
+  std::cerr << " [--analyze-threads N] [--intent sleep|ritual|dub]";
+  std::cerr << " [--nospectrogram] [--spectrogram-out <dir>] [--spectrogram-config <json>]\n";
 }
 
 bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, RenderCliOptions* options, std::string* error) {
@@ -142,6 +156,29 @@ bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, RenderC
       options->analyze = true;
       continue;
     }
+    if (arg == "--nospectrogram") {
+      options->spectrogram = false;
+      options->analyze = true;
+      continue;
+    }
+    if (arg == "--spectrogram-out") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-out";
+        return false;
+      }
+      options->spectrogram_out = std::filesystem::path(argv[++i]);
+      options->analyze = true;
+      continue;
+    }
+    if (arg == "--spectrogram-config") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-config";
+        return false;
+      }
+      options->spectrogram_config_json = std::string(argv[++i]);
+      options->analyze = true;
+      continue;
+    }
     *error = "Unknown argument: " + arg;
     return false;
   }
@@ -199,6 +236,26 @@ bool ParseAnalyzeArgs(int argc, char** argv, AnalyzeCliOptions* options, std::st
         *error = "--analyze-threads must be >= 1.";
         return false;
       }
+      continue;
+    }
+    if (arg == "--nospectrogram") {
+      options->spectrogram = false;
+      continue;
+    }
+    if (arg == "--spectrogram-out") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-out";
+        return false;
+      }
+      options->spectrogram_out = std::filesystem::path(argv[++i]);
+      continue;
+    }
+    if (arg == "--spectrogram-config") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-config";
+        return false;
+      }
+      options->spectrogram_config_json = std::string(argv[++i]);
       continue;
     }
     if (!arg.empty() && arg[0] == '-') {
@@ -412,6 +469,610 @@ std::string FormatElapsed(const std::chrono::steady_clock::time_point& start) {
   return std::to_string(ms) + "ms";
 }
 
+struct SpectrogramConfigOverrides {
+  std::optional<int> window;
+  std::optional<int> hop;
+  std::optional<int> nfft;
+  std::optional<std::string> mode;
+  std::optional<std::string> freq_scale;
+  std::optional<double> min_hz;
+  std::optional<double> max_hz;
+  std::optional<double> db_min;
+  std::optional<double> db_max;
+  std::optional<std::string> colormap;
+  std::optional<int> width_px;
+  std::optional<int> height_px;
+  std::optional<double> gamma;
+  std::optional<int> smoothing_bins;
+};
+
+bool IsValidEnum(const std::string& value, const std::set<std::string>& allowed) { return allowed.contains(value); }
+
+void SkipWs(const std::string& text, size_t* pos) {
+  while (*pos < text.size() && std::isspace(static_cast<unsigned char>(text[*pos])) != 0) {
+    ++(*pos);
+  }
+}
+
+bool ParseJsonString(const std::string& text, size_t* pos, std::string* out, std::string* error) {
+  if (*pos >= text.size() || text[*pos] != '"') {
+    if (error != nullptr) {
+      *error = "Expected JSON string.";
+    }
+    return false;
+  }
+  ++(*pos);
+  std::string value;
+  while (*pos < text.size()) {
+    const char c = text[*pos];
+    ++(*pos);
+    if (c == '"') {
+      *out = value;
+      return true;
+    }
+    if (c == '\\') {
+      if (*pos >= text.size()) {
+        if (error != nullptr) {
+          *error = "Invalid JSON escape sequence.";
+        }
+        return false;
+      }
+      const char esc = text[*pos];
+      ++(*pos);
+      switch (esc) {
+        case '"':
+        case '\\':
+        case '/':
+          value.push_back(esc);
+          break;
+        case 'b':
+          value.push_back('\b');
+          break;
+        case 'f':
+          value.push_back('\f');
+          break;
+        case 'n':
+          value.push_back('\n');
+          break;
+        case 'r':
+          value.push_back('\r');
+          break;
+        case 't':
+          value.push_back('\t');
+          break;
+        default:
+          if (error != nullptr) {
+            *error = "Unsupported JSON escape in spectrogram config.";
+          }
+          return false;
+      }
+      continue;
+    }
+    value.push_back(c);
+  }
+  if (error != nullptr) {
+    *error = "Unterminated JSON string.";
+  }
+  return false;
+}
+
+bool ParseJsonNumberToken(const std::string& text, size_t* pos, std::string* out, std::string* error) {
+  const size_t start = *pos;
+  if (*pos < text.size() && (text[*pos] == '-' || text[*pos] == '+')) {
+    ++(*pos);
+  }
+  bool any = false;
+  while (*pos < text.size() && std::isdigit(static_cast<unsigned char>(text[*pos])) != 0) {
+    any = true;
+    ++(*pos);
+  }
+  if (*pos < text.size() && text[*pos] == '.') {
+    ++(*pos);
+    while (*pos < text.size() && std::isdigit(static_cast<unsigned char>(text[*pos])) != 0) {
+      any = true;
+      ++(*pos);
+    }
+  }
+  if (*pos < text.size() && (text[*pos] == 'e' || text[*pos] == 'E')) {
+    ++(*pos);
+    if (*pos < text.size() && (text[*pos] == '+' || text[*pos] == '-')) {
+      ++(*pos);
+    }
+    while (*pos < text.size() && std::isdigit(static_cast<unsigned char>(text[*pos])) != 0) {
+      any = true;
+      ++(*pos);
+    }
+  }
+  if (!any) {
+    if (error != nullptr) {
+      *error = "Expected numeric value in spectrogram config.";
+    }
+    return false;
+  }
+  *out = text.substr(start, *pos - start);
+  return true;
+}
+
+bool ParseIntegerToken(const std::string& token, int* out, std::string* error, const std::string& field_name) {
+  if (token.find('.') != std::string::npos || token.find('e') != std::string::npos || token.find('E') != std::string::npos) {
+    if (error != nullptr) {
+      *error = "Expected integer for '" + field_name + "'.";
+    }
+    return false;
+  }
+  try {
+    const long long value = std::stoll(token);
+    if (value < static_cast<long long>(std::numeric_limits<int>::min()) ||
+        value > static_cast<long long>(std::numeric_limits<int>::max())) {
+      if (error != nullptr) {
+        *error = "Integer out of range for '" + field_name + "'.";
+      }
+      return false;
+    }
+    *out = static_cast<int>(value);
+    return true;
+  } catch (const std::exception&) {
+    if (error != nullptr) {
+      *error = "Invalid integer for '" + field_name + "'.";
+    }
+    return false;
+  }
+}
+
+bool ParseDoubleToken(const std::string& token, double* out, std::string* error, const std::string& field_name) {
+  try {
+    const double value = std::stod(token);
+    if (!std::isfinite(value)) {
+      if (error != nullptr) {
+        *error = "Non-finite number for '" + field_name + "'.";
+      }
+      return false;
+    }
+    *out = value;
+    return true;
+  } catch (const std::exception&) {
+    if (error != nullptr) {
+      *error = "Invalid number for '" + field_name + "'.";
+    }
+    return false;
+  }
+}
+
+bool ParseSpectrogramConfigJson(const std::string& json, SpectrogramConfigOverrides* overrides, std::string* error) {
+  if (overrides == nullptr) {
+    if (error != nullptr) {
+      *error = "Internal error parsing spectrogram config.";
+    }
+    return false;
+  }
+  size_t pos = 0;
+  SkipWs(json, &pos);
+  if (pos >= json.size() || json[pos] != '{') {
+    if (error != nullptr) {
+      *error = "--spectrogram-config must be a JSON object.";
+    }
+    return false;
+  }
+  ++pos;
+  std::set<std::string> seen_keys;
+
+  while (true) {
+    SkipWs(json, &pos);
+    if (pos >= json.size()) {
+      if (error != nullptr) {
+        *error = "Unterminated JSON object in --spectrogram-config.";
+      }
+      return false;
+    }
+    if (json[pos] == '}') {
+      ++pos;
+      break;
+    }
+
+    std::string key;
+    if (!ParseJsonString(json, &pos, &key, error)) {
+      return false;
+    }
+    if (!seen_keys.insert(key).second) {
+      if (error != nullptr) {
+        *error = "Duplicate key in --spectrogram-config: " + key;
+      }
+      return false;
+    }
+
+    SkipWs(json, &pos);
+    if (pos >= json.size() || json[pos] != ':') {
+      if (error != nullptr) {
+        *error = "Expected ':' after key '" + key + "' in --spectrogram-config.";
+      }
+      return false;
+    }
+    ++pos;
+    SkipWs(json, &pos);
+    if (pos >= json.size()) {
+      if (error != nullptr) {
+        *error = "Missing value for key '" + key + "' in --spectrogram-config.";
+      }
+      return false;
+    }
+    if (json.compare(pos, 4, "null") == 0) {
+      if (error != nullptr) {
+        *error = "null is not allowed for key '" + key + "' in --spectrogram-config.";
+      }
+      return false;
+    }
+
+    auto parse_string = [&](std::optional<std::string>* target) -> bool {
+      std::string value;
+      if (!ParseJsonString(json, &pos, &value, error)) {
+        return false;
+      }
+      *target = value;
+      return true;
+    };
+    auto parse_int = [&](std::optional<int>* target) -> bool {
+      std::string token;
+      if (!ParseJsonNumberToken(json, &pos, &token, error)) {
+        return false;
+      }
+      int value = 0;
+      if (!ParseIntegerToken(token, &value, error, key)) {
+        return false;
+      }
+      *target = value;
+      return true;
+    };
+    auto parse_double = [&](std::optional<double>* target) -> bool {
+      std::string token;
+      if (!ParseJsonNumberToken(json, &pos, &token, error)) {
+        return false;
+      }
+      double value = 0.0;
+      if (!ParseDoubleToken(token, &value, error, key)) {
+        return false;
+      }
+      *target = value;
+      return true;
+    };
+
+    if (key == "window") {
+      if (!parse_int(&overrides->window)) {
+        return false;
+      }
+    } else if (key == "hop") {
+      if (!parse_int(&overrides->hop)) {
+        return false;
+      }
+    } else if (key == "nfft") {
+      if (!parse_int(&overrides->nfft)) {
+        return false;
+      }
+    } else if (key == "mode") {
+      if (!parse_string(&overrides->mode)) {
+        return false;
+      }
+    } else if (key == "freq_scale") {
+      if (!parse_string(&overrides->freq_scale)) {
+        return false;
+      }
+    } else if (key == "min_hz") {
+      if (!parse_double(&overrides->min_hz)) {
+        return false;
+      }
+    } else if (key == "max_hz") {
+      if (!parse_double(&overrides->max_hz)) {
+        return false;
+      }
+    } else if (key == "db_min") {
+      if (!parse_double(&overrides->db_min)) {
+        return false;
+      }
+    } else if (key == "db_max") {
+      if (!parse_double(&overrides->db_max)) {
+        return false;
+      }
+    } else if (key == "colormap") {
+      if (!parse_string(&overrides->colormap)) {
+        return false;
+      }
+    } else if (key == "width_px") {
+      if (!parse_int(&overrides->width_px)) {
+        return false;
+      }
+    } else if (key == "height_px") {
+      if (!parse_int(&overrides->height_px)) {
+        return false;
+      }
+    } else if (key == "gamma") {
+      if (!parse_double(&overrides->gamma)) {
+        return false;
+      }
+    } else if (key == "smoothing_bins") {
+      if (!parse_int(&overrides->smoothing_bins)) {
+        return false;
+      }
+    } else {
+      if (error != nullptr) {
+        *error = "Unknown key in --spectrogram-config: " + key;
+      }
+      return false;
+    }
+
+    SkipWs(json, &pos);
+    if (pos >= json.size()) {
+      if (error != nullptr) {
+        *error = "Unterminated JSON object in --spectrogram-config.";
+      }
+      return false;
+    }
+    if (json[pos] == ',') {
+      ++pos;
+      continue;
+    }
+    if (json[pos] == '}') {
+      ++pos;
+      break;
+    }
+    if (error != nullptr) {
+      *error = "Expected ',' or '}' in --spectrogram-config.";
+    }
+    return false;
+  }
+
+  SkipWs(json, &pos);
+  if (pos != json.size()) {
+    if (error != nullptr) {
+      *error = "Unexpected trailing characters in --spectrogram-config.";
+    }
+    return false;
+  }
+  return true;
+}
+
+bool IsPowerOfTwo(int value) { return value > 0 && (value & (value - 1)) == 0; }
+
+bool BuildSpectrogramConfig(int sample_rate, const std::optional<std::string>& config_json, aurora::core::SpectrogramConfig* out,
+                            std::string* error) {
+  if (out == nullptr) {
+    if (error != nullptr) {
+      *error = "Internal error resolving spectrogram config.";
+    }
+    return false;
+  }
+  aurora::core::SpectrogramConfig config;
+  config.max_hz = std::min(20000.0, 0.49 * static_cast<double>(sample_rate));
+  SpectrogramConfigOverrides overrides;
+  if (config_json.has_value()) {
+    if (!ParseSpectrogramConfigJson(*config_json, &overrides, error)) {
+      return false;
+    }
+  }
+
+  auto apply = [](const auto& maybe, auto* field) {
+    if (maybe.has_value()) {
+      *field = *maybe;
+    }
+  };
+  apply(overrides.window, &config.window);
+  apply(overrides.hop, &config.hop);
+  apply(overrides.nfft, &config.nfft);
+  apply(overrides.mode, &config.mode);
+  apply(overrides.freq_scale, &config.freq_scale);
+  apply(overrides.min_hz, &config.min_hz);
+  apply(overrides.max_hz, &config.max_hz);
+  apply(overrides.db_min, &config.db_min);
+  apply(overrides.db_max, &config.db_max);
+  apply(overrides.colormap, &config.colormap);
+  apply(overrides.width_px, &config.width_px);
+  apply(overrides.height_px, &config.height_px);
+  apply(overrides.gamma, &config.gamma);
+  apply(overrides.smoothing_bins, &config.smoothing_bins);
+
+  const std::set<std::string> modes = {"mixdown", "channels"};
+  const std::set<std::string> scales = {"log", "linear"};
+  const std::set<std::string> colormaps = {"magma", "inferno", "viridis", "plasma"};
+  if (!IsValidEnum(config.mode, modes)) {
+    if (error != nullptr) {
+      *error = "spectrogram mode must be one of: mixdown, channels";
+    }
+    return false;
+  }
+  if (!IsValidEnum(config.freq_scale, scales)) {
+    if (error != nullptr) {
+      *error = "spectrogram freq_scale must be one of: log, linear";
+    }
+    return false;
+  }
+  if (!IsValidEnum(config.colormap, colormaps)) {
+    if (error != nullptr) {
+      *error = "spectrogram colormap must be one of: magma, inferno, viridis, plasma";
+    }
+    return false;
+  }
+  if (config.window < 2 || config.hop < 1 || config.nfft < config.window || !IsPowerOfTwo(config.nfft)) {
+    if (error != nullptr) {
+      *error = "Invalid spectrogram FFT parameters (require window>=2, hop>=1, nfft>=window and power-of-two).";
+    }
+    return false;
+  }
+  if (config.min_hz <= 0.0 || config.max_hz <= config.min_hz) {
+    if (error != nullptr) {
+      *error = "Invalid spectrogram frequency range (require 0 < min_hz < max_hz).";
+    }
+    return false;
+  }
+  if (overrides.max_hz.has_value() && config.max_hz > 0.49 * static_cast<double>(sample_rate)) {
+    if (error != nullptr) {
+      *error = "spectrogram max_hz cannot exceed 0.49 * sample_rate.";
+    }
+    return false;
+  }
+  if (config.db_max <= config.db_min) {
+    if (error != nullptr) {
+      *error = "spectrogram requires db_max > db_min.";
+    }
+    return false;
+  }
+  if (config.width_px < 2 || config.height_px < 2) {
+    if (error != nullptr) {
+      *error = "spectrogram requires width_px >= 2 and height_px >= 2.";
+    }
+    return false;
+  }
+  if (config.gamma <= 0.0) {
+    if (error != nullptr) {
+      *error = "spectrogram gamma must be > 0.";
+    }
+    return false;
+  }
+  if (config.smoothing_bins < 0) {
+    if (error != nullptr) {
+      *error = "spectrogram smoothing_bins must be >= 0.";
+    }
+    return false;
+  }
+  *out = config;
+  return true;
+}
+
+std::string SanitizeTargetName(const std::string& in) {
+  std::string out;
+  out.reserve(in.size());
+  for (const char c : in) {
+    const unsigned char uc = static_cast<unsigned char>(c);
+    if (std::iscntrl(uc) != 0 || c == '/' || c == '\\') {
+      out.push_back('_');
+      continue;
+    }
+    out.push_back(c);
+  }
+  if (out.empty()) {
+    return "unnamed";
+  }
+  return out;
+}
+
+std::vector<float> Mixdown(const aurora::core::AudioStem& stem) {
+  if (stem.channels <= 1) {
+    return stem.samples;
+  }
+  std::vector<float> mono;
+  mono.resize(stem.samples.size() / 2U);
+  for (size_t i = 0, j = 0; i + 1 < stem.samples.size(); i += 2, ++j) {
+    mono[j] = 0.5F * (stem.samples[i] + stem.samples[i + 1]);
+  }
+  return mono;
+}
+
+std::vector<float> ExtractChannel(const aurora::core::AudioStem& stem, int channel_index) {
+  std::vector<float> mono;
+  if (stem.channels <= 1) {
+    mono = stem.samples;
+    return mono;
+  }
+  mono.resize(stem.samples.size() / 2U);
+  for (size_t i = static_cast<size_t>(channel_index), j = 0; i < stem.samples.size(); i += 2, ++j) {
+    mono[j] = stem.samples[i];
+  }
+  return mono;
+}
+
+std::string RelativeToAnalysisRoot(const std::filesystem::path& absolute_path, const std::filesystem::path& analysis_root) {
+  const std::filesystem::path abs_out = std::filesystem::absolute(absolute_path);
+  const std::filesystem::path abs_root = std::filesystem::absolute(analysis_root);
+  const std::filesystem::path rel = abs_out.lexically_relative(abs_root);
+  if (rel.empty()) {
+    return abs_out.generic_string();
+  }
+  return rel.generic_string();
+}
+
+aurora::core::SpectrogramArtifact BuildBaseArtifact(const aurora::core::SpectrogramConfig& config, int sample_rate) {
+  aurora::core::SpectrogramArtifact out;
+  out.present = true;
+  out.enabled = false;
+  out.mode = config.mode;
+  out.sr = sample_rate;
+  out.window = config.window;
+  out.hop = config.hop;
+  out.nfft = config.nfft;
+  out.freq_scale = config.freq_scale;
+  out.min_hz = config.min_hz;
+  out.max_hz = config.max_hz;
+  out.db_min = config.db_min;
+  out.db_max = config.db_max;
+  out.colormap = config.colormap;
+  out.width_px = config.width_px;
+  out.height_px = config.height_px;
+  out.gamma = config.gamma;
+  out.smoothing_bins = config.smoothing_bins;
+  return out;
+}
+
+void MarkSpectrogramDisabled(aurora::core::FileAnalysis* item, const aurora::core::SpectrogramConfig& config, int sample_rate) {
+  item->spectrogram = BuildBaseArtifact(config, sample_rate);
+  item->spectrogram.enabled = false;
+}
+
+void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, const aurora::core::AudioStem& mix, int sample_rate,
+                         const aurora::core::SpectrogramConfig& config, const std::filesystem::path& spectrogram_dir,
+                         const std::filesystem::path& analysis_root, aurora::core::AnalysisReport* report, const std::string& mode_label,
+                         const std::chrono::steady_clock::time_point& start_time) {
+  auto log_step = [&](const std::string& msg) {
+    std::cerr << "[aurora +" << FormatElapsed(start_time) << "] " << msg << "\n";
+  };
+  auto render_target = [&](const aurora::core::AudioStem& stem, const std::string& target_name, aurora::core::FileAnalysis* out) {
+    out->spectrogram = BuildBaseArtifact(config, sample_rate);
+    const std::string safe_name = SanitizeTargetName(target_name);
+
+    auto write_png_for_signal = [&](const std::vector<float>& mono, const std::filesystem::path& out_path) -> bool {
+      std::vector<uint8_t> rgb;
+      std::string err;
+      if (!aurora::core::RenderSpectrogramRgb(mono, sample_rate, config, &rgb, &err)) {
+        out->spectrogram.enabled = false;
+        out->spectrogram.error = err;
+        return false;
+      }
+      if (!aurora::io::WritePngRgb8(out_path, config.width_px, config.height_px, rgb, &err)) {
+        out->spectrogram.enabled = false;
+        out->spectrogram.error = err;
+        return false;
+      }
+      return true;
+    };
+
+    if (config.mode == "channels" && stem.channels == 2) {
+      const std::filesystem::path left_path = spectrogram_dir / (safe_name + ".L.spectrogram.png");
+      const std::filesystem::path right_path = spectrogram_dir / (safe_name + ".R.spectrogram.png");
+      const bool ok_left = write_png_for_signal(ExtractChannel(stem, 0), left_path);
+      const bool ok_right = ok_left ? write_png_for_signal(ExtractChannel(stem, 1), right_path) : false;
+      if (ok_left && ok_right) {
+        out->spectrogram.enabled = true;
+        out->spectrogram.path = RelativeToAnalysisRoot(left_path, analysis_root);
+        out->spectrogram.paths = {
+            RelativeToAnalysisRoot(left_path, analysis_root),
+            RelativeToAnalysisRoot(right_path, analysis_root),
+        };
+      }
+      return;
+    }
+
+    const std::filesystem::path out_path = spectrogram_dir / (safe_name + ".spectrogram.png");
+    if (write_png_for_signal(Mixdown(stem), out_path)) {
+      out->spectrogram.enabled = true;
+      out->spectrogram.path = RelativeToAnalysisRoot(out_path, analysis_root);
+      out->spectrogram.paths = {out->spectrogram.path};
+    }
+  };
+
+  log_step("Generating spectrograms (" + mode_label + ")");
+  render_target(mix, "mix", &report->mix);
+  const size_t stem_count = std::min(stems.size(), report->stems.size());
+  for (size_t i = 0; i < stem_count; ++i) {
+    render_target(stems[i], stems[i].name, &report->stems[i]);
+  }
+}
+
 int RunAnalyzeCommand(const AnalyzeCliOptions& options, const std::chrono::steady_clock::time_point& start_time) {
   auto log_step = [&](const std::string& msg) {
     std::cerr << "[aurora +" << FormatElapsed(start_time) << "] " << msg << "\n";
@@ -471,10 +1132,29 @@ int RunAnalyzeCommand(const AnalyzeCliOptions& options, const std::chrono::stead
   }
 
   log_step("Running analysis");
-  const aurora::core::AnalysisReport report =
+  aurora::core::AnalysisReport report =
       aurora::core::AnalyzeFiles(stems, mix, mix_sample_rate, mode, analysis_options);
 
   const std::filesystem::path out_path = options.out_path.value_or(std::filesystem::current_path() / "analysis.json");
+  const std::filesystem::path analysis_root = out_path.parent_path();
+  aurora::core::SpectrogramConfig spectrogram_config;
+  std::string spectrogram_error;
+  if (!BuildSpectrogramConfig(mix_sample_rate, options.spectrogram_config_json, &spectrogram_config, &spectrogram_error)) {
+    std::cerr << "Analyze error: " << spectrogram_error << "\n";
+    return 2;
+  }
+  if (!options.spectrogram) {
+    MarkSpectrogramDisabled(&report.mix, spectrogram_config, mix_sample_rate);
+    for (auto& stem_analysis : report.stems) {
+      MarkSpectrogramDisabled(&stem_analysis, spectrogram_config, mix_sample_rate);
+    }
+  } else {
+    const std::filesystem::path spectrogram_out =
+        options.spectrogram_out.value_or(analysis_root / "spectrograms");
+    PopulateSpectrograms(stems, mix, mix_sample_rate, spectrogram_config, spectrogram_out, analysis_root, &report, "analyze",
+                         start_time);
+  }
+
   std::string write_error;
   if (!aurora::io::WriteAnalysisJson(out_path, report, &write_error)) {
     std::cerr << "Analyze error: " << write_error << "\n";
@@ -680,8 +1360,31 @@ int main(int argc, char** argv) {
     aurora::core::AnalysisOptions analysis_options;
     analysis_options.max_parallel_jobs = options.analyze_threads;
     analysis_options.intent = options.intent;
-    const aurora::core::AnalysisReport report = aurora::core::AnalyzeRender(rendered, analysis_options);
+    aurora::core::AnalysisReport report = aurora::core::AnalyzeRender(rendered, analysis_options);
     const std::filesystem::path out_path = options.analysis_out.value_or(meta_dir / "analysis.json");
+    const std::filesystem::path analysis_root = out_path.parent_path();
+    aurora::core::SpectrogramConfig spectrogram_config;
+    std::string spectrogram_error;
+    if (!BuildSpectrogramConfig(rendered.metadata.sample_rate, options.spectrogram_config_json, &spectrogram_config,
+                                &spectrogram_error)) {
+      std::cerr << "Argument error: " << spectrogram_error << "\n";
+      return 2;
+    }
+    if (!options.spectrogram) {
+      MarkSpectrogramDisabled(&report.mix, spectrogram_config, rendered.metadata.sample_rate);
+      for (auto& stem_analysis : report.stems) {
+        MarkSpectrogramDisabled(&stem_analysis, spectrogram_config, rendered.metadata.sample_rate);
+      }
+    } else {
+      std::vector<aurora::core::AudioStem> rendered_stems;
+      rendered_stems.reserve(rendered.patch_stems.size() + rendered.bus_stems.size());
+      rendered_stems.insert(rendered_stems.end(), rendered.patch_stems.begin(), rendered.patch_stems.end());
+      rendered_stems.insert(rendered_stems.end(), rendered.bus_stems.begin(), rendered.bus_stems.end());
+      const std::filesystem::path spectrogram_out =
+          options.spectrogram_out.value_or(meta_dir / "spectrograms");
+      PopulateSpectrograms(rendered_stems, rendered.master, rendered.metadata.sample_rate, spectrogram_config, spectrogram_out,
+                           analysis_root, &report, "render", start_time);
+    }
     std::string error;
     if (!aurora::io::WriteAnalysisJson(out_path, report, &error)) {
       std::cerr << "I/O error: " << error << "\n";
