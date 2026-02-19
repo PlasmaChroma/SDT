@@ -16,6 +16,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include "aurora/core/analyzer.hpp"
@@ -43,6 +44,11 @@ struct RenderCliOptions {
   std::string intent;
   bool spectrogram = true;
   bool spectrogram_separate = false;
+  std::string spectrogram_profile = "preview";
+  std::optional<int> spectrogram_width_px;
+  std::optional<int> spectrogram_row_height_px;
+  std::optional<int> spectrogram_header_height_px;
+  std::optional<bool> spectrogram_indexed_palette;
   std::optional<std::filesystem::path> spectrogram_out;
   std::optional<std::string> spectrogram_config_json;
   std::string spectrogram_composite = "stacked_headers";
@@ -58,6 +64,11 @@ struct AnalyzeCliOptions {
   std::string intent;
   bool spectrogram = true;
   bool spectrogram_separate = false;
+  std::string spectrogram_profile = "preview";
+  std::optional<int> spectrogram_width_px;
+  std::optional<int> spectrogram_row_height_px;
+  std::optional<int> spectrogram_header_height_px;
+  std::optional<bool> spectrogram_indexed_palette;
   std::optional<std::filesystem::path> spectrogram_out;
   std::optional<std::string> spectrogram_config_json;
   std::string spectrogram_composite = "stacked_headers";
@@ -68,14 +79,24 @@ void PrintUsage() {
   std::cerr << "Usage:\n";
   std::cerr << "  aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>] [--analyze]";
   std::cerr << " [--analysis-out <path>] [--analyze-threads N] [--intent sleep|ritual|dub]";
-  std::cerr << " [--nospectrogram] [--spectrogram-separate] [--spectrogram-out <dir>] [--spectrogram-config <json>]";
+  std::cerr << " [--nospectrogram] [--spectrogram-separate] [--spectrogram-profile preview|analysis|publication]";
+  std::cerr << " [--spectrogram-width <int>] [--spectrogram-row-height <int>] [--spectrogram-header-height <int>]";
+  std::cerr << " [--spectrogram-indexed <true|false>]";
+  std::cerr << " [--spectrogram-out <dir>] [--spectrogram-config <json>]";
   std::cerr << " [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]\n";
   std::cerr << "  aurora analyze <input.wav|input.flac|input.mp3|input.aiff> [--out <analysis.json>] [--analyze-threads N]";
-  std::cerr << " [--intent sleep|ritual|dub] [--nospectrogram] [--spectrogram-separate] [--spectrogram-out <dir>] [--spectrogram-config <json>]";
+  std::cerr << " [--intent sleep|ritual|dub] [--nospectrogram] [--spectrogram-separate]";
+  std::cerr << " [--spectrogram-profile preview|analysis|publication]";
+  std::cerr << " [--spectrogram-width <int>] [--spectrogram-row-height <int>] [--spectrogram-header-height <int>]";
+  std::cerr << " [--spectrogram-indexed <true|false>]";
+  std::cerr << " [--spectrogram-out <dir>] [--spectrogram-config <json>]";
   std::cerr << " [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]\n";
   std::cerr << "  aurora analyze --stems <stem1.wav> <stem2.wav> ... [--mix <mix.wav>] [--out <analysis.json>]";
   std::cerr << " [--analyze-threads N] [--intent sleep|ritual|dub]";
-  std::cerr << " [--nospectrogram] [--spectrogram-separate] [--spectrogram-out <dir>] [--spectrogram-config <json>]";
+  std::cerr << " [--nospectrogram] [--spectrogram-separate] [--spectrogram-profile preview|analysis|publication]";
+  std::cerr << " [--spectrogram-width <int>] [--spectrogram-row-height <int>] [--spectrogram-header-height <int>]";
+  std::cerr << " [--spectrogram-indexed <true|false>]";
+  std::cerr << " [--spectrogram-out <dir>] [--spectrogram-config <json>]";
   std::cerr << " [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]\n";
 }
 
@@ -175,6 +196,64 @@ bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, RenderC
     }
     if (arg == "--spectrogram-separate") {
       options->spectrogram_separate = true;
+      options->analyze = true;
+      continue;
+    }
+    if (arg == "--spectrogram-profile") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-profile";
+        return false;
+      }
+      const std::string value = argv[++i];
+      if (value != "preview" && value != "analysis" && value != "publication") {
+        *error = "Invalid --spectrogram-profile value: " + value;
+        return false;
+      }
+      options->spectrogram_profile = value;
+      options->analyze = true;
+      continue;
+    }
+    if (arg == "--spectrogram-width" || arg == "--spectrogram-row-height" || arg == "--spectrogram-header-height") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after " + arg;
+        return false;
+      }
+      const std::string value = argv[++i];
+      int parsed = 0;
+      try {
+        parsed = std::stoi(value);
+      } catch (const std::exception&) {
+        *error = "Invalid value for " + arg + ": " + value;
+        return false;
+      }
+      if (parsed < 1) {
+        *error = arg + " must be >= 1.";
+        return false;
+      }
+      if (arg == "--spectrogram-width") {
+        options->spectrogram_width_px = parsed;
+      } else if (arg == "--spectrogram-row-height") {
+        options->spectrogram_row_height_px = parsed;
+      } else {
+        options->spectrogram_header_height_px = parsed;
+      }
+      options->analyze = true;
+      continue;
+    }
+    if (arg == "--spectrogram-indexed") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-indexed";
+        return false;
+      }
+      const std::string value = argv[++i];
+      if (value == "true" || value == "1") {
+        options->spectrogram_indexed_palette = true;
+      } else if (value == "false" || value == "0") {
+        options->spectrogram_indexed_palette = false;
+      } else {
+        *error = "Invalid --spectrogram-indexed value: " + value + " (expected true|false)";
+        return false;
+      }
       options->analyze = true;
       continue;
     }
@@ -285,6 +364,61 @@ bool ParseAnalyzeArgs(int argc, char** argv, AnalyzeCliOptions* options, std::st
     }
     if (arg == "--spectrogram-separate") {
       options->spectrogram_separate = true;
+      continue;
+    }
+    if (arg == "--spectrogram-profile") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-profile";
+        return false;
+      }
+      const std::string value = argv[++i];
+      if (value != "preview" && value != "analysis" && value != "publication") {
+        *error = "Invalid --spectrogram-profile value: " + value;
+        return false;
+      }
+      options->spectrogram_profile = value;
+      continue;
+    }
+    if (arg == "--spectrogram-width" || arg == "--spectrogram-row-height" || arg == "--spectrogram-header-height") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after " + arg;
+        return false;
+      }
+      const std::string value = argv[++i];
+      int parsed = 0;
+      try {
+        parsed = std::stoi(value);
+      } catch (const std::exception&) {
+        *error = "Invalid value for " + arg + ": " + value;
+        return false;
+      }
+      if (parsed < 1) {
+        *error = arg + " must be >= 1.";
+        return false;
+      }
+      if (arg == "--spectrogram-width") {
+        options->spectrogram_width_px = parsed;
+      } else if (arg == "--spectrogram-row-height") {
+        options->spectrogram_row_height_px = parsed;
+      } else {
+        options->spectrogram_header_height_px = parsed;
+      }
+      continue;
+    }
+    if (arg == "--spectrogram-indexed") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-indexed";
+        return false;
+      }
+      const std::string value = argv[++i];
+      if (value == "true" || value == "1") {
+        options->spectrogram_indexed_palette = true;
+      } else if (value == "false" || value == "0") {
+        options->spectrogram_indexed_palette = false;
+      } else {
+        *error = "Invalid --spectrogram-indexed value: " + value + " (expected true|false)";
+        return false;
+      }
       continue;
     }
     if (arg == "--spectrogram-out") {
@@ -560,6 +694,15 @@ struct CompositeRowSource {
   int height = 0;
   std::string kind;
   std::string name;
+};
+
+struct ResolvedSpectrogramProfile {
+  aurora::core::SpectrogramConfig config;
+  int header_height_px = 60;
+  std::string profile = "preview";
+  bool indexed_palette = false;
+  std::string format = "png";
+  int png_compression_level = 6;
 };
 
 bool IsValidEnum(const std::string& value, const std::set<std::string>& allowed) { return allowed.contains(value); }
@@ -907,16 +1050,41 @@ bool ParseSpectrogramConfigJson(const std::string& json, SpectrogramConfigOverri
 
 bool IsPowerOfTwo(int value) { return value > 0 && (value & (value - 1)) == 0; }
 
-bool BuildSpectrogramConfig(int sample_rate, const std::optional<std::string>& config_json, aurora::core::SpectrogramConfig* out,
-                            std::string* error) {
+bool BuildSpectrogramProfileConfig(int sample_rate, const std::optional<std::string>& config_json, const std::string& profile_name,
+                                   const std::optional<int>& width_override, const std::optional<int>& row_height_override,
+                                   const std::optional<int>& header_height_override,
+                                   const std::optional<bool>& indexed_override, ResolvedSpectrogramProfile* out,
+                                   std::string* error) {
   if (out == nullptr) {
     if (error != nullptr) {
       *error = "Internal error resolving spectrogram config.";
     }
     return false;
   }
-  aurora::core::SpectrogramConfig config;
-  config.max_hz = std::min(20000.0, 0.49 * static_cast<double>(sample_rate));
+  ResolvedSpectrogramProfile resolved;
+  resolved.profile = profile_name;
+  if (profile_name == "analysis") {
+    resolved.config.width_px = 1600;
+    resolved.config.height_px = 536;
+    resolved.header_height_px = 80;
+    resolved.indexed_palette = false;
+    resolved.png_compression_level = 6;
+  } else if (profile_name == "publication") {
+    resolved.config.width_px = 2400;
+    resolved.config.height_px = 720;
+    resolved.header_height_px = 120;
+    resolved.indexed_palette = false;
+    resolved.png_compression_level = 9;
+  } else {
+    resolved.profile = "preview";
+    resolved.config.width_px = 1200;
+    resolved.config.height_px = 280;
+    resolved.header_height_px = 60;
+    resolved.indexed_palette = true;
+    resolved.png_compression_level = 6;
+  }
+
+  resolved.config.max_hz = std::min(20000.0, 0.49 * static_cast<double>(sample_rate));
   SpectrogramConfigOverrides overrides;
   if (config_json.has_value()) {
     if (!ParseSpectrogramConfigJson(*config_json, &overrides, error)) {
@@ -929,85 +1097,96 @@ bool BuildSpectrogramConfig(int sample_rate, const std::optional<std::string>& c
       *field = *maybe;
     }
   };
-  apply(overrides.window, &config.window);
-  apply(overrides.hop, &config.hop);
-  apply(overrides.nfft, &config.nfft);
-  apply(overrides.mode, &config.mode);
-  apply(overrides.freq_scale, &config.freq_scale);
-  apply(overrides.min_hz, &config.min_hz);
-  apply(overrides.max_hz, &config.max_hz);
-  apply(overrides.db_min, &config.db_min);
-  apply(overrides.db_max, &config.db_max);
-  apply(overrides.colormap, &config.colormap);
-  apply(overrides.width_px, &config.width_px);
-  apply(overrides.height_px, &config.height_px);
-  apply(overrides.gamma, &config.gamma);
-  apply(overrides.smoothing_bins, &config.smoothing_bins);
+  apply(overrides.window, &resolved.config.window);
+  apply(overrides.hop, &resolved.config.hop);
+  apply(overrides.nfft, &resolved.config.nfft);
+  apply(overrides.mode, &resolved.config.mode);
+  apply(overrides.freq_scale, &resolved.config.freq_scale);
+  apply(overrides.min_hz, &resolved.config.min_hz);
+  apply(overrides.max_hz, &resolved.config.max_hz);
+  apply(overrides.db_min, &resolved.config.db_min);
+  apply(overrides.db_max, &resolved.config.db_max);
+  apply(overrides.colormap, &resolved.config.colormap);
+  apply(overrides.width_px, &resolved.config.width_px);
+  apply(overrides.height_px, &resolved.config.height_px);
+  apply(overrides.gamma, &resolved.config.gamma);
+  apply(overrides.smoothing_bins, &resolved.config.smoothing_bins);
+  apply(width_override, &resolved.config.width_px);
+  apply(row_height_override, &resolved.config.height_px);
+  apply(header_height_override, &resolved.header_height_px);
+  apply(indexed_override, &resolved.indexed_palette);
 
   const std::set<std::string> modes = {"mixdown", "channels"};
   const std::set<std::string> scales = {"log", "linear"};
   const std::set<std::string> colormaps = {"magma", "inferno", "viridis", "plasma"};
-  if (!IsValidEnum(config.mode, modes)) {
+  if (!IsValidEnum(resolved.config.mode, modes)) {
     if (error != nullptr) {
       *error = "spectrogram mode must be one of: mixdown, channels";
     }
     return false;
   }
-  if (!IsValidEnum(config.freq_scale, scales)) {
+  if (!IsValidEnum(resolved.config.freq_scale, scales)) {
     if (error != nullptr) {
       *error = "spectrogram freq_scale must be one of: log, linear";
     }
     return false;
   }
-  if (!IsValidEnum(config.colormap, colormaps)) {
+  if (!IsValidEnum(resolved.config.colormap, colormaps)) {
     if (error != nullptr) {
       *error = "spectrogram colormap must be one of: magma, inferno, viridis, plasma";
     }
     return false;
   }
-  if (config.window < 2 || config.hop < 1 || config.nfft < config.window || !IsPowerOfTwo(config.nfft)) {
+  if (resolved.config.window < 2 || resolved.config.hop < 1 || resolved.config.nfft < resolved.config.window ||
+      !IsPowerOfTwo(resolved.config.nfft)) {
     if (error != nullptr) {
       *error = "Invalid spectrogram FFT parameters (require window>=2, hop>=1, nfft>=window and power-of-two).";
     }
     return false;
   }
-  if (config.min_hz <= 0.0 || config.max_hz <= config.min_hz) {
+  if (resolved.config.min_hz <= 0.0 || resolved.config.max_hz <= resolved.config.min_hz) {
     if (error != nullptr) {
       *error = "Invalid spectrogram frequency range (require 0 < min_hz < max_hz).";
     }
     return false;
   }
-  if (overrides.max_hz.has_value() && config.max_hz > 0.49 * static_cast<double>(sample_rate)) {
+  if (overrides.max_hz.has_value() && resolved.config.max_hz > 0.49 * static_cast<double>(sample_rate)) {
     if (error != nullptr) {
       *error = "spectrogram max_hz cannot exceed 0.49 * sample_rate.";
     }
     return false;
   }
-  if (config.db_max <= config.db_min) {
+  if (resolved.config.db_max <= resolved.config.db_min) {
     if (error != nullptr) {
       *error = "spectrogram requires db_max > db_min.";
     }
     return false;
   }
-  if (config.width_px < 2 || config.height_px < 2) {
+  if (resolved.config.width_px < 2 || resolved.config.height_px < 2) {
     if (error != nullptr) {
       *error = "spectrogram requires width_px >= 2 and height_px >= 2.";
     }
     return false;
   }
-  if (config.gamma <= 0.0) {
+  if (resolved.config.gamma <= 0.0) {
     if (error != nullptr) {
       *error = "spectrogram gamma must be > 0.";
     }
     return false;
   }
-  if (config.smoothing_bins < 0) {
+  if (resolved.config.smoothing_bins < 0) {
     if (error != nullptr) {
       *error = "spectrogram smoothing_bins must be >= 0.";
     }
     return false;
   }
-  *out = config;
+  if (resolved.header_height_px < 8) {
+    if (error != nullptr) {
+      *error = "spectrogram header height must be >= 8.";
+    }
+    return false;
+  }
+  *out = resolved;
   return true;
 }
 
@@ -1199,7 +1378,8 @@ std::string EllipsizeLabel(const std::string& label, int max_chars) {
 }
 
 bool WriteCompositeSpectrogramPng(const std::filesystem::path& out_path, const std::vector<CompositeRowSource>& rows, int width_px,
-                                  int row_spectrogram_height, int header_height_px, std::string* error) {
+                                  int row_spectrogram_height, int header_height_px, bool indexed_palette,
+                                  const std::string& colormap, int png_compression_level, std::string* error) {
   if (width_px < 2 || row_spectrogram_height < 2 || header_height_px < 8 || rows.empty()) {
     if (error != nullptr) {
       *error = "Invalid composite spectrogram dimensions.";
@@ -1209,13 +1389,38 @@ bool WriteCompositeSpectrogramPng(const std::filesystem::path& out_path, const s
   const int row_height = header_height_px + row_spectrogram_height;
   const int total_height = static_cast<int>(rows.size()) * row_height;
   std::vector<uint8_t> composite(static_cast<size_t>(width_px * total_height * 3), 0U);
+  std::vector<uint8_t> palette;
+  std::unordered_map<uint32_t, uint8_t> color_to_index;
+  if (indexed_palette) {
+    std::string lut_error;
+    if (!aurora::core::BuildColormapLutRgb(colormap, &palette, &lut_error)) {
+      if (error != nullptr) {
+        *error = lut_error;
+      }
+      return false;
+    }
+    for (int i = 0; i < 256; ++i) {
+      const uint32_t key = (static_cast<uint32_t>(palette[static_cast<size_t>(i) * 3U]) << 16U) |
+                           (static_cast<uint32_t>(palette[static_cast<size_t>(i) * 3U + 1U]) << 8U) |
+                           static_cast<uint32_t>(palette[static_cast<size_t>(i) * 3U + 2U]);
+      color_to_index[key] = static_cast<uint8_t>(i);
+    }
+  }
 
   for (size_t i = 0; i < rows.size(); ++i) {
     const int y0 = static_cast<int>(i) * row_height;
+    uint8_t text_r = 255;
+    uint8_t text_g = 255;
+    uint8_t text_b = 255;
+    if (indexed_palette && palette.size() == 256U * 3U) {
+      text_r = palette[255U * 3U];
+      text_g = palette[255U * 3U + 1U];
+      text_b = palette[255U * 3U + 2U];
+    }
     FillRectRgb(&composite, width_px, total_height, 0, y0, width_px, y0 + header_height_px, 0, 0, 0);
     const std::string text = EllipsizeLabel(rows[i].name, std::max(0, (width_px - 20) / 6));
     const int text_y = y0 + std::max(0, (header_height_px - 7) / 2);
-    DrawText5x7(&composite, width_px, total_height, 10, text_y, text, 255, 255, 255);
+    DrawText5x7(&composite, width_px, total_height, 10, text_y, text, text_r, text_g, text_b);
 
     const int sy0 = y0 + header_height_px;
     if (!rows[i].available || rows[i].rgb.empty() || rows[i].width <= 0 || rows[i].height <= 0) {
@@ -1239,7 +1444,37 @@ bool WriteCompositeSpectrogramPng(const std::filesystem::path& out_path, const s
     }
   }
 
-  return aurora::io::WritePngRgb8(out_path, width_px, total_height, composite, error);
+  if (indexed_palette) {
+    std::vector<uint8_t> indices(static_cast<size_t>(width_px * total_height), 0U);
+    for (int y = 0; y < total_height; ++y) {
+      for (int x = 0; x < width_px; ++x) {
+        const size_t p = static_cast<size_t>((y * width_px + x) * 3);
+        const uint32_t key = (static_cast<uint32_t>(composite[p]) << 16U) | (static_cast<uint32_t>(composite[p + 1U]) << 8U) |
+                             static_cast<uint32_t>(composite[p + 2U]);
+        const auto it = color_to_index.find(key);
+        if (it != color_to_index.end()) {
+          indices[static_cast<size_t>(y * width_px + x)] = it->second;
+        } else {
+          int best = 0;
+          int best_d = std::numeric_limits<int>::max();
+          for (int i = 0; i < 256; ++i) {
+            const int dr = static_cast<int>(composite[p]) - static_cast<int>(palette[static_cast<size_t>(i) * 3U]);
+            const int dg = static_cast<int>(composite[p + 1U]) - static_cast<int>(palette[static_cast<size_t>(i) * 3U + 1U]);
+            const int db = static_cast<int>(composite[p + 2U]) - static_cast<int>(palette[static_cast<size_t>(i) * 3U + 2U]);
+            const int d = dr * dr + dg * dg + db * db;
+            if (d < best_d) {
+              best_d = d;
+              best = i;
+            }
+          }
+          indices[static_cast<size_t>(y * width_px + x)] = static_cast<uint8_t>(best);
+        }
+      }
+    }
+    return aurora::io::WritePngIndexed8(out_path, width_px, total_height, indices, palette, png_compression_level, error);
+  }
+
+  return aurora::io::WritePngRgb8(out_path, width_px, total_height, composite, png_compression_level, error);
 }
 
 void MarkSpectrogramDisabled(aurora::core::FileAnalysis* item, const aurora::core::SpectrogramConfig& config, int sample_rate) {
@@ -1251,6 +1486,8 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
                          const aurora::core::SpectrogramConfig& config, const std::filesystem::path& spectrogram_dir,
                          const std::filesystem::path& analysis_root, int max_parallel_jobs, const std::string& composite_mode,
                          const std::optional<std::filesystem::path>& composite_out, bool write_individual,
+                         int composite_header_height_px, const std::string& profile_name, bool indexed_palette,
+                         int png_compression_level,
                          aurora::core::AnalysisReport* report, const std::string& mode_label,
                          const std::chrono::steady_clock::time_point& start_time) {
   auto log_step = [&](const std::string& msg) {
@@ -1267,8 +1504,24 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
     row.name = target_name == "mix" ? "Mix" : target_name;
     const std::string safe_name = SanitizeTargetName(target_name);
 
-    auto render_signal = [&](const std::vector<float>& mono, const std::filesystem::path& out_path, bool write_file,
-                             bool capture_row) -> bool {
+    std::vector<uint8_t> palette;
+    std::unordered_map<uint32_t, uint8_t> color_to_index;
+    if (indexed_palette && write_individual) {
+      std::string lut_error;
+      if (aurora::core::BuildColormapLutRgb(config.colormap, &palette, &lut_error)) {
+        for (int i = 0; i < 256; ++i) {
+          const uint32_t key = (static_cast<uint32_t>(palette[static_cast<size_t>(i) * 3U]) << 16U) |
+                               (static_cast<uint32_t>(palette[static_cast<size_t>(i) * 3U + 1U]) << 8U) |
+                               static_cast<uint32_t>(palette[static_cast<size_t>(i) * 3U + 2U]);
+          color_to_index[key] = static_cast<uint8_t>(i);
+        }
+      } else {
+        std::cerr << "warning: failed to build indexed palette, falling back to RGB PNG: " << lut_error << "\n";
+      }
+    }
+
+    auto render_signal = [&](const std::vector<float>& mono, const std::filesystem::path& out_path, bool write_file, bool capture_row)
+        -> bool {
       std::vector<uint8_t> rgb;
       std::string err;
       if (!aurora::core::RenderSpectrogramRgb(mono, sample_rate, config, &rgb, &err)) {
@@ -1277,7 +1530,40 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
         return false;
       }
       if (write_file) {
-        if (!aurora::io::WritePngRgb8(out_path, config.width_px, config.height_px, rgb, &err)) {
+        if (indexed_palette && palette.size() == 256U * 3U && !color_to_index.empty()) {
+          std::vector<uint8_t> indices(static_cast<size_t>(config.width_px * config.height_px), 0U);
+          for (int y = 0; y < config.height_px; ++y) {
+            for (int x = 0; x < config.width_px; ++x) {
+              const size_t p = static_cast<size_t>((y * config.width_px + x) * 3);
+              const uint32_t key = (static_cast<uint32_t>(rgb[p]) << 16U) | (static_cast<uint32_t>(rgb[p + 1U]) << 8U) |
+                                   static_cast<uint32_t>(rgb[p + 2U]);
+              const auto it = color_to_index.find(key);
+              if (it != color_to_index.end()) {
+                indices[static_cast<size_t>(y * config.width_px + x)] = it->second;
+              } else {
+                int best = 0;
+                int best_d = std::numeric_limits<int>::max();
+                for (int i = 0; i < 256; ++i) {
+                  const int dr = static_cast<int>(rgb[p]) - static_cast<int>(palette[static_cast<size_t>(i) * 3U]);
+                  const int dg = static_cast<int>(rgb[p + 1U]) - static_cast<int>(palette[static_cast<size_t>(i) * 3U + 1U]);
+                  const int db = static_cast<int>(rgb[p + 2U]) - static_cast<int>(palette[static_cast<size_t>(i) * 3U + 2U]);
+                  const int d = dr * dr + dg * dg + db * db;
+                  if (d < best_d) {
+                    best_d = d;
+                    best = i;
+                  }
+                }
+                indices[static_cast<size_t>(y * config.width_px + x)] = static_cast<uint8_t>(best);
+              }
+            }
+          }
+          if (!aurora::io::WritePngIndexed8(out_path, config.width_px, config.height_px, indices, palette,
+                                            png_compression_level, &err)) {
+            artifact.enabled = false;
+            artifact.error = err;
+            return false;
+          }
+        } else if (!aurora::io::WritePngRgb8(out_path, config.width_px, config.height_px, rgb, png_compression_level, &err)) {
           artifact.enabled = false;
           artifact.error = err;
           return false;
@@ -1394,11 +1680,14 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
     return;
   }
   report->composite_spectrogram.mode = "stacked_headers";
+  report->composite_spectrogram.profile = profile_name;
   report->composite_spectrogram.width_px = config.width_px;
-  report->composite_spectrogram.header_height_px = 24;
+  report->composite_spectrogram.header_height_px = composite_header_height_px;
   report->composite_spectrogram.row_height_px = config.height_px + report->composite_spectrogram.header_height_px;
   report->composite_spectrogram.freq_scale = config.freq_scale;
   report->composite_spectrogram.colormap = config.colormap;
+  report->composite_spectrogram.format = "png";
+  report->composite_spectrogram.indexed_palette = indexed_palette;
   report->composite_spectrogram.targets.clear();
   report->composite_spectrogram.targets.reserve(composite_rows.size());
   for (const auto& row : composite_rows) {
@@ -1409,7 +1698,8 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
   const std::filesystem::path composite_path = composite_dir / "composite.png";
   std::string composite_error;
   if (!WriteCompositeSpectrogramPng(composite_path, composite_rows, config.width_px, config.height_px,
-                                    report->composite_spectrogram.header_height_px, &composite_error)) {
+                                    composite_header_height_px, indexed_palette, config.colormap, png_compression_level,
+                                    &composite_error)) {
     report->composite_spectrogram.enabled = false;
     report->composite_spectrogram.error = composite_error;
     std::cerr << "warning: failed to write spectrogram composite: " << composite_error << "\n";
@@ -1487,12 +1777,16 @@ int RunAnalyzeCommand(const AnalyzeCliOptions& options, const std::chrono::stead
 
   const std::filesystem::path out_path = options.out_path.value_or(std::filesystem::current_path() / "analysis.json");
   const std::filesystem::path analysis_root = out_path.parent_path();
-  aurora::core::SpectrogramConfig spectrogram_config;
+  ResolvedSpectrogramProfile spectrogram_profile;
   std::string spectrogram_error;
-  if (!BuildSpectrogramConfig(mix_sample_rate, options.spectrogram_config_json, &spectrogram_config, &spectrogram_error)) {
+  if (!BuildSpectrogramProfileConfig(mix_sample_rate, options.spectrogram_config_json, options.spectrogram_profile,
+                                     options.spectrogram_width_px, options.spectrogram_row_height_px,
+                                     options.spectrogram_header_height_px, options.spectrogram_indexed_palette,
+                                     &spectrogram_profile, &spectrogram_error)) {
     std::cerr << "Analyze error: " << spectrogram_error << "\n";
     return 2;
   }
+  const aurora::core::SpectrogramConfig& spectrogram_config = spectrogram_profile.config;
   if (!options.spectrogram) {
     MarkSpectrogramDisabled(&report.mix, spectrogram_config, mix_sample_rate);
     for (auto& stem_analysis : report.stems) {
@@ -1517,7 +1811,9 @@ int RunAnalyzeCommand(const AnalyzeCliOptions& options, const std::chrono::stead
         options.spectrogram_out.value_or(analysis_root);
     PopulateSpectrograms(stems, mix, mix_sample_rate, spectrogram_config, spectrogram_out, analysis_root,
                          options.analyze_threads, options.spectrogram_composite, options.spectrogram_composite_out,
-                         write_individual, &report, "analyze", start_time);
+                         write_individual, spectrogram_profile.header_height_px, spectrogram_profile.profile,
+                         spectrogram_profile.indexed_palette, spectrogram_profile.png_compression_level, &report, "analyze",
+                         start_time);
     }
   }
 
@@ -1729,13 +2025,17 @@ int main(int argc, char** argv) {
     aurora::core::AnalysisReport report = aurora::core::AnalyzeRender(rendered, analysis_options);
     const std::filesystem::path out_path = options.analysis_out.value_or(meta_dir / "analysis.json");
     const std::filesystem::path analysis_root = out_path.parent_path();
-    aurora::core::SpectrogramConfig spectrogram_config;
+    ResolvedSpectrogramProfile spectrogram_profile;
     std::string spectrogram_error;
-    if (!BuildSpectrogramConfig(rendered.metadata.sample_rate, options.spectrogram_config_json, &spectrogram_config,
-                                &spectrogram_error)) {
+    if (!BuildSpectrogramProfileConfig(rendered.metadata.sample_rate, options.spectrogram_config_json,
+                                       options.spectrogram_profile, options.spectrogram_width_px,
+                                       options.spectrogram_row_height_px, options.spectrogram_header_height_px,
+                                       options.spectrogram_indexed_palette,
+                                       &spectrogram_profile, &spectrogram_error)) {
       std::cerr << "Argument error: " << spectrogram_error << "\n";
       return 2;
     }
+    const aurora::core::SpectrogramConfig& spectrogram_config = spectrogram_profile.config;
     if (!options.spectrogram) {
       MarkSpectrogramDisabled(&report.mix, spectrogram_config, rendered.metadata.sample_rate);
       for (auto& stem_analysis : report.stems) {
@@ -1764,7 +2064,9 @@ int main(int argc, char** argv) {
           options.spectrogram_out.value_or(analysis_root);
       PopulateSpectrograms(rendered_stems, rendered.master, rendered.metadata.sample_rate, spectrogram_config, spectrogram_out,
                            analysis_root, options.analyze_threads, options.spectrogram_composite,
-                           options.spectrogram_composite_out, write_individual, &report, "render", start_time);
+                           options.spectrogram_composite_out, write_individual, spectrogram_profile.header_height_px,
+                           spectrogram_profile.profile, spectrogram_profile.indexed_palette,
+                           spectrogram_profile.png_compression_level, &report, "render", start_time);
       }
     }
     std::string error;

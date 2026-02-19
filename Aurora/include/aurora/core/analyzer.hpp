@@ -97,11 +97,14 @@ struct CompositeSpectrogramReport {
   bool present = false;
   bool enabled = false;
   std::string mode = "none";
+  std::string profile = "preview";
   std::string path;
   std::vector<CompositeSpectrogramTarget> targets;
   int row_height_px = 0;
   int header_height_px = 0;
   int width_px = 0;
+  std::string format = "png";
+  bool indexed_palette = false;
   std::string freq_scale;
   std::string colormap;
   std::string error;

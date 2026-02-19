@@ -141,23 +141,21 @@ patch AirShimmer {
 score {
 
   ////////////////////////////////////////////////////////////////
-  // INTRO
+  // INTRO (8 beats)
   ////////////////////////////////////////////////////////////////
 
   section Intro at 0beats dur 8beats {
     play Strings { at: 0beats, dur: 8beats, pitch: [C3, G3, E4] }
-
-    // very faint halo, held
     play AirShimmer { at: 0beats, dur: 8beats, pitch: [C6, G6, E6] }
   }
 
   ////////////////////////////////////////////////////////////////
-  // MAIN MELODY (TWINKLE)
+  // PHRASE A1
   ////////////////////////////////////////////////////////////////
 
-  section Theme at 8beats dur 16beats {
+  section A1 at 8beats dur 8beats {
 
-    // Twinkle melody
+    // Melody
     play BrassLead { at: 0beats, dur: 1beats, pitch: C4 }
     play BrassLead { at: 1beats, dur: 1beats, pitch: C4 }
     play BrassLead { at: 2beats, dur: 1beats, pitch: G4 }
@@ -166,48 +164,80 @@ score {
     play BrassLead { at: 5beats, dur: 1beats, pitch: A4 }
     play BrassLead { at: 6beats, dur: 2beats, pitch: G4 }
 
-    // High-band wide “sparkle double” (+2 octaves)
-    play AirShimmer { at: 0beats, dur: 1beats, pitch: C6 }
-    play AirShimmer { at: 1beats, dur: 1beats, pitch: C6 }
-    play AirShimmer { at: 2beats, dur: 1beats, pitch: G6 }
-    play AirShimmer { at: 3beats, dur: 1beats, pitch: G6 }
-    play AirShimmer { at: 4beats, dur: 1beats, pitch: A6 }
-    play AirShimmer { at: 5beats, dur: 1beats, pitch: A6 }
-    play AirShimmer { at: 6beats, dur: 2beats, pitch: G6 }
-
     play Strings { at: 0beats, dur: 8beats, pitch: [C3, G3, E4] }
-
-    play SubBoom { at: 0beats, dur: 1beats, pitch: C2 }
-    play SubBoom { at: 4beats, dur: 1beats, pitch: F2 }
   }
 
   ////////////////////////////////////////////////////////////////
-  // MODULATION + FINALE
+  // PHRASE A2
   ////////////////////////////////////////////////////////////////
 
-  section Finale at 24beats dur 16beats {
+  section A2 at 16beats dur 8beats {
 
-    set patch.Strings.filt.cutoff = 3200Hz
+    play BrassLead { at: 0beats, dur: 1beats, pitch: F4 }
+    play BrassLead { at: 1beats, dur: 1beats, pitch: F4 }
+    play BrassLead { at: 2beats, dur: 1beats, pitch: E4 }
+    play BrassLead { at: 3beats, dur: 1beats, pitch: E4 }
+    play BrassLead { at: 4beats, dur: 1beats, pitch: D4 }
+    play BrassLead { at: 5beats, dur: 1beats, pitch: D4 }
+    play BrassLead { at: 6beats, dur: 2beats, pitch: C4 }
 
-    play BrassLead { at: 0beats, dur: 1beats, pitch: D4 }
-    play BrassLead { at: 1beats, dur: 1beats, pitch: D4 }
-    play BrassLead { at: 2beats, dur: 1beats, pitch: A4 }
-    play BrassLead { at: 3beats, dur: 1beats, pitch: A4 }
-    play BrassLead { at: 4beats, dur: 1beats, pitch: B4 }
-    play BrassLead { at: 5beats, dur: 1beats, pitch: B4 }
-    play BrassLead { at: 6beats, dur: 2beats, pitch: A4 }
+    play Strings { at: 0beats, dur: 4beats, pitch: [F3, C4, A4] }
+    play Strings { at: 4beats, dur: 4beats, pitch: [C3, G3, E4] }
+  }
 
-    // Same wide-air double in new key center (+2 octaves)
-    play AirShimmer { at: 0beats, dur: 1beats, pitch: D6 }
-    play AirShimmer { at: 1beats, dur: 1beats, pitch: D6 }
-    play AirShimmer { at: 2beats, dur: 1beats, pitch: A6 }
-    play AirShimmer { at: 3beats, dur: 1beats, pitch: A6 }
-    play AirShimmer { at: 4beats, dur: 1beats, pitch: B6 }
-    play AirShimmer { at: 5beats, dur: 1beats, pitch: B6 }
-    play AirShimmer { at: 6beats, dur: 2beats, pitch: A6 }
+  ////////////////////////////////////////////////////////////////
+  // PHRASE B1
+  ////////////////////////////////////////////////////////////////
 
-    play Strings { at: 0beats, dur: 8beats, pitch: [D3, A3, F#4] }
-    play SubBoom  { at: 0beats, dur: 1beats, pitch: D2 }
+  section B1 at 24beats dur 8beats {
+
+    play BrassLead { at: 0beats, dur: 1beats, pitch: G4 }
+    play BrassLead { at: 1beats, dur: 1beats, pitch: G4 }
+    play BrassLead { at: 2beats, dur: 1beats, pitch: F4 }
+    play BrassLead { at: 3beats, dur: 1beats, pitch: F4 }
+    play BrassLead { at: 4beats, dur: 1beats, pitch: E4 }
+    play BrassLead { at: 5beats, dur: 1beats, pitch: E4 }
+    play BrassLead { at: 6beats, dur: 2beats, pitch: D4 }
+
+    play Strings { at: 0beats, dur: 8beats, pitch: [G3, D4, B4] }
+  }
+
+  ////////////////////////////////////////////////////////////////
+  // PHRASE B2 (Full build)
+  ////////////////////////////////////////////////////////////////
+
+  section B2 at 32beats dur 8beats {
+
+    play BrassLead { at: 0beats, dur: 1beats, pitch: G4 }
+    play BrassLead { at: 1beats, dur: 1beats, pitch: G4 }
+    play BrassLead { at: 2beats, dur: 1beats, pitch: F4 }
+    play BrassLead { at: 3beats, dur: 1beats, pitch: F4 }
+    play BrassLead { at: 4beats, dur: 1beats, pitch: E4 }
+    play BrassLead { at: 5beats, dur: 1beats, pitch: E4 }
+    play BrassLead { at: 6beats, dur: 2beats, pitch: D4 }
+
+    play Strings { at: 0beats, dur: 8beats, pitch: [G3, D4, B4] }
+    play AirShimmer { at: 0beats, dur: 8beats, pitch: [G6, D6, B6] }
+  }
+
+  ////////////////////////////////////////////////////////////////
+  // FINAL A (Climax, octave stack)
+  ////////////////////////////////////////////////////////////////
+
+  section Finale at 40beats dur 8beats {
+
+    play BrassLead { at: 0beats, dur: 1beats, pitch: C5 }
+    play BrassLead { at: 1beats, dur: 1beats, pitch: C5 }
+    play BrassLead { at: 2beats, dur: 1beats, pitch: G4 }
+    play BrassLead { at: 3beats, dur: 1beats, pitch: G4 }
+    play BrassLead { at: 4beats, dur: 1beats, pitch: A4 }
+    play BrassLead { at: 5beats, dur: 1beats, pitch: A4 }
+    play BrassLead { at: 6beats, dur: 2beats, pitch: G4 }
+
+    play Strings { at: 0beats, dur: 8beats, pitch: [C3, G3, E4] }
+    play AirShimmer { at: 0beats, dur: 8beats, pitch: [C6, G6, E6] }
+    play SubBoom { at: 0beats, dur: 1beats, pitch: C2 }
   }
 
 }
+

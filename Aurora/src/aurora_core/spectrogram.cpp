@@ -274,4 +274,27 @@ bool RenderSpectrogramRgb(const std::vector<float>& mono, int sample_rate, const
   return true;
 }
 
+bool BuildColormapLutRgb(const std::string& name, std::vector<uint8_t>* palette_rgb, std::string* error) {
+  if (palette_rgb == nullptr) {
+    if (error != nullptr) {
+      *error = "Internal error: null palette output.";
+    }
+    return false;
+  }
+  const std::vector<Rgb>& lut = GetColorLut(name);
+  if (lut.size() != 256U) {
+    if (error != nullptr) {
+      *error = "Unexpected LUT size for colormap.";
+    }
+    return false;
+  }
+  palette_rgb->assign(256U * 3U, 0U);
+  for (size_t i = 0; i < 256U; ++i) {
+    (*palette_rgb)[i * 3U] = lut[i].r;
+    (*palette_rgb)[i * 3U + 1U] = lut[i].g;
+    (*palette_rgb)[i * 3U + 2U] = lut[i].b;
+  }
+  return true;
+}
+
 }  // namespace aurora::core

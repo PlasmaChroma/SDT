@@ -151,6 +151,7 @@ void WriteCompositeSpectrogram(std::ofstream& out, const aurora::core::Composite
   const std::string pad(static_cast<size_t>(indent), ' ');
   out << pad << "\"enabled\": " << (composite.enabled ? "true" : "false") << ",\n";
   out << pad << "\"mode\": \"" << EscapeJson(composite.mode) << "\",\n";
+  out << pad << "\"profile\": \"" << EscapeJson(composite.profile) << "\",\n";
   if (!composite.path.empty()) {
     out << pad << "\"path\": \"" << EscapeJson(composite.path) << "\",\n";
   }
@@ -167,6 +168,8 @@ void WriteCompositeSpectrogram(std::ofstream& out, const aurora::core::Composite
   out << pad << "\"row_height_px\": " << composite.row_height_px << ",\n";
   out << pad << "\"header_height_px\": " << composite.header_height_px << ",\n";
   out << pad << "\"width_px\": " << composite.width_px << ",\n";
+  out << pad << "\"format\": \"" << EscapeJson(composite.format) << "\",\n";
+  out << pad << "\"indexed_palette\": " << (composite.indexed_palette ? "true" : "false") << ",\n";
   out << pad << "\"freq_scale\": \"" << EscapeJson(composite.freq_scale) << "\",\n";
   out << pad << "\"colormap\": \"" << EscapeJson(composite.colormap) << "\",\n";
   if (composite.error.empty()) {

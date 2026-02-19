@@ -1,3 +1,5 @@
+find_package(ZLIB REQUIRED)
+
 add_library(aurora_io
   analysis_writer.cpp
   audio_reader.cpp
@@ -15,4 +17,5 @@ target_include_directories(aurora_io
 target_link_libraries(aurora_io
   PUBLIC
     aurora_core
+    ZLIB::ZLIB
 )

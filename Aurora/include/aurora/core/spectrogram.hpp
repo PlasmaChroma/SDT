@@ -25,5 +25,6 @@ struct SpectrogramConfig {
 
 bool RenderSpectrogramRgb(const std::vector<float>& mono, int sample_rate, const SpectrogramConfig& config,
                           std::vector<uint8_t>* rgb, std::string* error);
+bool BuildColormapLutRgb(const std::string& name, std::vector<uint8_t>* palette_rgb, std::string* error);
 
 }  // namespace aurora::core

@@ -43,9 +43,9 @@ With `--out`, artifacts are written directly under that directory (for example `
 ## CLI Usage
 
 ```text
-aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>] [--analyze] [--analysis-out <path>] [--analyze-threads N] [--intent sleep|ritual|dub] [--nospectrogram] [--spectrogram-out <dir>] [--spectrogram-config <json>] [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]
-aurora analyze <input.wav|input.flac|input.mp3|input.aiff> [--out <analysis.json>] [--analyze-threads N] [--intent sleep|ritual|dub] [--nospectrogram] [--spectrogram-out <dir>] [--spectrogram-config <json>] [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]
-aurora analyze --stems <stem1.wav> <stem2.wav> ... [--mix <mix.wav>] [--out <analysis.json>] [--analyze-threads N] [--intent sleep|ritual|dub] [--nospectrogram] [--spectrogram-out <dir>] [--spectrogram-config <json>] [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]
+aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>] [--analyze] [--analysis-out <path>] [--analyze-threads N] [--intent sleep|ritual|dub] [--nospectrogram] [--spectrogram-separate] [--spectrogram-profile preview|analysis|publication] [--spectrogram-width <int>] [--spectrogram-row-height <int>] [--spectrogram-header-height <int>] [--spectrogram-indexed <true|false>] [--spectrogram-out <dir>] [--spectrogram-config <json>] [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]
+aurora analyze <input.wav|input.flac|input.mp3|input.aiff> [--out <analysis.json>] [--analyze-threads N] [--intent sleep|ritual|dub] [--nospectrogram] [--spectrogram-separate] [--spectrogram-profile preview|analysis|publication] [--spectrogram-width <int>] [--spectrogram-row-height <int>] [--spectrogram-header-height <int>] [--spectrogram-indexed <true|false>] [--spectrogram-out <dir>] [--spectrogram-config <json>] [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]
+aurora analyze --stems <stem1.wav> <stem2.wav> ... [--mix <mix.wav>] [--out <analysis.json>] [--analyze-threads N] [--intent sleep|ritual|dub] [--nospectrogram] [--spectrogram-separate] [--spectrogram-profile preview|analysis|publication] [--spectrogram-width <int>] [--spectrogram-row-height <int>] [--spectrogram-header-height <int>] [--spectrogram-indexed <true|false>] [--spectrogram-out <dir>] [--spectrogram-config <json>] [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]
 ```
 
 ## Namespaced Imports (Phase 1)
@@ -70,9 +70,13 @@ Analysis reports are written as deterministic JSON. In render mode with `--analy
 `--analyze-threads N` sets the maximum concurrent stem-analysis jobs (`N >= 1`).
 
 Spectrogram artifacts (PNG) are enabled by default during analysis:
-- Default output is a composite image (`stacked_headers` mode): `spectrograms/composite.png`
+- Default output is a composite image (`stacked_headers` mode): `composite.png`
 - Disable all spectrogram artifacts with `--nospectrogram`
 - Enable per-target separate files with `--spectrogram-separate`
+- Spectrogram profile defaults: `--spectrogram-profile preview` (default), `analysis`, `publication`
+- Profile/size overrides: `--spectrogram-width`, `--spectrogram-row-height`, `--spectrogram-header-height`
+- Indexed palette control: `--spectrogram-indexed true|false` (defaults by profile: `preview=true`, `analysis/publication=false`)
+- PNG compression defaults by profile: `preview=6`, `analysis=6`, `publication=9`
 - Default output directory:
   - `render --analyze`: `<dirname(analysis.json)>`
   - `analyze`: `<dirname(--out)>` (or current directory when `--out` is omitted)
@@ -94,10 +98,11 @@ When separate mode is enabled, per-target analysis JSON includes a `spectrogram`
 
 Composite metadata is written at top-level as `composite_spectrogram`.
 Spectrogram generation runs in bounded parallel target jobs and honors `--analyze-threads N` as the maximum concurrent target count.
+Composite metadata includes `profile`, `format`, and `indexed_palette`.
 
 Optional composite artifact:
 - Enable with `--spectrogram-composite stacked_headers`
-- Disable (default) with `--spectrogram-composite none`
+- Disable with `--spectrogram-composite none`
 - Output path is `<spectrogram-dir>/composite.png` unless overridden with `--spectrogram-composite-out <dir>`
 - Adds top-level `composite_spectrogram` metadata to analysis JSON
 
