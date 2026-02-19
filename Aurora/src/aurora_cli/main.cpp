@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <exception>
 #include <filesystem>
@@ -13,6 +14,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "aurora/core/analyzer.hpp"
@@ -1016,26 +1018,26 @@ void MarkSpectrogramDisabled(aurora::core::FileAnalysis* item, const aurora::cor
 
 void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, const aurora::core::AudioStem& mix, int sample_rate,
                          const aurora::core::SpectrogramConfig& config, const std::filesystem::path& spectrogram_dir,
-                         const std::filesystem::path& analysis_root, aurora::core::AnalysisReport* report, const std::string& mode_label,
-                         const std::chrono::steady_clock::time_point& start_time) {
+                         const std::filesystem::path& analysis_root, int max_parallel_jobs, aurora::core::AnalysisReport* report,
+                         const std::string& mode_label, const std::chrono::steady_clock::time_point& start_time) {
   auto log_step = [&](const std::string& msg) {
     std::cerr << "[aurora +" << FormatElapsed(start_time) << "] " << msg << "\n";
   };
-  auto render_target = [&](const aurora::core::AudioStem& stem, const std::string& target_name, aurora::core::FileAnalysis* out) {
-    out->spectrogram = BuildBaseArtifact(config, sample_rate);
+  auto render_target = [&](const aurora::core::AudioStem& stem, const std::string& target_name) {
+    aurora::core::SpectrogramArtifact artifact = BuildBaseArtifact(config, sample_rate);
     const std::string safe_name = SanitizeTargetName(target_name);
 
     auto write_png_for_signal = [&](const std::vector<float>& mono, const std::filesystem::path& out_path) -> bool {
       std::vector<uint8_t> rgb;
       std::string err;
       if (!aurora::core::RenderSpectrogramRgb(mono, sample_rate, config, &rgb, &err)) {
-        out->spectrogram.enabled = false;
-        out->spectrogram.error = err;
+        artifact.enabled = false;
+        artifact.error = err;
         return false;
       }
       if (!aurora::io::WritePngRgb8(out_path, config.width_px, config.height_px, rgb, &err)) {
-        out->spectrogram.enabled = false;
-        out->spectrogram.error = err;
+        artifact.enabled = false;
+        artifact.error = err;
         return false;
       }
       return true;
@@ -1047,29 +1049,76 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
       const bool ok_left = write_png_for_signal(ExtractChannel(stem, 0), left_path);
       const bool ok_right = ok_left ? write_png_for_signal(ExtractChannel(stem, 1), right_path) : false;
       if (ok_left && ok_right) {
-        out->spectrogram.enabled = true;
-        out->spectrogram.path = RelativeToAnalysisRoot(left_path, analysis_root);
-        out->spectrogram.paths = {
+        artifact.enabled = true;
+        artifact.path = RelativeToAnalysisRoot(left_path, analysis_root);
+        artifact.paths = {
             RelativeToAnalysisRoot(left_path, analysis_root),
             RelativeToAnalysisRoot(right_path, analysis_root),
         };
       }
-      return;
+      return artifact;
     }
 
     const std::filesystem::path out_path = spectrogram_dir / (safe_name + ".spectrogram.png");
     if (write_png_for_signal(Mixdown(stem), out_path)) {
-      out->spectrogram.enabled = true;
-      out->spectrogram.path = RelativeToAnalysisRoot(out_path, analysis_root);
-      out->spectrogram.paths = {out->spectrogram.path};
+      artifact.enabled = true;
+      artifact.path = RelativeToAnalysisRoot(out_path, analysis_root);
+      artifact.paths = {artifact.path};
     }
+    return artifact;
   };
 
   log_step("Generating spectrograms (" + mode_label + ")");
-  render_target(mix, "mix", &report->mix);
+  if (report == nullptr) {
+    return;
+  }
+  std::vector<aurora::core::SpectrogramArtifact> stem_artifacts(stems.size());
+
+  report->mix.spectrogram = BuildBaseArtifact(config, sample_rate);
+  const int default_jobs = std::max(1U, std::thread::hardware_concurrency());
+  const int requested_jobs = max_parallel_jobs > 0 ? max_parallel_jobs : default_jobs;
+  const int max_jobs = std::max(1, requested_jobs);
+  const size_t total_targets = stems.size() + 1U;
+
+  if (max_jobs == 1 || total_targets <= 1U) {
+    report->mix.spectrogram = render_target(mix, "mix");
+    for (size_t i = 0; i < stems.size(); ++i) {
+      stem_artifacts[i] = render_target(stems[i], stems[i].name);
+    }
+  } else {
+    std::vector<aurora::core::SpectrogramArtifact> artifacts(total_targets);
+    std::atomic<size_t> next_target{0U};
+    const size_t worker_count = std::min(static_cast<size_t>(max_jobs), total_targets);
+    std::vector<std::thread> workers;
+    workers.reserve(worker_count);
+    for (size_t worker = 0; worker < worker_count; ++worker) {
+      workers.emplace_back([&]() {
+        while (true) {
+          const size_t target_index = next_target.fetch_add(1U);
+          if (target_index >= total_targets) {
+            break;
+          }
+          if (target_index == 0U) {
+            artifacts[target_index] = render_target(mix, "mix");
+          } else {
+            const size_t stem_index = target_index - 1U;
+            artifacts[target_index] = render_target(stems[stem_index], stems[stem_index].name);
+          }
+        }
+      });
+    }
+    for (auto& worker : workers) {
+      worker.join();
+    }
+    report->mix.spectrogram = std::move(artifacts[0]);
+    for (size_t i = 0; i < stems.size(); ++i) {
+      stem_artifacts[i] = std::move(artifacts[i + 1U]);
+    }
+  }
+
   const size_t stem_count = std::min(stems.size(), report->stems.size());
   for (size_t i = 0; i < stem_count; ++i) {
-    render_target(stems[i], stems[i].name, &report->stems[i]);
+    report->stems[i].spectrogram = std::move(stem_artifacts[i]);
   }
 }
 
@@ -1151,8 +1200,8 @@ int RunAnalyzeCommand(const AnalyzeCliOptions& options, const std::chrono::stead
   } else {
     const std::filesystem::path spectrogram_out =
         options.spectrogram_out.value_or(analysis_root / "spectrograms");
-    PopulateSpectrograms(stems, mix, mix_sample_rate, spectrogram_config, spectrogram_out, analysis_root, &report, "analyze",
-                         start_time);
+    PopulateSpectrograms(stems, mix, mix_sample_rate, spectrogram_config, spectrogram_out, analysis_root,
+                         options.analyze_threads, &report, "analyze", start_time);
   }
 
   std::string write_error;
@@ -1383,7 +1432,7 @@ int main(int argc, char** argv) {
       const std::filesystem::path spectrogram_out =
           options.spectrogram_out.value_or(meta_dir / "spectrograms");
       PopulateSpectrograms(rendered_stems, rendered.master, rendered.metadata.sample_rate, spectrogram_config, spectrogram_out,
-                           analysis_root, &report, "render", start_time);
+                           analysis_root, options.analyze_threads, &report, "render", start_time);
     }
     std::string error;
     if (!aurora::io::WriteAnalysisJson(out_path, report, &error)) {

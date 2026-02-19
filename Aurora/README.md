@@ -89,6 +89,8 @@ Per-target analysis JSON now includes a `spectrogram` object (for `mix` and each
 - resolved config fields (`mode`, `window`, `hop`, `nfft`, `freq_scale`, `min_hz`, `max_hz`, `db_min`, `db_max`, `colormap`, `width_px`, `height_px`, `gamma`, `smoothing_bins`)
 - `error` when generation fails non-fatally
 
+Spectrogram generation runs in bounded parallel target jobs and honors `--analyze-threads N` as the maximum concurrent target count.
+
 Current standalone `analyze` input support in this build:
 - WAV (PCM 16/24/32-bit and 32-bit float)
 - FLAC
