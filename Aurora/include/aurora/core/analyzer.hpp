@@ -88,6 +88,25 @@ struct IntentEvaluation {
   std::vector<std::string> notes;
 };
 
+struct CompositeSpectrogramTarget {
+  std::string kind;
+  std::string name;
+};
+
+struct CompositeSpectrogramReport {
+  bool present = false;
+  bool enabled = false;
+  std::string mode = "none";
+  std::string path;
+  std::vector<CompositeSpectrogramTarget> targets;
+  int row_height_px = 0;
+  int header_height_px = 0;
+  int width_px = 0;
+  std::string freq_scale;
+  std::string colormap;
+  std::string error;
+};
+
 struct FileAnalysis {
   std::string name;
   double duration_seconds = 0.0;
@@ -113,6 +132,7 @@ struct AnalysisReport {
   std::string mode;
   FileAnalysis mix;
   std::vector<FileAnalysis> stems;
+  CompositeSpectrogramReport composite_spectrogram;
   IntentEvaluation intent_evaluation;
 };
 

@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <exception>
@@ -41,8 +42,11 @@ struct RenderCliOptions {
   int analyze_threads = 0;
   std::string intent;
   bool spectrogram = true;
+  bool spectrogram_separate = false;
   std::optional<std::filesystem::path> spectrogram_out;
   std::optional<std::string> spectrogram_config_json;
+  std::string spectrogram_composite = "stacked_headers";
+  std::optional<std::filesystem::path> spectrogram_composite_out;
 };
 
 struct AnalyzeCliOptions {
@@ -53,20 +57,26 @@ struct AnalyzeCliOptions {
   int analyze_threads = 0;
   std::string intent;
   bool spectrogram = true;
+  bool spectrogram_separate = false;
   std::optional<std::filesystem::path> spectrogram_out;
   std::optional<std::string> spectrogram_config_json;
+  std::string spectrogram_composite = "stacked_headers";
+  std::optional<std::filesystem::path> spectrogram_composite_out;
 };
 
 void PrintUsage() {
   std::cerr << "Usage:\n";
   std::cerr << "  aurora render <file.au> [--seed N] [--sr 44100|48000|96000] [--out <dir>] [--analyze]";
   std::cerr << " [--analysis-out <path>] [--analyze-threads N] [--intent sleep|ritual|dub]";
-  std::cerr << " [--nospectrogram] [--spectrogram-out <dir>] [--spectrogram-config <json>]\n";
+  std::cerr << " [--nospectrogram] [--spectrogram-separate] [--spectrogram-out <dir>] [--spectrogram-config <json>]";
+  std::cerr << " [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]\n";
   std::cerr << "  aurora analyze <input.wav|input.flac|input.mp3|input.aiff> [--out <analysis.json>] [--analyze-threads N]";
-  std::cerr << " [--intent sleep|ritual|dub] [--nospectrogram] [--spectrogram-out <dir>] [--spectrogram-config <json>]\n";
+  std::cerr << " [--intent sleep|ritual|dub] [--nospectrogram] [--spectrogram-separate] [--spectrogram-out <dir>] [--spectrogram-config <json>]";
+  std::cerr << " [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]\n";
   std::cerr << "  aurora analyze --stems <stem1.wav> <stem2.wav> ... [--mix <mix.wav>] [--out <analysis.json>]";
   std::cerr << " [--analyze-threads N] [--intent sleep|ritual|dub]";
-  std::cerr << " [--nospectrogram] [--spectrogram-out <dir>] [--spectrogram-config <json>]\n";
+  std::cerr << " [--nospectrogram] [--spectrogram-separate] [--spectrogram-out <dir>] [--spectrogram-config <json>]";
+  std::cerr << " [--spectrogram-composite none|stacked_headers] [--spectrogram-composite-out <dir>]\n";
 }
 
 bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, RenderCliOptions* options, std::string* error) {
@@ -163,12 +173,18 @@ bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, RenderC
       options->analyze = true;
       continue;
     }
+    if (arg == "--spectrogram-separate") {
+      options->spectrogram_separate = true;
+      options->analyze = true;
+      continue;
+    }
     if (arg == "--spectrogram-out") {
       if (i + 1 >= argc) {
         *error = "Expected value after --spectrogram-out";
         return false;
       }
       options->spectrogram_out = std::filesystem::path(argv[++i]);
+      options->spectrogram_separate = true;
       options->analyze = true;
       continue;
     }
@@ -178,6 +194,29 @@ bool ParseRenderArgs(int argc, char** argv, std::filesystem::path* file, RenderC
         return false;
       }
       options->spectrogram_config_json = std::string(argv[++i]);
+      options->analyze = true;
+      continue;
+    }
+    if (arg == "--spectrogram-composite") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-composite";
+        return false;
+      }
+      const std::string value = argv[++i];
+      if (value != "none" && value != "stacked_headers") {
+        *error = "Invalid --spectrogram-composite value: " + value;
+        return false;
+      }
+      options->spectrogram_composite = value;
+      options->analyze = true;
+      continue;
+    }
+    if (arg == "--spectrogram-composite-out") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-composite-out";
+        return false;
+      }
+      options->spectrogram_composite_out = std::filesystem::path(argv[++i]);
       options->analyze = true;
       continue;
     }
@@ -244,12 +283,17 @@ bool ParseAnalyzeArgs(int argc, char** argv, AnalyzeCliOptions* options, std::st
       options->spectrogram = false;
       continue;
     }
+    if (arg == "--spectrogram-separate") {
+      options->spectrogram_separate = true;
+      continue;
+    }
     if (arg == "--spectrogram-out") {
       if (i + 1 >= argc) {
         *error = "Expected value after --spectrogram-out";
         return false;
       }
       options->spectrogram_out = std::filesystem::path(argv[++i]);
+      options->spectrogram_separate = true;
       continue;
     }
     if (arg == "--spectrogram-config") {
@@ -258,6 +302,27 @@ bool ParseAnalyzeArgs(int argc, char** argv, AnalyzeCliOptions* options, std::st
         return false;
       }
       options->spectrogram_config_json = std::string(argv[++i]);
+      continue;
+    }
+    if (arg == "--spectrogram-composite") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-composite";
+        return false;
+      }
+      const std::string value = argv[++i];
+      if (value != "none" && value != "stacked_headers") {
+        *error = "Invalid --spectrogram-composite value: " + value;
+        return false;
+      }
+      options->spectrogram_composite = value;
+      continue;
+    }
+    if (arg == "--spectrogram-composite-out") {
+      if (i + 1 >= argc) {
+        *error = "Expected value after --spectrogram-composite-out";
+        return false;
+      }
+      options->spectrogram_composite_out = std::filesystem::path(argv[++i]);
       continue;
     }
     if (!arg.empty() && arg[0] == '-') {
@@ -486,6 +551,15 @@ struct SpectrogramConfigOverrides {
   std::optional<int> height_px;
   std::optional<double> gamma;
   std::optional<int> smoothing_bins;
+};
+
+struct CompositeRowSource {
+  bool available = false;
+  std::vector<uint8_t> rgb;
+  int width = 0;
+  int height = 0;
+  std::string kind;
+  std::string name;
 };
 
 bool IsValidEnum(const std::string& value, const std::set<std::string>& allowed) { return allowed.contains(value); }
@@ -1011,6 +1085,163 @@ aurora::core::SpectrogramArtifact BuildBaseArtifact(const aurora::core::Spectrog
   return out;
 }
 
+void FillRectRgb(std::vector<uint8_t>* rgb, int width, int height, int x0, int y0, int x1, int y1, uint8_t r, uint8_t g, uint8_t b) {
+  if (rgb == nullptr || width <= 0 || height <= 0) {
+    return;
+  }
+  const int cx0 = std::max(0, std::min(x0, width));
+  const int cy0 = std::max(0, std::min(y0, height));
+  const int cx1 = std::max(0, std::min(x1, width));
+  const int cy1 = std::max(0, std::min(y1, height));
+  for (int y = cy0; y < cy1; ++y) {
+    for (int x = cx0; x < cx1; ++x) {
+      const size_t p = static_cast<size_t>((y * width + x) * 3);
+      (*rgb)[p] = r;
+      (*rgb)[p + 1] = g;
+      (*rgb)[p + 2] = b;
+    }
+  }
+}
+
+const std::array<uint8_t, 7>& Glyph5x7(char c) {
+  static const std::array<uint8_t, 7> blank = {0, 0, 0, 0, 0, 0, 0};
+  static const std::map<char, std::array<uint8_t, 7>> glyphs = {
+      {'A', {0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11}},
+      {'B', {0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E}},
+      {'C', {0x0F, 0x10, 0x10, 0x10, 0x10, 0x10, 0x0F}},
+      {'D', {0x1E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1E}},
+      {'E', {0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F}},
+      {'F', {0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x10}},
+      {'G', {0x0F, 0x10, 0x10, 0x17, 0x11, 0x11, 0x0F}},
+      {'H', {0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11}},
+      {'I', {0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E}},
+      {'J', {0x07, 0x02, 0x02, 0x02, 0x02, 0x12, 0x0C}},
+      {'K', {0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11}},
+      {'L', {0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F}},
+      {'M', {0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11}},
+      {'N', {0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11}},
+      {'O', {0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E}},
+      {'P', {0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10}},
+      {'Q', {0x0E, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0D}},
+      {'R', {0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11}},
+      {'S', {0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E}},
+      {'T', {0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04}},
+      {'U', {0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E}},
+      {'V', {0x11, 0x11, 0x11, 0x11, 0x11, 0x0A, 0x04}},
+      {'W', {0x11, 0x11, 0x11, 0x15, 0x15, 0x15, 0x0A}},
+      {'X', {0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11}},
+      {'Y', {0x11, 0x11, 0x0A, 0x04, 0x04, 0x04, 0x04}},
+      {'Z', {0x1F, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1F}},
+      {'0', {0x0E, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0E}},
+      {'1', {0x04, 0x0C, 0x14, 0x04, 0x04, 0x04, 0x1F}},
+      {'2', {0x0E, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1F}},
+      {'3', {0x1E, 0x01, 0x01, 0x06, 0x01, 0x01, 0x1E}},
+      {'4', {0x02, 0x06, 0x0A, 0x12, 0x1F, 0x02, 0x02}},
+      {'5', {0x1F, 0x10, 0x10, 0x1E, 0x01, 0x01, 0x1E}},
+      {'6', {0x0E, 0x10, 0x10, 0x1E, 0x11, 0x11, 0x0E}},
+      {'7', {0x1F, 0x01, 0x01, 0x02, 0x04, 0x08, 0x08}},
+      {'8', {0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E}},
+      {'9', {0x0E, 0x11, 0x11, 0x0F, 0x01, 0x01, 0x0E}},
+      {' ', {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
+      {'-', {0x00, 0x00, 0x00, 0x1F, 0x00, 0x00, 0x00}},
+      {'_', {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1F}},
+      {'.', {0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x06}},
+      {':', {0x00, 0x06, 0x06, 0x00, 0x06, 0x06, 0x00}},
+      {'(', {0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02}},
+      {')', {0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08}},
+      {'/', {0x01, 0x02, 0x04, 0x08, 0x10, 0x00, 0x00}},
+      {'?', {0x0E, 0x11, 0x01, 0x02, 0x04, 0x00, 0x04}},
+  };
+  const auto it = glyphs.find(c);
+  return it == glyphs.end() ? blank : it->second;
+}
+
+void DrawText5x7(std::vector<uint8_t>* rgb, int width, int height, int x, int y, const std::string& text, uint8_t r, uint8_t g,
+                 uint8_t b) {
+  if (rgb == nullptr) {
+    return;
+  }
+  int cursor_x = x;
+  for (char c : text) {
+    const char uc = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    const auto& glyph = Glyph5x7(uc);
+    for (int row = 0; row < 7; ++row) {
+      for (int col = 0; col < 5; ++col) {
+        if ((glyph[static_cast<size_t>(row)] & (1U << (4 - col))) == 0U) {
+          continue;
+        }
+        const int px = cursor_x + col;
+        const int py = y + row;
+        if (px < 0 || py < 0 || px >= width || py >= height) {
+          continue;
+        }
+        const size_t p = static_cast<size_t>((py * width + px) * 3);
+        (*rgb)[p] = r;
+        (*rgb)[p + 1] = g;
+        (*rgb)[p + 2] = b;
+      }
+    }
+    cursor_x += 6;
+  }
+}
+
+std::string EllipsizeLabel(const std::string& label, int max_chars) {
+  if (max_chars <= 0) {
+    return "";
+  }
+  if (static_cast<int>(label.size()) <= max_chars) {
+    return label;
+  }
+  if (max_chars <= 3) {
+    return std::string(static_cast<size_t>(max_chars), '.');
+  }
+  return label.substr(0, static_cast<size_t>(max_chars - 3)) + "...";
+}
+
+bool WriteCompositeSpectrogramPng(const std::filesystem::path& out_path, const std::vector<CompositeRowSource>& rows, int width_px,
+                                  int row_spectrogram_height, int header_height_px, std::string* error) {
+  if (width_px < 2 || row_spectrogram_height < 2 || header_height_px < 8 || rows.empty()) {
+    if (error != nullptr) {
+      *error = "Invalid composite spectrogram dimensions.";
+    }
+    return false;
+  }
+  const int row_height = header_height_px + row_spectrogram_height;
+  const int total_height = static_cast<int>(rows.size()) * row_height;
+  std::vector<uint8_t> composite(static_cast<size_t>(width_px * total_height * 3), 0U);
+
+  for (size_t i = 0; i < rows.size(); ++i) {
+    const int y0 = static_cast<int>(i) * row_height;
+    FillRectRgb(&composite, width_px, total_height, 0, y0, width_px, y0 + header_height_px, 0, 0, 0);
+    const std::string text = EllipsizeLabel(rows[i].name, std::max(0, (width_px - 20) / 6));
+    const int text_y = y0 + std::max(0, (header_height_px - 7) / 2);
+    DrawText5x7(&composite, width_px, total_height, 10, text_y, text, 255, 255, 255);
+
+    const int sy0 = y0 + header_height_px;
+    if (!rows[i].available || rows[i].rgb.empty() || rows[i].width <= 0 || rows[i].height <= 0) {
+      std::cerr << "warning: composite row missing image for target '" << rows[i].name << "'\n";
+      continue;
+    }
+
+    if (rows[i].width != width_px || rows[i].height != row_spectrogram_height) {
+      std::cerr << "warning: composite row dimension mismatch for target '" << rows[i].name << "', resizing.\n";
+    }
+    for (int y = 0; y < row_spectrogram_height; ++y) {
+      const int src_y = std::clamp((y * rows[i].height) / row_spectrogram_height, 0, rows[i].height - 1);
+      for (int x = 0; x < width_px; ++x) {
+        const int src_x = std::clamp((x * rows[i].width) / width_px, 0, rows[i].width - 1);
+        const size_t src = static_cast<size_t>((src_y * rows[i].width + src_x) * 3);
+        const size_t dst = static_cast<size_t>(((sy0 + y) * width_px + x) * 3);
+        composite[dst] = rows[i].rgb[src];
+        composite[dst + 1] = rows[i].rgb[src + 1];
+        composite[dst + 2] = rows[i].rgb[src + 2];
+      }
+    }
+  }
+
+  return aurora::io::WritePngRgb8(out_path, width_px, total_height, composite, error);
+}
+
 void MarkSpectrogramDisabled(aurora::core::FileAnalysis* item, const aurora::core::SpectrogramConfig& config, int sample_rate) {
   item->spectrogram = BuildBaseArtifact(config, sample_rate);
   item->spectrogram.enabled = false;
@@ -1018,16 +1249,26 @@ void MarkSpectrogramDisabled(aurora::core::FileAnalysis* item, const aurora::cor
 
 void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, const aurora::core::AudioStem& mix, int sample_rate,
                          const aurora::core::SpectrogramConfig& config, const std::filesystem::path& spectrogram_dir,
-                         const std::filesystem::path& analysis_root, int max_parallel_jobs, aurora::core::AnalysisReport* report,
-                         const std::string& mode_label, const std::chrono::steady_clock::time_point& start_time) {
+                         const std::filesystem::path& analysis_root, int max_parallel_jobs, const std::string& composite_mode,
+                         const std::optional<std::filesystem::path>& composite_out, bool write_individual,
+                         aurora::core::AnalysisReport* report, const std::string& mode_label,
+                         const std::chrono::steady_clock::time_point& start_time) {
   auto log_step = [&](const std::string& msg) {
     std::cerr << "[aurora +" << FormatElapsed(start_time) << "] " << msg << "\n";
   };
-  auto render_target = [&](const aurora::core::AudioStem& stem, const std::string& target_name) {
+  const bool composite_enabled = composite_mode == "stacked_headers";
+  auto render_target = [&](const aurora::core::AudioStem& stem, const std::string& target_name, const std::string& target_kind) {
     aurora::core::SpectrogramArtifact artifact = BuildBaseArtifact(config, sample_rate);
+    if (!write_individual) {
+      artifact.present = false;
+    }
+    CompositeRowSource row;
+    row.kind = target_kind;
+    row.name = target_name == "mix" ? "Mix" : target_name;
     const std::string safe_name = SanitizeTargetName(target_name);
 
-    auto write_png_for_signal = [&](const std::vector<float>& mono, const std::filesystem::path& out_path) -> bool {
+    auto render_signal = [&](const std::vector<float>& mono, const std::filesystem::path& out_path, bool write_file,
+                             bool capture_row) -> bool {
       std::vector<uint8_t> rgb;
       std::string err;
       if (!aurora::core::RenderSpectrogramRgb(mono, sample_rate, config, &rgb, &err)) {
@@ -1035,10 +1276,18 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
         artifact.error = err;
         return false;
       }
-      if (!aurora::io::WritePngRgb8(out_path, config.width_px, config.height_px, rgb, &err)) {
-        artifact.enabled = false;
-        artifact.error = err;
-        return false;
+      if (write_file) {
+        if (!aurora::io::WritePngRgb8(out_path, config.width_px, config.height_px, rgb, &err)) {
+          artifact.enabled = false;
+          artifact.error = err;
+          return false;
+        }
+      }
+      if (capture_row && composite_enabled) {
+        row.available = true;
+        row.width = config.width_px;
+        row.height = config.height_px;
+        row.rgb = std::move(rgb);
       }
       return true;
     };
@@ -1046,9 +1295,15 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
     if (config.mode == "channels" && stem.channels == 2) {
       const std::filesystem::path left_path = spectrogram_dir / (safe_name + ".L.spectrogram.png");
       const std::filesystem::path right_path = spectrogram_dir / (safe_name + ".R.spectrogram.png");
-      const bool ok_left = write_png_for_signal(ExtractChannel(stem, 0), left_path);
-      const bool ok_right = ok_left ? write_png_for_signal(ExtractChannel(stem, 1), right_path) : false;
-      if (ok_left && ok_right) {
+      bool ok_left = false;
+      bool ok_right = true;
+      if (write_individual) {
+        ok_left = render_signal(ExtractChannel(stem, 0), left_path, true, true);
+        ok_right = ok_left ? render_signal(ExtractChannel(stem, 1), right_path, true, false) : false;
+      } else if (composite_enabled) {
+        ok_left = render_signal(ExtractChannel(stem, 0), left_path, false, true);
+      }
+      if (write_individual && ok_left && ok_right) {
         artifact.enabled = true;
         artifact.path = RelativeToAnalysisRoot(left_path, analysis_root);
         artifact.paths = {
@@ -1056,37 +1311,44 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
             RelativeToAnalysisRoot(right_path, analysis_root),
         };
       }
-      return artifact;
+      return std::pair<aurora::core::SpectrogramArtifact, CompositeRowSource>{artifact, std::move(row)};
     }
 
     const std::filesystem::path out_path = spectrogram_dir / (safe_name + ".spectrogram.png");
-    if (write_png_for_signal(Mixdown(stem), out_path)) {
+    const bool ok = render_signal(Mixdown(stem), out_path, write_individual, true);
+    if (ok && write_individual) {
       artifact.enabled = true;
       artifact.path = RelativeToAnalysisRoot(out_path, analysis_root);
       artifact.paths = {artifact.path};
     }
-    return artifact;
+    return std::pair<aurora::core::SpectrogramArtifact, CompositeRowSource>{artifact, std::move(row)};
   };
 
   log_step("Generating spectrograms (" + mode_label + ")");
   if (report == nullptr) {
     return;
   }
+  const size_t total_targets = stems.size() + 1U;
   std::vector<aurora::core::SpectrogramArtifact> stem_artifacts(stems.size());
+  std::vector<CompositeRowSource> composite_rows(total_targets);
 
   report->mix.spectrogram = BuildBaseArtifact(config, sample_rate);
   const int default_jobs = std::max(1U, std::thread::hardware_concurrency());
   const int requested_jobs = max_parallel_jobs > 0 ? max_parallel_jobs : default_jobs;
   const int max_jobs = std::max(1, requested_jobs);
-  const size_t total_targets = stems.size() + 1U;
 
   if (max_jobs == 1 || total_targets <= 1U) {
-    report->mix.spectrogram = render_target(mix, "mix");
+    auto mix_out = render_target(mix, "mix", "mix");
+    report->mix.spectrogram = std::move(mix_out.first);
+    composite_rows[0] = std::move(mix_out.second);
     for (size_t i = 0; i < stems.size(); ++i) {
-      stem_artifacts[i] = render_target(stems[i], stems[i].name);
+      auto stem_out = render_target(stems[i], stems[i].name, "stem");
+      stem_artifacts[i] = std::move(stem_out.first);
+      composite_rows[i + 1U] = std::move(stem_out.second);
     }
   } else {
     std::vector<aurora::core::SpectrogramArtifact> artifacts(total_targets);
+    std::vector<CompositeRowSource> rows(total_targets);
     std::atomic<size_t> next_target{0U};
     const size_t worker_count = std::min(static_cast<size_t>(max_jobs), total_targets);
     std::vector<std::thread> workers;
@@ -1099,10 +1361,14 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
             break;
           }
           if (target_index == 0U) {
-            artifacts[target_index] = render_target(mix, "mix");
+            auto out = render_target(mix, "mix", "mix");
+            artifacts[target_index] = std::move(out.first);
+            rows[target_index] = std::move(out.second);
           } else {
             const size_t stem_index = target_index - 1U;
-            artifacts[target_index] = render_target(stems[stem_index], stems[stem_index].name);
+            auto out = render_target(stems[stem_index], stems[stem_index].name, "stem");
+            artifacts[target_index] = std::move(out.first);
+            rows[target_index] = std::move(out.second);
           }
         }
       });
@@ -1111,8 +1377,10 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
       worker.join();
     }
     report->mix.spectrogram = std::move(artifacts[0]);
+    composite_rows[0] = std::move(rows[0]);
     for (size_t i = 0; i < stems.size(); ++i) {
       stem_artifacts[i] = std::move(artifacts[i + 1U]);
+      composite_rows[i + 1U] = std::move(rows[i + 1U]);
     }
   }
 
@@ -1120,6 +1388,39 @@ void PopulateSpectrograms(const std::vector<aurora::core::AudioStem>& stems, con
   for (size_t i = 0; i < stem_count; ++i) {
     report->stems[i].spectrogram = std::move(stem_artifacts[i]);
   }
+
+  report->composite_spectrogram.present = composite_enabled;
+  if (!composite_enabled) {
+    return;
+  }
+  report->composite_spectrogram.mode = "stacked_headers";
+  report->composite_spectrogram.width_px = config.width_px;
+  report->composite_spectrogram.header_height_px = 24;
+  report->composite_spectrogram.row_height_px = config.height_px + report->composite_spectrogram.header_height_px;
+  report->composite_spectrogram.freq_scale = config.freq_scale;
+  report->composite_spectrogram.colormap = config.colormap;
+  report->composite_spectrogram.targets.clear();
+  report->composite_spectrogram.targets.reserve(composite_rows.size());
+  for (const auto& row : composite_rows) {
+    report->composite_spectrogram.targets.push_back({row.kind, row.name});
+  }
+
+  const std::filesystem::path composite_dir = composite_out.value_or(spectrogram_dir);
+  const std::filesystem::path composite_path = composite_dir / "composite.png";
+  std::string composite_error;
+  if (!WriteCompositeSpectrogramPng(composite_path, composite_rows, config.width_px, config.height_px,
+                                    report->composite_spectrogram.header_height_px, &composite_error)) {
+    report->composite_spectrogram.enabled = false;
+    report->composite_spectrogram.error = composite_error;
+    std::cerr << "warning: failed to write spectrogram composite: " << composite_error << "\n";
+    return;
+  }
+  report->composite_spectrogram.enabled = true;
+  report->composite_spectrogram.path = RelativeToAnalysisRoot(composite_path, analysis_root);
+  report->composite_spectrogram.error.clear();
+  std::cerr << "[aurora +" << FormatElapsed(start_time) << "] Spectrogram composite written: " << composite_path.string()
+            << " (rows=" << composite_rows.size() << ", " << config.width_px << "x"
+            << (report->composite_spectrogram.row_height_px * static_cast<int>(composite_rows.size())) << ")\n";
 }
 
 int RunAnalyzeCommand(const AnalyzeCliOptions& options, const std::chrono::steady_clock::time_point& start_time) {
@@ -1197,11 +1498,27 @@ int RunAnalyzeCommand(const AnalyzeCliOptions& options, const std::chrono::stead
     for (auto& stem_analysis : report.stems) {
       MarkSpectrogramDisabled(&stem_analysis, spectrogram_config, mix_sample_rate);
     }
+    if (options.spectrogram_composite == "stacked_headers") {
+      report.composite_spectrogram.present = true;
+      report.composite_spectrogram.enabled = false;
+      report.composite_spectrogram.mode = "stacked_headers";
+      report.composite_spectrogram.error = "Composite requires spectrogram generation; disable --nospectrogram.";
+    }
   } else {
+    const bool composite_enabled = options.spectrogram_composite == "stacked_headers";
+    const bool write_individual = options.spectrogram_separate;
+    if (!composite_enabled && !write_individual) {
+      report.mix.spectrogram.present = false;
+      for (auto& stem_analysis : report.stems) {
+        stem_analysis.spectrogram.present = false;
+      }
+    } else {
     const std::filesystem::path spectrogram_out =
-        options.spectrogram_out.value_or(analysis_root / "spectrograms");
+        options.spectrogram_out.value_or(analysis_root);
     PopulateSpectrograms(stems, mix, mix_sample_rate, spectrogram_config, spectrogram_out, analysis_root,
-                         options.analyze_threads, &report, "analyze", start_time);
+                         options.analyze_threads, options.spectrogram_composite, options.spectrogram_composite_out,
+                         write_individual, &report, "analyze", start_time);
+    }
   }
 
   std::string write_error;
@@ -1424,15 +1741,31 @@ int main(int argc, char** argv) {
       for (auto& stem_analysis : report.stems) {
         MarkSpectrogramDisabled(&stem_analysis, spectrogram_config, rendered.metadata.sample_rate);
       }
+      if (options.spectrogram_composite == "stacked_headers") {
+        report.composite_spectrogram.present = true;
+        report.composite_spectrogram.enabled = false;
+        report.composite_spectrogram.mode = "stacked_headers";
+        report.composite_spectrogram.error = "Composite requires spectrogram generation; disable --nospectrogram.";
+      }
     } else {
+      const bool composite_enabled = options.spectrogram_composite == "stacked_headers";
+      const bool write_individual = options.spectrogram_separate;
+      if (!composite_enabled && !write_individual) {
+        report.mix.spectrogram.present = false;
+        for (auto& stem_analysis : report.stems) {
+          stem_analysis.spectrogram.present = false;
+        }
+      } else {
       std::vector<aurora::core::AudioStem> rendered_stems;
       rendered_stems.reserve(rendered.patch_stems.size() + rendered.bus_stems.size());
       rendered_stems.insert(rendered_stems.end(), rendered.patch_stems.begin(), rendered.patch_stems.end());
       rendered_stems.insert(rendered_stems.end(), rendered.bus_stems.begin(), rendered.bus_stems.end());
       const std::filesystem::path spectrogram_out =
-          options.spectrogram_out.value_or(meta_dir / "spectrograms");
+          options.spectrogram_out.value_or(analysis_root);
       PopulateSpectrograms(rendered_stems, rendered.master, rendered.metadata.sample_rate, spectrogram_config, spectrogram_out,
-                           analysis_root, options.analyze_threads, &report, "render", start_time);
+                           analysis_root, options.analyze_threads, options.spectrogram_composite,
+                           options.spectrogram_composite_out, write_individual, &report, "render", start_time);
+      }
     }
     std::string error;
     if (!aurora::io::WriteAnalysisJson(out_path, report, &error)) {

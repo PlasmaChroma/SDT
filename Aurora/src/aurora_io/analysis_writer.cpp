@@ -147,6 +147,35 @@ void WriteFileAnalysis(std::ofstream& out, const aurora::core::FileAnalysis& ite
   }
 }
 
+void WriteCompositeSpectrogram(std::ofstream& out, const aurora::core::CompositeSpectrogramReport& composite, int indent) {
+  const std::string pad(static_cast<size_t>(indent), ' ');
+  out << pad << "\"enabled\": " << (composite.enabled ? "true" : "false") << ",\n";
+  out << pad << "\"mode\": \"" << EscapeJson(composite.mode) << "\",\n";
+  if (!composite.path.empty()) {
+    out << pad << "\"path\": \"" << EscapeJson(composite.path) << "\",\n";
+  }
+  out << pad << "\"targets\": [\n";
+  for (size_t i = 0; i < composite.targets.size(); ++i) {
+    out << pad << "  {\"kind\":\"" << EscapeJson(composite.targets[i].kind) << "\",\"name\":\""
+        << EscapeJson(composite.targets[i].name) << "\"}";
+    if (i + 1 < composite.targets.size()) {
+      out << ",";
+    }
+    out << "\n";
+  }
+  out << pad << "],\n";
+  out << pad << "\"row_height_px\": " << composite.row_height_px << ",\n";
+  out << pad << "\"header_height_px\": " << composite.header_height_px << ",\n";
+  out << pad << "\"width_px\": " << composite.width_px << ",\n";
+  out << pad << "\"freq_scale\": \"" << EscapeJson(composite.freq_scale) << "\",\n";
+  out << pad << "\"colormap\": \"" << EscapeJson(composite.colormap) << "\",\n";
+  if (composite.error.empty()) {
+    out << pad << "\"error\": null\n";
+  } else {
+    out << pad << "\"error\": \"" << EscapeJson(composite.error) << "\"\n";
+  }
+}
+
 }  // namespace
 
 bool WriteAnalysisJson(const std::filesystem::path& path, const aurora::core::AnalysisReport& report, std::string* error) {
@@ -180,6 +209,11 @@ bool WriteAnalysisJson(const std::filesystem::path& path, const aurora::core::An
     out << "\n";
   }
   out << "  ],\n";
+  if (report.composite_spectrogram.present) {
+    out << "  \"composite_spectrogram\": {\n";
+    WriteCompositeSpectrogram(out, report.composite_spectrogram, 4);
+    out << "  },\n";
+  }
   out << "  \"intent_evaluation\": {\n";
   out << "    \"status\": \"" << EscapeJson(report.intent_evaluation.status) << "\",\n";
   out << "    \"notes\": [\n";

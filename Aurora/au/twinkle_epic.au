@@ -92,6 +92,49 @@ patch SubBoom {
 }
 
 //////////////////////////////////////////////////////////////////
+// HIGH-BAND WIDTH LAYER (ONLY THIS GOES EXTRA-WIDE)
+//////////////////////////////////////////////////////////////////
+
+patch AirShimmer {
+  poly: 8,
+  voice_spread: { pan: 0.15, detune: 3c, delay: 8ms },
+  stage_position: { depth: 0.85 },
+  send: { bus: "Hall", amount: -2dB },
+  out: stem("air"),
+
+  graph: {
+    nodes: [
+      // Harmonic-rich source, but we immediately high-pass it.
+      { id: "osc", type: osc_saw, params: { detune: 0c } },
+
+      // Keep ONLY upper bands: this is the core of "widen highs only".
+      { id: "hp", type: svf, params: { mode: hp, cutoff: 5200Hz, q: 0.8, slope: 12 } },
+
+      // Gentle level control so this stays a halo, not a lead.
+      { id: "g", type: gain, params: { gain: -28dB } },
+
+      // Soft contour: quick in, long-ish out (shimmer tail).
+      { id: "env", type: env_adsr, params: { a: 15ms, d: 250ms, s: 0.35, r: 900ms } },
+
+      // Stereo tricks AFTER HP + gain, so we only widen high content.
+      { id: "dc", type: decorrelate, params: { time: 1.2ms, mix: 0.85 } },
+      { id: "w", type: stereo_width, params: { width: 1.65, saturate: true } },
+
+      { id: "vca", type: vca }
+    ],
+    connect: [
+      { from: "osc", to: "hp.in" },
+      { from: "hp", to: "g.in" },
+      { from: "g", to: "dc.in" },
+      { from: "dc", to: "w.in" },
+      { from: "w", to: "vca.in" },
+      { from: "env.out", to: "vca.cv", rate: control }
+    ],
+    io: { out: "vca" }
+  }
+}
+
+//////////////////////////////////////////////////////////////////
 // SCORE
 //////////////////////////////////////////////////////////////////
 
@@ -103,6 +146,9 @@ score {
 
   section Intro at 0beats dur 8beats {
     play Strings { at: 0beats, dur: 8beats, pitch: [C3, G3, E4] }
+
+    // very faint halo, held
+    play AirShimmer { at: 0beats, dur: 8beats, pitch: [C6, G6, E6] }
   }
 
   ////////////////////////////////////////////////////////////////
@@ -119,6 +165,15 @@ score {
     play BrassLead { at: 4beats, dur: 1beats, pitch: A4 }
     play BrassLead { at: 5beats, dur: 1beats, pitch: A4 }
     play BrassLead { at: 6beats, dur: 2beats, pitch: G4 }
+
+    // High-band wide “sparkle double” (+2 octaves)
+    play AirShimmer { at: 0beats, dur: 1beats, pitch: C6 }
+    play AirShimmer { at: 1beats, dur: 1beats, pitch: C6 }
+    play AirShimmer { at: 2beats, dur: 1beats, pitch: G6 }
+    play AirShimmer { at: 3beats, dur: 1beats, pitch: G6 }
+    play AirShimmer { at: 4beats, dur: 1beats, pitch: A6 }
+    play AirShimmer { at: 5beats, dur: 1beats, pitch: A6 }
+    play AirShimmer { at: 6beats, dur: 2beats, pitch: G6 }
 
     play Strings { at: 0beats, dur: 8beats, pitch: [C3, G3, E4] }
 
@@ -142,8 +197,17 @@ score {
     play BrassLead { at: 5beats, dur: 1beats, pitch: B4 }
     play BrassLead { at: 6beats, dur: 2beats, pitch: A4 }
 
+    // Same wide-air double in new key center (+2 octaves)
+    play AirShimmer { at: 0beats, dur: 1beats, pitch: D6 }
+    play AirShimmer { at: 1beats, dur: 1beats, pitch: D6 }
+    play AirShimmer { at: 2beats, dur: 1beats, pitch: A6 }
+    play AirShimmer { at: 3beats, dur: 1beats, pitch: A6 }
+    play AirShimmer { at: 4beats, dur: 1beats, pitch: B6 }
+    play AirShimmer { at: 5beats, dur: 1beats, pitch: B6 }
+    play AirShimmer { at: 6beats, dur: 2beats, pitch: A6 }
+
     play Strings { at: 0beats, dur: 8beats, pitch: [D3, A3, F#4] }
-    play SubBoom { at: 0beats, dur: 1beats, pitch: D2 }
+    play SubBoom  { at: 0beats, dur: 1beats, pitch: D2 }
   }
 
 }
